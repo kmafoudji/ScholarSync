@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Administration{% endblock %} — {{ params.nom_outil }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --primary: {{ params.couleur_principale }};
+      --secondary: {{ params.couleur_secondaire }};
+      --primary-light: color-mix(in srgb, {{ params.couleur_principale }} 12%, white);
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<div class="admin-layout">
+  <!-- SIDEBAR -->
+  <aside class="admin-sidebar" id="adminSidebar">
+    <a href="/admin" class="admin-logo">
+      <div class="admin-logo__mark">
+        {% if params.logo_url %}
+          <img src="{{ params.logo_url }}" alt="" style="width:20px;height:20px;object-fit:contain;">
+        {% else %}
+          <span>{{ params.nom_outil[:2]|upper }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <span class="admin-logo__name">{{ params.nom_outil }}</span>
+        <span class="admin-logo__role">
+          {% if current_user.role == 'super_admin' %}Super Admin{% else %}Gestionnaire BU{% endif %}
+        </span>
+      </div>
+    </a>
+
+    <nav class="admin-nav">
+      <div class="admin-nav-section">Vue d'ensemble</div>
+      <a href="/admin" class="{{ 'active' if active_nav == 'dashboard' }}">
+        <i class="ti ti-dashboard"></i> Tableau de bord
+      </a>
+
+      {% if current_user.role == 'super_admin' %}
+      <div class="admin-nav-section">Zotero</div>
+      <a href="/admin/zotero" class="{{ 'active' if active_nav == 'zotero' }}">
+        <i class="ti ti-plug"></i> Comptes autorisés
+      </a>
+      <a href="/admin/sync" class="{{ 'active' if active_nav == 'sync' }}">
+        <i class="ti ti-refresh"></i> Synchronisation
+        {% if sync_en_cours %}<span class="admin-nav__badge">En cours</span>{% endif %}
+      </a>
+      <a href="/admin/sync-logs" class="{{ 'active' if active_nav == 'sync-logs' }}">
+        <i class="ti ti-list"></i> Historique sync
+      </a>
+
+      <div class="admin-nav-section">Contenu</div>
+      <a href="/admin/etablissements" class="{{ 'active' if active_nav == 'etablissements' }}">
+        <i class="ti ti-building-bank"></i> Établissements
+      </a>
+      <a href="/admin/documents" class="{{ 'active' if active_nav == 'documents' }}">
+        <i class="ti ti-files"></i> Documents
+      </a>
+      <a href="/admin/acces" class="{{ 'active' if active_nav == 'acces' }}">
+        <i class="ti ti-shield"></i> Contrôle d'accès
+      </a>
+
+      <div class="admin-nav-section">Gestion</div>
+      <a href="/admin/utilisateurs" class="{{ 'active' if active_nav == 'utilisateurs' }}">
+        <i class="ti ti-users"></i> Utilisateurs
+      </a>
+
+      <div class="admin-nav-section">Personnalisation</div>
+      <a href="/admin/parametres/identite" class="{{ 'active' if active_nav == 'identite' }}">
+        <i class="ti ti-palette"></i> Identité visuelle
+      </a>
+      <a href="/admin/parametres/contenu" class="{{ 'active' if active_nav == 'contenu' }}">
+        <i class="ti ti-file-text"></i> Page À propos
+      </a>
+      <a href="/admin/parametres/partenaires" class="{{ 'active' if active_nav == 'partenaires' }}">
+        <i class="ti ti-heart-handshake"></i> Partenaires
+      </a>
+      <a href="/admin/parametres/general" class="{{ 'active' if active_nav == 'general' }}">
+        <i class="ti ti-settings"></i> Paramètres généraux
+      </a>
+
+      {% else %}
+      <div class="admin-nav-section">Mon établissement</div>
+      <a href="/admin/documents" class="{{ 'active' if active_nav == 'documents' }}">
+        <i class="ti ti-files"></i> Mes documents
+      </a>
+      <a href="/admin/sync" class="{{ 'active' if active_nav == 'sync' }}">
+        <i class="ti ti-refresh"></i> Sync Zotero
+      </a>
+      {% endif %}
+
+      <div class="admin-nav-section">Exports</div>
+      <a href="/admin/exports" class="{{ 'active' if active_nav == 'exports' }}">
+        <i class="ti ti-download"></i> Téléchargements
+      </a>
+    </nav>
+
+    <div class="admin-footer-nav">
+      <a href="/" target="_blank">
+        <i class="ti ti-external-link"></i> Voir le site
+      </a>
+      <a href="/admin/deconnexion">
+        <i class="ti ti-logout"></i> Déconnexion
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="admin-main">
+    <div class="admin-topbar">
+      <button onclick="document.getElementById('adminSidebar').classList.toggle('open')"
+              style="display:none;background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-2);"
+              id="menuToggle">
+        <i class="ti ti-menu-2"></i>
+      </button>
+      <h1>{% block page_title %}{% endblock %}</h1>
+      <div class="admin-topbar__actions">
+        {% block topbar_actions %}{% endblock %}
+      </div>
+    </div>
+
+    <div class="admin-content">
+      {% if flash_message %}
+      <div class="alert alert--{{ flash_type|default('success') }}">
+        <i class="ti ti-{{ 'check' if flash_type == 'success' else 'alert-circle' }}"></i>
+        {{ flash_message }}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+</div>
+
+<script src="/static/js/main.js"></script>
+<script src="/static/js/admin.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

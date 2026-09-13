@@ -1,0 +1,50 @@
+{% extends "public/base.html" %}
+{% block title %}Établissements — {{ params.nom_outil }}{% endblock %}
+
+{% block content %}
+<div style="background:var(--primary);padding:2.5rem 0 2rem;">
+  <div class="container" style="text-align:center;">
+    <h1 class="serif" style="color:#fff;font-size:2rem;margin-bottom:.5rem;">Établissements partenaires</h1>
+    <p style="color:rgba(255,255,255,.65);">{{ etabs_stats|length }} établissements indexés dans {{ params.nom_outil }}</p>
+  </div>
+</div>
+
+<div class="container" style="padding:2rem 1.5rem;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;">
+    {% for item in etabs_stats %}
+    <a href="/recherche?etablissement={{ item.etablissement.code }}" class="card" style="text-decoration:none;transition:all .15s;display:block;">
+      <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem;">
+        {% if item.etablissement.logo_url %}
+        <img src="{{ item.etablissement.logo_url }}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--border);">
+        {% else %}
+        <div style="width:48px;height:48px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--primary);flex-shrink:0;">
+          {{ item.etablissement.code[:2] }}
+        </div>
+        {% endif %}
+        <div>
+          <div style="font-weight:700;font-size:.9375rem;color:var(--text);">{{ item.etablissement.code }}</div>
+          <div style="font-size:.8rem;color:var(--text-2);">{{ item.etablissement.nom_court or item.etablissement.nom }}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div style="display:flex;gap:.5rem;">
+          <span style="font-size:.75rem;background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600;">
+            {{ item.count }} docs
+          </span>
+          {% if item.etablissement.ville %}
+          <span style="font-size:.75rem;color:var(--text-3);display:flex;align-items:center;gap:3px;">
+            <i class="ti ti-map-pin" style="font-size:11px;"></i>{{ item.etablissement.ville }}
+          </span>
+          {% endif %}
+        </div>
+        <i class="ti ti-arrow-right" style="color:var(--text-3);font-size:14px;"></i>
+      </div>
+    </a>
+    {% else %}
+    <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-3);">
+      Aucun établissement configuré
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

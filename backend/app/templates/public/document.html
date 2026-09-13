@@ -1,0 +1,118 @@
+{% extends "public/base.html" %}
+{% block title %}{{ doc.titre[:60] }} — {{ params.nom_outil }}{% endblock %}
+
+{% block content %}
+<div style="background:var(--primary);padding:1.5rem 0 0;">
+  <div class="container-sm">
+    <a href="javascript:history.back()" style="color:rgba(255,255,255,.65);font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;">
+      <i class="ti ti-arrow-left"></i> Retour aux résultats
+    </a>
+    <div style="display:flex;align-items:flex-start;gap:1rem;padding-bottom:1.5rem;">
+      <div style="flex:1;">
+        <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;">
+          <span class="badge badge--{{ doc.type }}">{{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}</span>
+          <span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}</span>
+          {% if doc.langue %}<span class="badge" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.9);">{{ doc.langue }}</span>{% endif %}
+        </div>
+        <h1 class="serif" style="color:#fff;font-size:1.5rem;line-height:1.35;margin-bottom:1rem;">{{ doc.titre }}</h1>
+        <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
+          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+            <i class="ti ti-user"></i> {{ doc.auteur }}
+          </span>
+          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+            <i class="ti ti-building-bank"></i> {{ doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}
+          </span>
+          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+            <i class="ti ti-calendar"></i> {{ doc.annee }}
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container-sm" style="padding-top:1.5rem;padding-bottom:2rem;">
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:1.5rem;align-items:start;">
+    <div>
+      <!-- Résumé -->
+      {% if doc.resume %}
+      <div class="card card--lg" style="margin-bottom:1rem;">
+        <h2 style="font-size:1rem;margin-bottom:.875rem;">Résumé</h2>
+        <p style="color:var(--text-2);line-height:1.75;font-size:.9375rem;">{{ doc.resume }}</p>
+      </div>
+      {% endif %}
+
+      <!-- Mots-clés -->
+      {% if doc.mots_cles %}
+      <div class="card" style="margin-bottom:1rem;">
+        <h3 style="font-size:.875rem;margin-bottom:.625rem;color:var(--text-2);">Mots-clés</h3>
+        <div style="display:flex;flex-wrap:wrap;gap:.375rem;">
+          {% for mc in doc.mots_cles %}
+          <a href="/recherche?q={{ mc }}" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:.8rem;color:var(--text-2);text-decoration:none;">
+            {{ mc }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Jury -->
+      {% if doc.jury %}
+      <div class="card" style="margin-bottom:1rem;">
+        <h3 style="font-size:.875rem;margin-bottom:.625rem;color:var(--text-2);">Jury</h3>
+        <p style="font-size:.875rem;color:var(--text-2);">{{ doc.jury }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Panneau latéral -->
+    <div>
+      <!-- Accès au document -->
+      <div class="card card--lg" style="margin-bottom:1rem;">
+        {% if doc.acces == 'restreint' %}
+        <div style="text-align:center;padding:.5rem 0;">
+          <i class="ti ti-lock" style="font-size:2rem;color:var(--text-3);display:block;margin-bottom:.5rem;"></i>
+          <p style="font-size:.875rem;color:var(--text-2);margin-bottom:.75rem;">Accès restreint</p>
+          <p style="font-size:.8rem;color:var(--text-3);">Contactez l'établissement pour accéder à ce document.</p>
+        </div>
+        {% elif doc.url_document %}
+        <a href="{{ doc.url_document }}" target="_blank" rel="noopener" class="btn btn--primary" style="width:100%;justify-content:center;">
+          <i class="ti ti-external-link"></i> Consulter le document
+        </a>
+        <p style="font-size:.75rem;color:var(--text-3);text-align:center;margin-top:.5rem;">Redirige vers le dépôt de l'établissement</p>
+        {% else %}
+        <p style="font-size:.875rem;color:var(--text-3);text-align:center;">Document non disponible en ligne</p>
+        {% endif %}
+      </div>
+
+      <!-- Métadonnées -->
+      <div class="card" style="margin-bottom:1rem;">
+        <h3 style="font-size:.875rem;font-weight:700;color:var(--text-2);margin-bottom:.875rem;text-transform:uppercase;letter-spacing:.04em;">Informations</h3>
+        <table style="width:100%;font-size:.8375rem;">
+          {% if doc.directeur %}
+          <tr><td style="color:var(--text-3);padding:4px 0;width:40%;">Directeur</td><td style="color:var(--text);font-weight:500;">{{ doc.directeur }}</td></tr>
+          {% endif %}
+          <tr><td style="color:var(--text-3);padding:4px 0;">Type</td><td>{{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}</td></tr>
+          <tr><td style="color:var(--text-3);padding:4px 0;">Statut</td><td>{{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}</td></tr>
+          <tr><td style="color:var(--text-3);padding:4px 0;">Année</td><td>{{ doc.annee }}</td></tr>
+          <tr><td style="color:var(--text-3);padding:4px 0;">Langue</td><td>{{ doc.langue or '—' }}</td></tr>
+          {% if doc.domaine %}
+          <tr><td style="color:var(--text-3);padding:4px 0;">Domaine</td><td>{{ doc.domaine }}</td></tr>
+          {% endif %}
+          <tr><td style="color:var(--text-3);padding:4px 0;">Établissement</td><td>{{ doc.etablissement_code }}</td></tr>
+          {% if doc.sous_entite_nom %}
+          <tr><td style="color:var(--text-3);padding:4px 0;">{{ 'École doctorale' if doc.sous_entite_type == 'ecole_doctorale' else 'Faculté' }}</td><td>{{ doc.sous_entite_nom }}</td></tr>
+          {% endif %}
+        </table>
+      </div>
+
+      <!-- Numéro national -->
+      <div class="card" style="background:var(--bg);border-style:dashed;">
+        <div style="font-size:.7rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.375rem;">Numéro national</div>
+        <div style="font-family:monospace;font-size:.9rem;font-weight:600;color:var(--primary);letter-spacing:.05em;">{{ doc.numero_national }}</div>
+        <div style="font-size:.72rem;color:var(--text-3);margin-top:.25rem;">Identifiant unique ScholarSync</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

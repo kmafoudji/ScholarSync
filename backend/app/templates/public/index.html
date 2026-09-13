@@ -1,0 +1,92 @@
+{% extends "public/base.html" %}
+{% block title %}{{ params.nom_outil }} — {{ params.slogan or 'Mémoires et thèses académiques' }}{% endblock %}
+
+{% block content %}
+<!-- HERO -->
+<section class="hero">
+  <div class="hero__tag">
+    <i class="ti ti-building-bank" style="font-size:12px;"></i>
+    {{ params.institution_nom or 'Plateforme académique nationale' }}
+  </div>
+  <h1 class="serif">{{ params.nom_outil }}</h1>
+  <p>{{ params.slogan or 'Accédez à la production scientifique académique' }}</p>
+
+  <form class="search-box" action="/recherche" method="get">
+    <i class="ti ti-search" style="font-size:18px;color:#aaa;" aria-hidden="true"></i>
+    <input type="text" name="q" placeholder="Titre, auteur, mots-clés, numéro national…" autocomplete="off">
+    <button type="submit" class="search-btn">
+      <i class="ti ti-search" style="font-size:14px;"></i> Rechercher
+    </button>
+  </form>
+
+  <div class="search-filters">
+    <span class="filter-chip active" data-filter="tous">Tous</span>
+    <span class="filter-chip" data-filter="these">Thèses</span>
+    <span class="filter-chip" data-filter="memoire">Mémoires</span>
+    {% for annee in annees_recentes %}
+    <span class="filter-chip" data-filter="{{ annee }}">{{ annee }}</span>
+    {% endfor %}
+  </div>
+
+  <!-- ENTRÉES THÈSES / MÉMOIRES -->
+  <div class="entries">
+    <a href="/theses" class="entry-card">
+      <div class="entry-card__icon"><i class="ti ti-certificate"></i></div>
+      <div class="entry-card__count">{{ stats.nb_theses|default(0)|format_number }}</div>
+      <div class="entry-card__label">Thèses de doctorat</div>
+    </a>
+    <a href="/memoires" class="entry-card">
+      <div class="entry-card__icon"><i class="ti ti-books"></i></div>
+      <div class="entry-card__count">{{ stats.nb_memoires|default(0)|format_number }}</div>
+      <div class="entry-card__label">Mémoires de master</div>
+    </a>
+  </div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-num">{{ stats.total|default(0)|format_number }}</div>
+    <div class="stat-label">Documents indexés</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">{{ stats.nb_etablissements|default(0) }}</div>
+    <div class="stat-label">Établissements partenaires</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">{{ stats.nb_soutenus|default(0)|format_number }}</div>
+    <div class="stat-label">Travaux soutenus</div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-num">{{ stats.nb_en_preparation|default(0)|format_number }}</div>
+    <div class="stat-label">En préparation</div>
+  </div>
+</div>
+
+<!-- CATALOGUE PRINCIPAL -->
+<div class="catalogue">
+  <!-- SIDEBAR FACETTES -->
+  <aside class="facettes">
+    {% include "public/components/facettes.html" %}
+  </aside>
+
+  <!-- RÉSULTATS -->
+  <main class="results">
+    {% include "public/components/results.html" %}
+  </main>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.querySelectorAll('.filter-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    const filter = chip.dataset.filter;
+    window.location.href = filter === 'tous' ? '/recherche' :
+      isNaN(filter) ? `/recherche?type=${filter}` : `/recherche?annee=${filter}`;
+  });
+});
+</script>
+{% endblock %}

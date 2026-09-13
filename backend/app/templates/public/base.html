@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="{{ lang|default('fr') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}{{ params.nom_outil }}{% endblock %}</title>
+  <meta name="description" content="{% block description %}{{ params.slogan }}{% endblock %}">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>
+    :root {
+      --primary: {{ params.couleur_principale }};
+      --secondary: {{ params.couleur_secondaire }};
+      --primary-light: color-mix(in srgb, {{ params.couleur_principale }} 12%, white);
+      --secondary-light: color-mix(in srgb, {{ params.couleur_secondaire }} 10%, white);
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="site-header">
+  {% set stripe = params.bande_decorative %}
+  {% if stripe != 'none' %}
+  <div class="site-header__stripe">
+    {% if stripe == 'senegal' %}
+      <span style="background:#00853F"></span>
+      <span style="background:#FDEF42"></span>
+      <span style="background:#E31B23"></span>
+    {% else %}
+      {% set bande = params.bande_couleurs|fromjson %}
+      {% for c in bande %}<span style="background:{{ c }}"></span>{% endfor %}
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="site-header__inner">
+    <div class="site-header__icons" aria-hidden="true">
+      {% set icones = params.icones_filigrane %}
+      {% if icones == 'academique' %}
+        <i class="ti ti-chart-bar"></i><i class="ti ti-building-bank"></i>
+        <i class="ti ti-book"></i><i class="ti ti-building-bank"></i>
+        <i class="ti ti-school"></i><i class="ti ti-chart-bar"></i>
+      {% elif icones == 'recherche' %}
+        <i class="ti ti-microscope"></i><i class="ti ti-book-2"></i>
+        <i class="ti ti-award"></i><i class="ti ti-book-2"></i>
+        <i class="ti ti-pencil"></i><i class="ti ti-microscope"></i>
+      {% endif %}
+    </div>
+    <a href="/" class="logo">
+      <div class="logo__mark">
+        {% if params.logo_url %}
+          <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}">
+        {% else %}
+          <span>{{ params.nom_outil[:2]|upper }}</span>
+        {% endif %}
+      </div>
+      <span class="logo__name">{{ params.nom_outil }}</span>
+    </a>
+    <nav class="site-nav">
+      <a href="/theses" class="{{ 'active' if active_nav == 'theses' }}">
+        <i class="ti ti-certificate"></i> Thèses
+      </a>
+      <a href="/memoires" class="{{ 'active' if active_nav == 'memoires' }}">
+        <i class="ti ti-books"></i> Mémoires
+      </a>
+      <a href="/etablissements" class="{{ 'active' if active_nav == 'etablissements' }}">
+        <i class="ti ti-building-bank"></i> Établissements
+      </a>
+      <a href="/statistiques" class="{{ 'active' if active_nav == 'statistiques' }}">
+        <i class="ti ti-chart-bar"></i> Statistiques
+      </a>
+      <a href="/a-propos" class="{{ 'active' if active_nav == 'apropos' }}">
+        <i class="ti ti-info-circle"></i> À propos
+      </a>
+    </nav>
+    <div class="lang-switcher">
+      <button class="{{ 'active' if lang == 'fr' }}" onclick="setLang('fr')">FR</button>
+      <button class="{{ 'active' if lang == 'en' }}" onclick="setLang('en')">EN</button>
+      <button class="{{ 'active' if lang == 'pt' }}" onclick="setLang('pt')">PT</button>
+    </div>
+    <a href="/admin" class="btn-admin">
+      <i class="ti ti-lock" style="font-size:13px;"></i> Admin
+    </a>
+  </div>
+</header>
+
+{% block content %}{% endblock %}
+
+<!-- FOOTER -->
+<footer class="site-footer">
+  {% if stripe != 'none' %}
+  <div class="site-footer__stripe">
+    {% if stripe == 'senegal' %}
+      <span style="background:#00853F"></span>
+      <span style="background:#FDEF42"></span>
+      <span style="background:#E31B23"></span>
+    {% else %}
+      {% set bande = params.bande_couleurs|fromjson %}
+      {% for c in bande %}<span style="background:{{ c }}"></span>{% endfor %}
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="site-footer__icons" aria-hidden="true">
+    {% if icones == 'academique' %}
+      <i class="ti ti-chart-bar"></i><i class="ti ti-building-bank"></i>
+      <i class="ti ti-book"></i><i class="ti ti-building-bank"></i>
+      <i class="ti ti-school"></i><i class="ti ti-chart-bar"></i>
+    {% elif icones == 'recherche' %}
+      <i class="ti ti-microscope"></i><i class="ti ti-book-2"></i>
+      <i class="ti ti-award"></i><i class="ti ti-book-2"></i>
+    {% endif %}
+  </div>
+  <div class="site-footer__inner">
+    {% set partenaires = params.partenaires_json|fromjson %}
+    {% if partenaires %}
+    <div class="site-footer__partners">
+      {% for p in partenaires %}
+        {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{% endif %}
+        {% if p.logo %}<img src="{{ p.logo }}" alt="{{ p.nom }}">
+        {% else %}<span style="color:rgba(255,255,255,.5);font-size:.8rem;">{{ p.nom }}</span>{% endif %}
+        {% if p.url %}</a>{% endif %}
+      {% endfor %}
+    </div>
+    <hr class="site-footer__divider">
+    {% endif %}
+    <div class="site-footer__bottom">
+      <span class="site-footer__inst">{{ params.institution_nom }}</span>
+      <span class="site-footer__credit">
+        {{ params.pied_page_texte or ('Propulsé par ScholarSync') }}
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script src="/static/js/main.js"></script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

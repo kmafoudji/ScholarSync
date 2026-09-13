@@ -1,0 +1,257 @@
+{% extends "admin/base.html" %}
+{% block title %}Comptes Zotero{% endblock %}
+{% block page_title %}Comptes Zotero autorisés{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="openModal('modalAjouter')" class="btn btn--primary btn--sm">
+  <i class="ti ti-plus"></i> Ajouter un compte
+</button>
+{% endblock %}
+
+{% block content %}
+<!-- STATUS SYNC GLOBAL -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:1.5rem;">
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="ti ti-plug" style="font-size:20px;color:var(--primary);"></i>
+    </div>
+    <div>
+      <div style="font-size:1.25rem;font-weight:700;color:var(--primary);">{{ sources|length }}</div>
+      <div style="font-size:.78rem;color:var(--text-2);">Comptes configurés</div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--success-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="ti ti-check" style="font-size:20px;color:var(--success);"></i>
+    </div>
+    <div>
+      <div style="font-size:1.25rem;font-weight:700;color:var(--success);">{{ sources|selectattr('actif')|list|length }}</div>
+      <div style="font-size:.78rem;color:var(--text-2);">Comptes actifs</div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;align-items:center;gap:1rem;">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--warning-bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <i class="ti ti-clock" style="font-size:20px;color:var(--warning);"></i>
+    </div>
+    <div>
+      <div style="font-size:1.25rem;font-weight:700;color:var(--warning);">{{ sync_intervalle }} min</div>
+      <div style="font-size:.78rem;color:var(--text-2);">Intervalle de sync</div>
+    </div>
+  </div>
+  <div class="card" style="display:flex;align-items:center;gap:.75rem;justify-content:space-between;">
+    <div>
+      <div style="font-size:.78rem;color:var(--text-2);margin-bottom:.25rem;">Modifier l'intervalle</div>
+      <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
+        <input type="number" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
+               class="form-control" style="width:80px;padding:.35rem .625rem;font-size:.85rem;">
+        <button type="submit" class="btn btn--outline btn--sm">OK</button>
+      </form>
+    </div>
+    <form method="post" action="/admin/sync/lancer">
+      <button type="submit" class="btn btn--primary btn--sm">
+        <i class="ti ti-refresh"></i> Sync manuelle
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- TABLEAU DES COMPTES -->
+<div class="card" style="padding:0;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <h3 style="font-size:.9375rem;">Comptes configurés</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Établissement</th>
+          <th>Type Zotero</th>
+          <th>ID Zotero</th>
+          <th>Dernière sync</th>
+          <th>Documents</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for source in sources %}
+        <tr>
+          <td>
+            <div style="font-weight:600;">{{ source.etablissement.code }}</div>
+            <div style="font-size:.78rem;color:var(--text-2);">{{ source.etablissement.nom_court or source.etablissement.nom }}</div>
+          </td>
+          <td>
+            <span style="font-size:.8rem;background:var(--bg);padding:2px 8px;border-radius:4px;font-family:monospace;">
+              {{ source.zotero_type }}
+            </span>
+          </td>
+          <td style="font-family:monospace;font-size:.85rem;color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);">
+            {{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}
+          </td>
+          <td style="font-weight:600;color:var(--primary);">{{ source.nb_documents|default(0) }}</td>
+          <td>
+            <form method="post" action="/admin/zotero/{{ source.id }}/toggle" style="display:inline;">
+              <button type="submit" class="status status--{{ 'ok' if source.actif else 'err' }}"
+                      style="background:none;border:none;cursor:pointer;padding:0;"
+                      title="{{ 'Désactiver' if source.actif else 'Activer' }}">
+                {{ 'Actif' if source.actif else 'Inactif' }}
+              </button>
+            </form>
+          </td>
+          <td>
+            <div style="display:flex;gap:.375rem;">
+              <button onclick="testerConnexion({{ source.id }})"
+                      class="btn btn--ghost btn--sm" title="Tester la connexion">
+                <i class="ti ti-plug-connected"></i>
+              </button>
+              <form method="post" action="/admin/sync/lancer/{{ source.id }}" style="display:inline;">
+                <button type="submit" class="btn btn--ghost btn--sm" title="Sync maintenant">
+                  <i class="ti ti-refresh"></i>
+                </button>
+              </form>
+              <button onclick="ouvrirEdition({{ source|tojson }})"
+                      class="btn btn--ghost btn--sm" title="Modifier">
+                <i class="ti ti-edit"></i>
+              </button>
+              <form method="post" action="/admin/zotero/{{ source.id }}/supprimer"
+                    onsubmit="return confirm('Supprimer ce compte Zotero ?')">
+                <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);" title="Supprimer">
+                  <i class="ti ti-trash"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align:center;padding:2rem;color:var(--text-3);">
+            Aucun compte Zotero configuré —
+            <button onclick="openModal('modalAjouter')" style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:600;font-size:inherit;">
+              Ajouter le premier
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- MODAL AJOUTER -->
+<div class="modal-overlay" id="modalAjouter" style="display:none;">
+  <div class="modal">
+    <div class="modal__header">
+      <span class="modal__title">Ajouter un compte Zotero</span>
+      <button class="modal__close" onclick="closeModal('modalAjouter')">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <form method="post" action="/admin/zotero/ajouter">
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-label">Établissement <span class="required">*</span></label>
+          <select name="etablissement_id" class="form-control" required>
+            <option value="">Sélectionner un établissement…</option>
+            {% for etab in etablissements_sans_source %}
+            <option value="{{ etab.id }}">{{ etab.code }} — {{ etab.nom }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Type de compte Zotero <span class="required">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <label style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" id="lblUser">
+              <input type="radio" name="zotero_type" value="user" style="accent-color:var(--primary);">
+              <div>
+                <div style="font-weight:600;font-size:.875rem;">Utilisateur</div>
+                <div style="font-size:.75rem;color:var(--text-2);">Compte personnel</div>
+              </div>
+            </label>
+            <label style="border:1.5px solid var(--primary);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" id="lblGroup">
+              <input type="radio" name="zotero_type" value="group" checked style="accent-color:var(--primary);">
+              <div>
+                <div style="font-weight:600;font-size:.875rem;">Groupe</div>
+                <div style="font-size:.75rem;color:var(--text-2);">Recommandé</div>
+              </div>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">ID Zotero <span class="required">*</span></label>
+          <input type="text" name="zotero_id" class="form-control" placeholder="ex. 4823910" required>
+          <div class="form-hint">Visible dans l'URL de votre groupe/compte Zotero</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Clé API Zotero <span class="required">*</span></label>
+          <input type="password" name="api_key" class="form-control" placeholder="Clé API Zotero" required>
+          <div class="form-hint">Créez une clé sur zotero.org/settings/keys avec accès lecture</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Label (optionnel)</label>
+          <input type="text" name="label" class="form-control" placeholder="ex. BU centrale UCAD">
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" onclick="closeModal('modalAjouter')" class="btn btn--ghost">Annuler</button>
+        <button type="button" onclick="testerConnexionFormulaire()" class="btn btn--outline">
+          <i class="ti ti-plug-connected"></i> Tester
+        </button>
+        <button type="submit" class="btn btn--primary">
+          <i class="ti ti-check"></i> Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- RÉSULTAT TEST CONNEXION -->
+<div id="testResult" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:1000;max-width:320px;">
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openModal(id) { document.getElementById(id).style.display = 'flex'; }
+function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+document.querySelectorAll('input[name="zotero_type"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.getElementById('lblUser').style.borderColor = radio.value === 'user' ? 'var(--primary)' : 'var(--border)';
+    document.getElementById('lblGroup').style.borderColor = radio.value === 'group' ? 'var(--primary)' : 'var(--border)';
+  });
+});
+
+async function testerConnexion(sourceId) {
+  showTestResult('loading', 'Test en cours…');
+  const res = await fetch(`/admin/zotero/${sourceId}/tester`, { method: 'POST' });
+  const data = await res.json();
+  showTestResult(data.ok ? 'success' : 'error', data.message);
+}
+
+async function testerConnexionFormulaire() {
+  const form = document.querySelector('#modalAjouter form');
+  const fd = new FormData(form);
+  showTestResult('loading', 'Test en cours…');
+  const res = await fetch('/admin/zotero/tester-nouveau', { method: 'POST', body: fd });
+  const data = await res.json();
+  showTestResult(data.ok ? 'success' : 'error', data.message);
+}
+
+function showTestResult(type, msg) {
+  const el = document.getElementById('testResult');
+  const icons = { loading: 'ti-loader-2', success: 'ti-circle-check', error: 'ti-circle-x' };
+  const colors = { loading: 'var(--warning-bg)', success: 'var(--success-bg)', error: 'var(--danger-bg)' };
+  const textColors = { loading: 'var(--warning)', success: 'var(--success)', error: 'var(--danger)' };
+  el.style.display = 'block';
+  el.innerHTML = `<div class="alert" style="background:${colors[type]};color:${textColors[type]};box-shadow:var(--shadow);">
+    <i class="ti ${icons[type]}${type === 'loading' ? ' ti-spin' : ''}"></i> ${msg}
+  </div>`;
+  if (type !== 'loading') setTimeout(() => el.style.display = 'none', 4000);
+}
+
+function ouvrirEdition(source) {
+  console.log('Édition:', source);
+}
+</script>
+{% endblock %}

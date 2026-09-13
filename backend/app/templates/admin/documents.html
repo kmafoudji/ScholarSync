@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+{% block title %}Documents{% endblock %}
+{% block page_title %}Documents synchronisés{% endblock %}
+
+{% block topbar_actions %}
+<div style="display:flex;gap:.5rem;">
+  <a href="/admin/exports?format=csv" class="btn btn--ghost btn--sm"><i class="ti ti-file-type-csv"></i> CSV</a>
+  <a href="/admin/exports?format=xlsx" class="btn btn--ghost btn--sm"><i class="ti ti-file-type-xls"></i> Excel</a>
+  <a href="/admin/exports?format=pdf" class="btn btn--ghost btn--sm"><i class="ti ti-file-type-pdf"></i> PDF</a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:0;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem;">
+    <form method="get" style="display:flex;gap:.5rem;flex:1;">
+      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Titre, auteur…" style="max-width:320px;">
+      <button type="submit" class="btn btn--outline btn--sm"><i class="ti ti-search"></i> Filtrer</button>
+    </form>
+    <span style="font-size:.8rem;color:var(--text-2);">{{ pagination.total|format_number }} documents</span>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Titre</th>
+          <th>Auteur</th>
+          <th>Établissement</th>
+          <th>Type</th>
+          <th>Statut</th>
+          <th>Année</th>
+          <th>Numéro national</th>
+          <th>Accès</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for doc in documents %}
+        <tr>
+          <td style="max-width:280px;">
+            <a href="/document/{{ doc.id }}" target="_blank" style="color:var(--primary);font-weight:500;font-size:.875rem;text-decoration:none;line-height:1.3;display:block;">
+              {{ doc.titre|truncate(70) }}
+            </a>
+            {% if doc.domaine %}
+            <span style="font-size:.72rem;color:var(--text-3);">{{ doc.domaine }}</span>
+            {% endif %}
+          </td>
+          <td style="font-size:.85rem;color:var(--text-2);white-space:nowrap;">{{ doc.auteur }}</td>
+          <td style="font-weight:600;font-size:.85rem;">
+            {{ doc.etablissement_code }}
+            {% if doc.sous_entite_nom %}
+            <div style="font-size:.72rem;color:var(--text-3);font-weight:400;">{{ doc.sous_entite_nom|truncate(30) }}</div>
+            {% endif %}
+          </td>
+          <td><span class="badge badge--{{ doc.type }}">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span></td>
+          <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
+          <td style="font-size:.875rem;">{{ doc.annee }}</td>
+          <td style="font-family:monospace;font-size:.75rem;color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
+          <td>
+            <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
+              <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"
+                      style="background:none;border:none;cursor:pointer;padding:0;">
+                {{ 'Public' if doc.acces == 'public' else 'Restreint' }}
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-3);">Aucun document — lancez une synchronisation Zotero</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagination.pages > 1 %}
+  <div style="padding:1rem;border-top:1px solid var(--border);">
+    <div class="pagination">
+      {% for p in pagination.range %}
+        {% if p == '...' %}
+        <span class="page-btn" style="border:none;cursor:default;">…</span>
+        {% else %}
+        <a href="?q={{ q }}&page={{ p }}" class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

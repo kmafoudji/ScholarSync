@@ -1,0 +1,77 @@
+<div class="results-header">
+  <span class="results-count">
+    <strong>{{ pagination.total|format_number }}</strong> document{{ 's' if pagination.total != 1 }}
+    {% if current_filters.q %} — "<em>{{ current_filters.q }}</em>"{% endif %}
+  </span>
+  <select class="sort-select" onchange="applySort(this.value)">
+    <option value="recent" {{ 'selected' if sort == 'recent' }}>Plus récents</option>
+    <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Plus anciens</option>
+    <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
+  </select>
+</div>
+
+{% if documents %}
+  {% for doc in documents %}
+  <a href="/document/{{ doc.id }}" class="doc-card">
+    <div class="doc-card__top">
+      <div class="doc-card__title">{{ doc.titre }}</div>
+      <div class="doc-card__badges">
+        <span class="badge badge--{{ doc.type }}">
+          {{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}
+        </span>
+        <span class="badge badge--{{ doc.statut }}">
+          {{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}
+        </span>
+        {% if doc.acces == 'restreint' %}
+        <span class="badge badge--restreint">
+          <i class="ti ti-lock" style="font-size:10px;"></i> Restreint
+        </span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="doc-card__meta">
+      <span><i class="ti ti-user"></i> {{ doc.auteur }}</span>
+      <span><i class="ti ti-building-bank"></i> {{ doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}</span>
+      <span><i class="ti ti-calendar"></i> {{ doc.annee }}</span>
+      {% if doc.directeur %}
+      <span><i class="ti ti-user-circle"></i> Dir. {{ doc.directeur }}</span>
+      {% endif %}
+      {% if doc.domaine %}
+      <span><i class="ti ti-tag"></i> {{ doc.domaine }}</span>
+      {% endif %}
+    </div>
+    <div class="doc-card__num">{{ doc.numero_national }}</div>
+  </a>
+  {% endfor %}
+
+  <!-- Pagination -->
+  {% if pagination.pages > 1 %}
+  <div class="pagination">
+    {% if pagination.page > 1 %}
+    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn">
+      <i class="ti ti-chevron-left" style="font-size:13px;"></i>
+    </a>
+    {% endif %}
+    {% for p in pagination.range %}
+      {% if p == '...' %}
+      <span class="page-btn" style="border:none;cursor:default;">…</span>
+      {% else %}
+      <a href="?{{ query_string }}&page={{ p }}"
+         class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if pagination.page < pagination.pages %}
+    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn">
+      <i class="ti ti-chevron-right" style="font-size:13px;"></i>
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+{% else %}
+  <div style="text-align:center;padding:3rem 1rem;color:var(--text-3);">
+    <i class="ti ti-search-off" style="font-size:3rem;display:block;margin-bottom:1rem;"></i>
+    <p style="font-size:1rem;font-weight:500;color:var(--text-2);">Aucun document trouvé</p>
+    <p style="font-size:.875rem;margin-top:.5rem;">Essayez avec d'autres mots-clés ou modifiez les filtres</p>
+  </div>
+{% endif %}
