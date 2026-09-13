@@ -24,22 +24,17 @@
 
 <!-- STATS BAR -->
 <div class="stats-bar">
+  {% for ic, val, lib in [
+      ('books',         stats.total|default(0),            'Documents indexés'),
+      ('building-bank', stats.nb_etablissements|default(0),'Établissements partenaires'),
+      ('certificate',   stats.nb_soutenus|default(0),      'Travaux soutenus'),
+      ('progress',      stats.nb_en_preparation|default(0),'En préparation')] %}
   <div class="stat-item">
-    <div class="stat-num">{{ stats.total|default(0)|format_number }}</div>
-    <div class="stat-label">Documents indexés</div>
+    <i class="ti ti-{{ ic }} stat-icone" aria-hidden="true"></i>
+    <div class="stat-num">{{ val|format_number }}</div>
+    <div class="stat-label">{{ lib }}</div>
   </div>
-  <div class="stat-item">
-    <div class="stat-num">{{ stats.nb_etablissements|default(0) }}</div>
-    <div class="stat-label">Établissements partenaires</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num">{{ stats.nb_soutenus|default(0)|format_number }}</div>
-    <div class="stat-label">Travaux soutenus</div>
-  </div>
-  <div class="stat-item">
-    <div class="stat-num">{{ stats.nb_en_preparation|default(0)|format_number }}</div>
-    <div class="stat-label">En préparation</div>
-  </div>
+  {% endfor %}
 </div>
 
 <!-- CATALOGUE PRINCIPAL -->

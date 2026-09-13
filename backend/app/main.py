@@ -310,7 +310,8 @@ def get_stats(db: Session, etablissement_code: str = None) -> dict:
         "nouveaux_7j": 0,
     }
 
-def construire_query_string(filtres: dict, sort: str = "recent") -> str:
+def construire_query_string(filtres: dict, sort: str = "recent",
+                            par_page: int = None) -> str:
     """Chaîne de requête conservant les valeurs multiples et l'encodage."""
     from urllib.parse import urlencode
     paires = []
@@ -323,6 +324,8 @@ def construire_query_string(filtres: dict, sort: str = "recent") -> str:
                 paires.append((cle, str(v)))
     if sort and sort != "recent":
         paires.append(("sort", sort))
+    if par_page and par_page != PAR_PAGE_DEFAUT:
+        paires.append(("par_page", str(par_page)))
     return urlencode(paires)
 
 
@@ -398,8 +401,19 @@ def get_facettes(db: Session, filtres: dict = None) -> dict:
     """
     filtres = filtres or {}
 
+    # Les établissements sont stockés par code : un lecteur cherche
+    # « Gaston Berger », pas « UGB ». On rattache le nom pour l'affichage
+    # et pour la recherche dans la facette.
+    noms_etabs = {
+        e.code: e.nom
+        for e in db.query(Etablissement.code, Etablissement.nom).all()
+    }
+    etablissements = _compter(db, Document.etablissement_code, filtres, "etablissement")
+    for o in etablissements:
+        o["libelle"] = noms_etabs.get(o["valeur"], o["valeur"])
+
     facettes = {
-        "etablissements": _compter(db, Document.etablissement_code, filtres, "etablissement"),
+        "etablissements": etablissements,
         "types":          _compter(db, Document.type, filtres, "type"),
         "statuts":        _compter(db, Document.statut, filtres, "statut"),
         "domaines":       _compter(db, Document.domaine, filtres, "domaine"),
@@ -420,9 +434,26 @@ def get_facettes(db: Session, filtres: dict = None) -> dict:
     return facettes
 
 
-def paginate(query, page: int, per_page: int = 20):
+PAR_PAGE_POSSIBLES = (10, 20, 50, 100)
+PAR_PAGE_DEFAUT = 20
+
+
+def normaliser_par_page(valeur) -> int:
+    """Une valeur hors liste viendrait d'une URL bricolée : on retombe sur
+    la valeur par défaut plutôt que de laisser demander 100 000 lignes."""
+    try:
+        valeur = int(valeur)
+    except (TypeError, ValueError):
+        return PAR_PAGE_DEFAUT
+    return valeur if valeur in PAR_PAGE_POSSIBLES else PAR_PAGE_DEFAUT
+
+
+def paginate(query, page: int, per_page: int = PAR_PAGE_DEFAUT):
     total = query.count()
     pages = math.ceil(total / per_page) if total else 1
+    # Une page hors bornes (lien périmé, filtre qui réduit le résultat)
+    # doit ramener à une page existante, pas afficher une liste vide.
+    page = max(1, min(int(page or 1), pages))
     items = query.offset((page - 1) * per_page).limit(per_page).all()
     page_range = []
     if pages <= 7:
@@ -434,7 +465,16 @@ def paginate(query, page: int, per_page: int = 20):
             page_range = [1, "..."] + list(range(pages - 4, pages + 1))
         else:
             page_range = [1, "...", page - 1, page, page + 1, "...", pages]
-    return items, {"total": total, "pages": pages, "page": page, "per_page": per_page, "range": page_range}
+    debut = (page - 1) * per_page + 1 if total else 0
+    return items, {
+        "total": total, "pages": pages, "page": page, "per_page": per_page,
+        "range": page_range,
+        # Position affichée en permanence : « 21–40 sur 340 » situe le
+        # lecteur même quand il n'y a qu'une seule page.
+        "debut": debut,
+        "fin": min(page * per_page, total),
+        "options_par_page": PAR_PAGE_POSSIBLES,
+    }
 
 # ─── SANTÉ ────────────────────────────────────────────────────────
 @app.get("/sante")
@@ -484,7 +524,8 @@ TRI_DEFAUT = "annee"
 
 
 def contexte_catalogue(request: Request, db: Session, filtres: dict,
-                       sort: str, page: int) -> dict:
+                       sort: str, page: int,
+                       par_page: int = PAR_PAGE_DEFAUT) -> dict:
     """
     Contexte du catalogue, partagé par l'accueil et la recherche.
 
@@ -496,8 +537,9 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
     if sort not in TRIS:
         sort = TRI_DEFAUT
 
+    par_page = normaliser_par_page(par_page)
     query = appliquer_filtres(db.query(Document), filtres).order_by(*TRIS[sort])
-    docs, pagination = paginate(query, page)
+    docs, pagination = paginate(query, page, par_page)
 
     return {
         "request": request,
@@ -508,7 +550,7 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
         "pagination": pagination,
         "current_filters": filtres,
         "sort": sort,
-        "query_string": construire_query_string(filtres, sort),
+        "query_string": construire_query_string(filtres, sort, par_page),
         "nb_filtres_actifs": sum(
             len(v) for k, v in filtres.items() if k != "q"
         ) + (1 if filtres.get("q") else 0),
@@ -543,6 +585,7 @@ async def recherche(
     # L'année est le repère de lecture de la liste : la trier par date
     # d'ajout afficherait une colonne d'années dans le désordre.
     sort: str = "annee", page: int = 1,
+    par_page: int = PAR_PAGE_DEFAUT,
 ):
     filtres = {k: v for k, v in {
         "q": q.strip(), "type": type, "statut": statut,
@@ -550,7 +593,7 @@ async def recherche(
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
 
-    contexte = contexte_catalogue(request, db, filtres, sort, page)
+    contexte = contexte_catalogue(request, db, filtres, sort, page, par_page)
 
     # Requête émise par le script de facettes : on ne renvoie que les
     # fragments qui changent, pas la page entière.
@@ -1001,19 +1044,54 @@ async def admin_sync_intervalle(minutes: int = Form(60), db: Session = Depends(g
 @app.get("/admin/documents", response_class=HTMLResponse)
 async def admin_documents(
     request: Request, db: Session = Depends(get_db),
-    q: str = "", page: int = 1
+    q: str = "", page: int = 1, par_page: int = PAR_PAGE_DEFAUT,
+    type: str = "", statut: str = "", etablissement: str = "",
 ):
+    utilisateur = require_auth(request, db)
     params = get_params_with_defaults(db)
+
     query = db.query(Document)
     if q:
+        motif = f"%{q.strip()}%"
         query = query.filter(
-            Document.titre.ilike(f"%{q}%") | Document.auteur.ilike(f"%{q}%")
+            Document.titre.ilike(motif)
+            | Document.auteur.ilike(motif)
+            | Document.numero_national.ilike(motif)
         )
-    docs, pagination = paginate(query.order_by(Document.created_at.desc()), page, 25)
+    if type in ("these", "memoire"):
+        query = query.filter(Document.type == type)
+    if statut in ("soutenu", "en_preparation"):
+        query = query.filter(Document.statut == statut)
+    if etablissement:
+        query = query.filter(Document.etablissement_code == etablissement)
+
+    # Un administrateur d'établissement ne voit que son propre fonds :
+    # la route ne le vérifiait pas et exposait tout le catalogue.
+    if utilisateur.role != "super_admin" and utilisateur.etablissement_code:
+        query = query.filter(
+            Document.etablissement_code == utilisateur.etablissement_code
+        )
+
+    par_page = normaliser_par_page(par_page)
+    docs, pagination = paginate(
+        query.order_by(Document.created_at.desc()), page, par_page
+    )
+
+    from urllib.parse import urlencode
+    filtres_admin = {k: v for k, v in {
+        "q": q, "type": type, "statut": statut, "etablissement": etablissement,
+    }.items() if v}
+    if par_page != PAR_PAGE_DEFAUT:
+        filtres_admin["par_page"] = par_page
+
     return templates.TemplateResponse("admin/documents.html", {
         "request": request, "params": params, "documents": docs,
         "pagination": pagination, "q": q,
-        "current_user": require_auth(request, db), "active_nav": "documents",
+        "filtre_type": type, "filtre_statut": statut,
+        "filtre_etablissement": etablissement,
+        "query_string": urlencode(filtres_admin),
+        "etablissements": db.query(Etablissement).order_by(Etablissement.code).all(),
+        "current_user": utilisateur, "active_nav": "documents",
     })
 
 @app.get("/api/stats")

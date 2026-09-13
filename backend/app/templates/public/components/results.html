@@ -1,16 +1,70 @@
+{% macro pagination_nav(position) %}
+  {% if pagination.pages > 1 %}
+  <nav class="pagination pagination--{{ position }}"
+       aria-label="Pagination des résultats{{ ' (haut)' if position == 'haut' else ' (bas)' }}">
+    {% if pagination.page > 1 %}
+    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn"
+       aria-label="Page précédente" rel="prev">
+      <i class="ti ti-chevron-left" aria-hidden="true"></i>
+      <span class="page-btn__mot">Précédent</span>
+    </a>
+    {% endif %}
+    {% for p in pagination.range %}
+      {% if p == '...' %}
+      <span class="page-btn page-btn--vide" aria-hidden="true">…</span>
+      {% else %}
+      <a href="?{{ query_string }}&page={{ p }}"
+         class="page-btn {{ 'active' if p == pagination.page }}"
+         aria-label="Page {{ p }}"
+         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if pagination.page < pagination.pages %}
+    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn"
+       aria-label="Page suivante" rel="next">
+      <span class="page-btn__mot">Suivant</span>
+      <i class="ti ti-chevron-right" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+  </nav>
+  {% endif %}
+{% endmacro %}
+
 <div class="results-header">
-  <span class="results-count">
-    <strong>{{ pagination.total|format_number }}</strong> document{{ 's' if pagination.total != 1 }}
-    {% if current_filters.q %} — "<em>{{ current_filters.q }}</em>"{% endif %}
-  </span>
-  <label class="sr-only" for="tri">Trier les résultats</label>
-  <select class="sort-select" id="tri" name="sort">
-    <option value="annee"  {{ 'selected' if sort == 'annee' }}>Année décroissante</option>
-    <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
-    <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Année croissante</option>
-    <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
-  </select>
+  {# Position affichée en permanence : sans elle, on ne sait pas où l'on
+     est dans le catalogue tant qu'il n'y a qu'une page. #}
+  <p class="results-count">
+    {% if pagination.total %}
+    <strong>{{ pagination.debut|format_number }}–{{ pagination.fin|format_number }}</strong>
+    sur <strong>{{ pagination.total|format_number }}</strong> document{{ 's' if pagination.total != 1 }}
+    {% else %}
+    <strong>Aucun</strong> document
+    {% endif %}
+    {% if current_filters.q %} pour « <em>{{ current_filters.q }}</em> »{% endif %}
+  </p>
+
+  <div class="results-reglages">
+    <label class="results-reglage">
+      <span>Par page</span>
+      <select class="sort-select" id="parPage" name="par_page">
+        {% for n in pagination.options_par_page %}
+        <option value="{{ n }}" {{ 'selected' if pagination.per_page == n }}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="results-reglage">
+      <span>Trier par</span>
+      <select class="sort-select" id="tri" name="sort">
+        <option value="annee"  {{ 'selected' if sort == 'annee' }}>Année décroissante</option>
+        <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Année croissante</option>
+        <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
+        <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
+      </select>
+    </label>
+  </div>
 </div>
+
+{{ pagination_nav('haut') }}
 
 {% if nb_filtres_actifs %}
 <div class="filtres-actifs">
@@ -78,30 +132,11 @@
   </article>
   {% endfor %}
 
-  <!-- Pagination -->
+  {{ pagination_nav('bas') }}
   {% if pagination.pages > 1 %}
-  <div class="pagination">
-    {% if pagination.page > 1 %}
-    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn" aria-label="Page précédente" rel="prev">
-      <i class="ti ti-chevron-left" style="font-size:var(--fs-2xs);"></i>
-    </a>
-    {% endif %}
-    {% for p in pagination.range %}
-      {% if p == '...' %}
-      <span class="page-btn" style="border:none;cursor:default;" aria-hidden="true">…</span>
-      {% else %}
-      <a href="?{{ query_string }}&page={{ p }}"
-         class="page-btn {{ 'active' if p == pagination.page }}"
-         aria-label="Page {{ p }}"
-         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
-      {% endif %}
-    {% endfor %}
-    {% if pagination.page < pagination.pages %}
-    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn" aria-label="Page suivante" rel="next">
-      <i class="ti ti-chevron-right" style="font-size:var(--fs-2xs);"></i>
-    </a>
-    {% endif %}
-  </div>
+  <p class="pagination-resume">
+    Page {{ pagination.page }} sur {{ pagination.pages }}
+  </p>
   {% endif %}
 
 {% else %}

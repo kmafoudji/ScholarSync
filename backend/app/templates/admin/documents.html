@@ -12,13 +12,92 @@
 
 {% block content %}
 <div class="card" style="padding:0;">
-  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.75rem;">
-    <form method="get" style="display:flex;gap:.5rem;flex:1;">
-      <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Titre, auteur…" style="max-width:320px;">
-      <button type="submit" class="btn btn--outline btn--sm"><i class="ti ti-search"></i> Filtrer</button>
+{% macro pagination_admin(position) %}
+  {% if pagination.pages > 1 %}
+  <nav class="pagination pagination--{{ position }}" style="padding:.875rem 1.25rem;"
+       aria-label="Pagination{{ ' (haut)' if position == 'haut' else ' (bas)' }}">
+    {% if pagination.page > 1 %}
+    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn"
+       aria-label="Page précédente" rel="prev">
+      <i class="ti ti-chevron-left" aria-hidden="true"></i>
+      <span class="page-btn__mot">Précédent</span>
+    </a>
+    {% endif %}
+    {% for p in pagination.range %}
+      {% if p == '...' %}
+      <span class="page-btn page-btn--vide" aria-hidden="true">…</span>
+      {% else %}
+      <a href="?{{ query_string }}&page={{ p }}"
+         class="page-btn {{ 'active' if p == pagination.page }}"
+         aria-label="Page {{ p }}"
+         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
+      {% endif %}
+    {% endfor %}
+    {% if pagination.page < pagination.pages %}
+    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn"
+       aria-label="Page suivante" rel="next">
+      <span class="page-btn__mot">Suivant</span>
+      <i class="ti ti-chevron-right" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+  </nav>
+  {% endif %}
+{% endmacro %}
+
+  <div class="doc-filtres">
+    <form method="get" class="doc-filtres__form">
+      <label class="sr-only" for="rechDocs">Rechercher un document</label>
+      <input type="search" id="rechDocs" name="q" value="{{ q }}" class="form-control"
+             placeholder="Titre, auteur, numéro national…" style="min-width:220px;flex:1;">
+
+      <label class="sr-only" for="filtreType">Type</label>
+      <select name="type" id="filtreType" class="form-control" style="width:auto;">
+        <option value="">Tous types</option>
+        <option value="these" {{ 'selected' if filtre_type == 'these' }}>Thèses</option>
+        <option value="memoire" {{ 'selected' if filtre_type == 'memoire' }}>Mémoires</option>
+      </select>
+
+      <label class="sr-only" for="filtreStatut">Statut</label>
+      <select name="statut" id="filtreStatut" class="form-control" style="width:auto;">
+        <option value="">Tous statuts</option>
+        <option value="soutenu" {{ 'selected' if filtre_statut == 'soutenu' }}>Soutenus</option>
+        <option value="en_preparation" {{ 'selected' if filtre_statut == 'en_preparation' }}>En préparation</option>
+      </select>
+
+      {% if current_user.role == 'super_admin' and etablissements|length > 1 %}
+      <label class="sr-only" for="filtreEtab">Établissement</label>
+      <select name="etablissement" id="filtreEtab" class="form-control" style="width:auto;">
+        <option value="">Tous établissements</option>
+        {% for e in etablissements %}
+        <option value="{{ e.code }}" {{ 'selected' if filtre_etablissement == e.code }}>{{ e.code }}</option>
+        {% endfor %}
+      </select>
+      {% endif %}
+
+      <label class="sr-only" for="parPageDocs">Documents par page</label>
+      <select name="par_page" id="parPageDocs" class="form-control" style="width:auto;">
+        {% for n in pagination.options_par_page %}
+        <option value="{{ n }}" {{ 'selected' if pagination.per_page == n }}>{{ n }} / page</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="btn btn--outline btn--sm">
+        <i class="ti ti-filter" aria-hidden="true"></i> Filtrer
+      </button>
+      {% if q or filtre_type or filtre_statut or filtre_etablissement %}
+      <a href="/admin/documents" class="btn btn--ghost btn--sm">Réinitialiser</a>
+      {% endif %}
     </form>
-    <span style="font-size:var(--fs-xs);color:var(--text-2);">{{ pagination.total|format_number }} documents</span>
+
+    <p class="doc-filtres__position">
+      {% if pagination.total %}
+      <strong>{{ pagination.debut|format_number }}–{{ pagination.fin|format_number }}</strong>
+      sur <strong>{{ pagination.total|format_number }}</strong>
+      {% else %}Aucun document{% endif %}
+    </p>
   </div>
+
+  {{ pagination_admin('haut') }}
 
   <div class="table-wrap">
     <table>
@@ -87,20 +166,9 @@
     </table>
   </div>
 
+  {{ pagination_admin('bas') }}
   {% if pagination.pages > 1 %}
-  <div style="padding:1rem;border-top:1px solid var(--border);">
-    <div class="pagination">
-      {% for p in pagination.range %}
-        {% if p == '...' %}
-        <span class="page-btn" style="border:none;cursor:default;" aria-hidden="true">…</span>
-        {% else %}
-        <a href="?q={{ q }}&page={{ p }}" class="page-btn {{ 'active' if p == pagination.page }}"
-         aria-label="Page {{ p }}"
-         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
-        {% endif %}
-      {% endfor %}
-    </div>
-  </div>
+  <p class="pagination-resume">Page {{ pagination.page }} sur {{ pagination.pages }}</p>
   {% endif %}
 </div>
 {% endblock %}

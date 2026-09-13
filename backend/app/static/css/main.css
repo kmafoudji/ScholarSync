@@ -384,14 +384,15 @@ h4 { font-size: var(--fs-md); }
 .facettes::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
 
 /* ── FACETTES ──────────────────────────────────────────────────
-   Les options sont des liens (navigation clavier, nouvel onglet, et
-   fonctionnement sans JavaScript). La case à cocher dessinée indique
-   que plusieurs valeurs peuvent être retenues à la fois — la pastille
-   ronde précédente suggérait un choix unique. */
+   Groupes pliables, recherche interne au-delà de huit valeurs, et
+   limitation du nombre de valeurs visibles. Sur un catalogue national
+   les facettes Année et Établissement comptent vite des dizaines
+   d'entrées : sans repli ni recherche, la colonne devient une liste
+   interminable qu'on parcourt à la molette. */
 
 .facettes__head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: .75rem;
   flex-wrap: wrap;
@@ -403,7 +404,11 @@ h4 { font-size: var(--fs-md); }
   font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: .5rem;
 }
+.facettes__titre .ti { color: var(--primary); font-size: 18px; }
 .facettes__reset {
   font-size: var(--fs-xs);
   color: var(--secondary);
@@ -421,30 +426,95 @@ h4 { font-size: var(--fs-md); }
   line-height: var(--lh-base);
 }
 
-.facette-group {
-  border: none;
-  padding: 0;
-  margin: 0 0 1.75rem;
+/* ── Un groupe ── */
+.facette-groupe {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: .75rem;
+  margin-bottom: .75rem;
 }
-.facette-title {
+.facette-groupe:last-of-type { border-bottom: none; }
+
+.facette-entete { margin: 0; }
+.facette-bascule {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .5rem 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--text-2);
-  padding: 0;
-  margin-bottom: .5rem;
 }
+.facette-bascule:hover { color: var(--primary); }
+.facette-entete__icone { color: var(--text-3); font-size: 16px; flex-shrink: 0; }
+.facette-bascule:hover .facette-entete__icone { color: var(--primary); }
+.facette-entete__titre { flex: 1; min-width: 0; }
+.facette-entete__compte {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  min-width: 19px;
+  text-align: center;
+  padding: 0 6px;
+  line-height: 19px;
+  flex-shrink: 0;
+}
+.facette-entete__chevron {
+  color: var(--text-3);
+  font-size: 16px;
+  flex-shrink: 0;
+  transition: transform .2s ease;
+}
+.facette-groupe.est-replie .facette-entete__chevron { transform: rotate(-90deg); }
+.facette-groupe.est-replie .facette-corps { display: none; }
+
+/* ── Recherche dans un groupe ── */
+.facette-chercher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: .375rem 0 .5rem;
+}
+.facette-chercher .ti {
+  position: absolute;
+  left: .5rem;
+  color: var(--text-3);
+  font-size: 15px;
+  pointer-events: none;
+}
+.facette-chercher__champ {
+  width: 100%;
+  padding: .375rem .5rem .375rem 1.875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-2xs);
+}
+.facette-chercher__champ:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+/* ── Une valeur ── */
+.facette-liste { display: flex; flex-direction: column; }
 
 .facette-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: .625rem;
-  padding: .4375rem .5rem;
+  padding: .375rem .5rem;
   border-radius: var(--radius-sm);
   text-decoration: none;
   color: inherit;
   transition: background .12s;
-  margin-bottom: 1px;
 }
 .facette-item:hover { background: var(--surface-2); }
 .facette-item.active { background: var(--primary-light); }
@@ -464,7 +534,6 @@ h4 { font-size: var(--fs-md); }
   font-weight: 600;
 }
 
-/* Case à cocher : plusieurs valeurs peuvent coexister */
 .facette-item__box {
   width: 16px;
   height: 16px;
@@ -498,6 +567,26 @@ h4 { font-size: var(--fs-md); }
 .facette-item.active .facette-count {
   background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);
+}
+
+.facette-plus {
+  background: none;
+  border: none;
+  padding: .375rem .5rem;
+  margin-top: .125rem;
+  cursor: pointer;
+  color: var(--primary);
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  text-align: left;
+}
+.facette-plus:hover { text-decoration: underline; }
+
+.facette-aucun {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  padding: .375rem .5rem;
+  font-style: italic;
 }
 
 /* Pendant un filtrage : le contenu s'estompe sans disparaître, pour que
@@ -712,8 +801,12 @@ h4 { font-size: var(--fs-md); }
   gap: 4px; margin-top: 1.5rem;
 }
 .page-btn {
-  width: 34px; height: 34px;
-  display: flex; align-items: center; justify-content: center;
+  /* min-width plutôt que width : les boutons Précédent/Suivant portent
+     un libellé sur écran large et doivent pouvoir s'élargir. */
+  min-width: 36px; height: 36px;
+  padding: 0 .625rem;
+  gap: .25rem;
+  display: inline-flex; align-items: center; justify-content: center;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-size: var(--fs-xs);
@@ -1917,3 +2010,116 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   padding: .875rem 1rem;
 }
 .fiche-absent .ti { color: var(--text-3); font-size: 18px; flex-shrink: 0; }
+
+/* ══ BARRE DE RÉSULTATS ET PAGINATION ════════════════════════════ */
+
+.results-reglages {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.results-reglage {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  font-size: var(--fs-2xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+.results-reglage .sort-select { font-size: var(--fs-xs); }
+
+/* Pagination répétée avant et après la liste : sur une page de cent
+   notices, revenir en haut pour changer de page est une corvée. */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  flex-wrap: wrap;
+  padding: 1rem 0;
+}
+.pagination--haut {
+  justify-content: flex-start;
+  padding: 0 0 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+.pagination--bas {
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  margin-top: .5rem;
+}
+.page-btn__mot { display: none; }
+@media (min-width: 561px) {
+  .page-btn__mot { display: inline; }
+}
+.page-btn--vide {
+  border: none;
+  cursor: default;
+  background: none;
+  color: var(--text-3);
+}
+.pagination-resume {
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  padding-bottom: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .results-header { align-items: stretch; }
+  .results-reglages { justify-content: space-between; }
+  .pagination--haut { justify-content: center; }
+}
+
+/* Icône du bandeau de chiffres : repère visuel discret, en retrait par
+   rapport au nombre qui reste l'information principale. */
+.stat-icone {
+  display: block;
+  font-size: 20px;
+  color: var(--text-3);
+  margin-bottom: .375rem;
+}
+.stat-item:hover .stat-icone { color: var(--primary); }
+
+/* Établissement : le nom prime, le code sert de repère secondaire. Le
+   catalogue les stocke par code, mais personne ne cherche « UGB ».
+   La case reste alignée en tête, le texte s'enroule à côté d'elle et non
+   en dessous. */
+.facette-item__label { align-items: flex-start; }
+.facette-item__box { margin-top: .1rem; }
+.facette-item__texte { min-width: 0; }
+.facette-item__code {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.facette-item.active .facette-item__code { color: var(--primary); opacity: .75; }
+
+/* Barre de filtres de la page documents de l'administration */
+.doc-filtres {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.doc-filtres__form {
+  display: flex;
+  gap: .5rem;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.doc-filtres__position {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

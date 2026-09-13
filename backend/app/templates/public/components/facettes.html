@@ -1,42 +1,91 @@
 {#
-  Facettes à choix multiple.
+  Facettes à choix multiple, pliables, avec recherche interne.
 
-  Chaque option est un lien vers l'état filtré correspondant : navigation
-  au clavier, ouverture dans un nouvel onglet et fonctionnement sans
-  JavaScript en découlent. Le script intercepte le clic pour rafraîchir
-  sans recharger la page.
+  Chaque option reste un lien vers l'état filtré correspondant :
+  navigation au clavier, ouverture dans un nouvel onglet et
+  fonctionnement sans JavaScript en découlent. Le script intercepte le
+  clic pour rafraîchir sans recharger la page.
 
-  Les groupes vides ne sont plus rendus : la version précédente affichait
-  le titre « Domaine » suivi de rien dès qu'aucun document n'avait de
-  domaine renseigné.
+  Un groupe vide n'est pas rendu du tout.
 #}
 
-{% macro groupe(titre, cle, options, libelles=None) %}
+{% set SEUIL_RECHERCHE = 6 %}   {# au-delà, un champ de recherche apparaît #}
+{% set SEUIL_VISIBLE   = 8 %}   {# valeurs montrées avant « voir plus »    #}
+
+{% macro groupe(titre, cle, options, icone, libelles=None) %}
   {% if options %}
-  <fieldset class="facette-group">
-    <legend class="facette-title">{{ titre }}</legend>
-    {% for o in options %}
-      {% set actif = facette_active(current_filters, cle, o.valeur) %}
-      <a href="{{ url_facette(current_filters, cle, o.valeur, sort) }}"
-         class="facette-item {{ 'active' if actif }}"
-         data-facette="{{ cle }}"
-         aria-pressed="{{ 'true' if actif else 'false' }}"
-         role="button">
-        <span class="facette-item__label">
-          <span class="facette-item__box" aria-hidden="true">
-            {% if actif %}<i class="ti ti-check"></i>{% endif %}
-          </span>
-          {{ (libelles.get(o.valeur, o.valeur) if libelles else o.valeur) }}
-        </span>
-        <span class="facette-count">{{ o.count }}</span>
-      </a>
-    {% endfor %}
-  </fieldset>
+  <section class="facette-groupe" data-groupe="{{ cle }}">
+    <h3 class="facette-entete">
+      <button type="button" class="facette-bascule"
+              aria-expanded="true" aria-controls="grp-{{ cle }}">
+        <i class="ti ti-{{ icone }} facette-entete__icone" aria-hidden="true"></i>
+        <span class="facette-entete__titre">{{ titre }}</span>
+        {% set retenues = (current_filters.get(cle) or [])|length %}
+        {% if retenues %}
+        <span class="facette-entete__compte" aria-label="{{ retenues }} filtre(s) actif(s)">{{ retenues }}</span>
+        {% endif %}
+        <i class="ti ti-chevron-down facette-entete__chevron" aria-hidden="true"></i>
+      </button>
+    </h3>
+
+    <div class="facette-corps" id="grp-{{ cle }}">
+      {% if options|length > SEUIL_RECHERCHE %}
+      <div class="facette-chercher">
+        <i class="ti ti-search" aria-hidden="true"></i>
+        <label class="sr-only" for="rech-{{ cle }}">Rechercher dans {{ titre|lower }}</label>
+        <input type="search" id="rech-{{ cle }}" class="facette-chercher__champ"
+               placeholder="Filtrer {{ titre|lower }}…" autocomplete="off"
+               data-chercher-dans="{{ cle }}">
+      </div>
+      {% endif %}
+
+      <div class="facette-liste">
+        {% for o in options %}
+          {% set actif = facette_active(current_filters, cle, o.valeur) %}
+          {% set etiquette = (libelles.get(o.valeur, o.valeur) if libelles else o.valeur) %}
+          {% set cherchable = (o.libelle ~ ' ' ~ o.valeur) if o.libelle else etiquette %}
+          <a href="{{ url_facette(current_filters, cle, o.valeur, sort) }}"
+             class="facette-item {{ 'active' if actif }}"
+             data-facette="{{ cle }}"
+             data-valeur="{{ cherchable|lower }}"
+             {{ 'hidden' if loop.index > SEUIL_VISIBLE and not actif }}
+             aria-pressed="{{ 'true' if actif else 'false' }}"
+             role="button">
+            <span class="facette-item__label">
+              <span class="facette-item__box" aria-hidden="true">
+                {% if actif %}<i class="ti ti-check"></i>{% endif %}
+              </span>
+              <span class="facette-item__texte">
+                {% if o.libelle and o.libelle != o.valeur %}
+                  {{ o.libelle }}
+                  <span class="facette-item__code">{{ o.valeur }}</span>
+                {% else %}
+                  {{ etiquette }}
+                {% endif %}
+              </span>
+            </span>
+            <span class="facette-count">{{ o.count|format_number }}</span>
+          </a>
+        {% endfor %}
+      </div>
+
+      {% if options|length > SEUIL_VISIBLE %}
+      <button type="button" class="facette-plus" data-plus-pour="{{ cle }}"
+              data-restant="{{ options|length - SEUIL_VISIBLE }}">
+        Voir les {{ options|length - SEUIL_VISIBLE }} autres
+      </button>
+      {% endif %}
+
+      <p class="facette-aucun" hidden>Aucune valeur ne correspond.</p>
+    </div>
+  </section>
   {% endif %}
 {% endmacro %}
 
 <div class="facettes__head">
-  <h2 class="facettes__titre">Affiner</h2>
+  <h2 class="facettes__titre">
+    <i class="ti ti-filter" aria-hidden="true"></i> Affiner
+  </h2>
   {% if nb_filtres_actifs %}
   <a href="/recherche" class="facettes__reset">
     <i class="ti ti-x" aria-hidden="true"></i>
@@ -45,21 +94,21 @@
   {% endif %}
 </div>
 
-{{ groupe('Établissement', 'etablissement', facettes.etablissements) }}
+{{ groupe('Établissement', 'etablissement', facettes.etablissements, 'building-bank') }}
 
 {% if facettes.sous_entites %}
-  {{ groupe('École doctorale / Faculté', 'sous_entite', facettes.sous_entites) }}
+  {{ groupe('École doctorale / Faculté', 'sous_entite', facettes.sous_entites, 'school') }}
 {% endif %}
 
-{{ groupe('Type', 'type', facettes.types,
+{{ groupe('Type', 'type', facettes.types, 'certificate',
           {'these': 'Thèse de doctorat', 'memoire': 'Mémoire de master'}) }}
 
-{{ groupe('Statut', 'statut', facettes.statuts,
+{{ groupe('Statut', 'statut', facettes.statuts, 'circle-check',
           {'soutenu': 'Soutenu', 'en_preparation': 'En préparation'}) }}
 
-{{ groupe('Domaine', 'domaine', facettes.domaines) }}
-{{ groupe('Année', 'annee', facettes.annees) }}
-{{ groupe('Langue', 'langue', facettes.langues) }}
+{{ groupe('Domaine', 'domaine', facettes.domaines, 'tag') }}
+{{ groupe('Année', 'annee', facettes.annees, 'calendar') }}
+{{ groupe('Langue', 'langue', facettes.langues, 'language') }}
 
 {% if not facettes.etablissements and not facettes.types %}
 <p class="facettes__vide">
