@@ -67,4 +67,80 @@
     </button>
   </div>
 </form>
+
+<form method="post" action="/admin/parametres/smtp" style="margin-top:1rem;">
+  <div class="card card--lg">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-mail" style="color:var(--primary);"></i> Serveur d'envoi d'emails (SMTP)
+    </h3>
+    <div class="alert alert--warning" style="margin-bottom:1.25rem;">
+      <i class="ti ti-info-circle"></i>
+      Requis pour l'envoi des liens de réinitialisation de mot de passe.
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="form-group">
+        <label class="form-label">Serveur SMTP</label>
+        <input type="text" name="smtp_host" class="form-control"
+               value="{{ params.smtp_host or '' }}"
+               placeholder="smtp.gmail.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Port</label>
+        <select name="smtp_port" class="form-control">
+          <option value="587" {{ 'selected' if params.smtp_port == '587' else '' }}>587 (TLS — recommandé)</option>
+          <option value="465" {{ 'selected' if params.smtp_port == '465' else '' }}>465 (SSL)</option>
+          <option value="25"  {{ 'selected' if params.smtp_port == '25'  else '' }}>25 (non sécurisé)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email expéditeur</label>
+        <input type="email" name="smtp_user" class="form-control"
+               value="{{ params.smtp_user or '' }}"
+               placeholder="noreply@institution.sn">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe</label>
+        <input type="password" name="smtp_password" class="form-control"
+               value="{{ params.smtp_password or '' }}"
+               placeholder="Mot de passe ou clé d'application">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Nom affiché</label>
+        <input type="text" name="smtp_from_name" class="form-control"
+               value="{{ params.smtp_from_name or params.nom_outil }}"
+               placeholder="ScholarSync">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email expéditeur affiché</label>
+        <input type="email" name="smtp_from_email" class="form-control"
+               value="{{ params.smtp_from_email or '' }}"
+               placeholder="noreply@institution.sn">
+      </div>
+    </div>
+    <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:.5rem;">
+      <button type="button" onclick="testerSMTP()" class="btn btn--outline">
+        <i class="ti ti-plug-connected"></i> Tester la connexion
+      </button>
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-check"></i> Enregistrer SMTP
+      </button>
+    </div>
+  </div>
+</form>
+
+<div id="smtpResult" style="display:none;margin-top:.75rem;"></div>
+{% block extra_js %}
+<script>
+async function testerSMTP() {
+  document.getElementById('smtpResult').style.display = 'none';
+  const res = await fetch('/admin/parametres/smtp/tester', { method: 'POST' });
+  const data = await res.json();
+  const el = document.getElementById('smtpResult');
+  el.style.display = 'block';
+  el.innerHTML = `<div class="alert alert--${data.ok ? 'success' : 'danger'}">
+    <i class="ti ti-${data.ok ? 'check' : 'alert-circle'}"></i> ${data.message}
+  </div>`;
+}
+</script>
+{% endblock %}
 {% endblock %}

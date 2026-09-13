@@ -1,7 +1,3 @@
-"""
-ScholarSync — Moteur de synchronisation Zotero
-Moissonne les groupes Zotero configurés et indexe les documents
-"""
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pyzotero import zotero
@@ -12,49 +8,76 @@ import logging
 logger = logging.getLogger(__name__)
 
 TAGS_STATUTS = {"statut: soutenu": "soutenu", "statut: en_preparation": "en_preparation"}
-DOMAINES_CAMES = {
-    "sciences naturelles et agronomie", "lettres et sciences humaines",
-    "sciences et techniques de l'ingénieur", "sciences juridiques et politiques",
-    "sciences économiques et gestion", "sciences de la santé",
-    "sciences de l'éducation", "sciences et technologies de l'information",
-}
 
 def extraire_tags(item_tags: list) -> dict:
-    """Extrait statut et domaine depuis les tags Zotero."""
     result = {"statut": None, "domaine": None}
     for tag_obj in item_tags:
         tag = tag_obj.get("tag", "").lower().strip()
         if tag in TAGS_STATUTS:
             result["statut"] = TAGS_STATUTS[tag]
         elif tag.startswith("domaine:"):
-            domaine = tag.replace("domaine:", "").strip().title()
-            result["domaine"] = domaine
-        elif tag.lower() in DOMAINES_CAMES:
-            result["domaine"] = tag.title()
+            result["domaine"] = tag.replace("domaine:", "").strip().title()
     return result
 
-def determiner_type_et_sous_entite(collection_path: list) -> dict:
+def construire_arbre_collections(collections: list) -> dict:
+    """Retourne un dict key -> {name, parent} et un dict key -> children"""
+    tree = {}
+    for c in collections:
+        key = c["key"]
+        tree[key] = {
+            "name": c["data"]["name"],
+            "parent": c["data"].get("parentCollection") or None
+        }
+    return tree
+
+def determiner_type_depuis_arbre(col_keys: list, tree: dict) -> dict:
     """
-    Déduit le type et la sous-entité depuis le chemin de collections Zotero.
-    Niveau 1 : Thèses | Mémoires → type
-    Niveau 2 : École doctorale / Faculté → sous_entite_nom
+    Remonte l'arbre des collections pour trouver Thèses ou Mémoires
+    au niveau racine, et récupère le nom de la sous-collection directe.
     """
     result = {"type": None, "sous_entite_nom": None, "sous_entite_type": None}
-    if not collection_path:
-        return result
-    niveau1 = collection_path[0].lower() if collection_path else ""
-    if "thèse" in niveau1 or "these" in niveau1 or "thèses" in niveau1:
-        result["type"] = "these"
-        result["sous_entite_type"] = "ecole_doctorale"
-    elif "mémoire" in niveau1 or "memoire" in niveau1:
-        result["type"] = "memoire"
-        result["sous_entite_type"] = "faculte"
-    if len(collection_path) >= 2:
-        result["sous_entite_nom"] = collection_path[1]
+
+    for col_key in col_keys:
+        if col_key not in tree:
+            continue
+
+        # Remonter jusqu'à la racine
+        current_key = col_key
+        path = []
+        visited = set()
+        while current_key and current_key not in visited:
+            visited.add(current_key)
+            node = tree.get(current_key)
+            if not node:
+                break
+            path.append((current_key, node["name"]))
+            current_key = node["parent"]
+
+        # path[0] = collection directe de l'item
+        # path[-1] = collection racine (Thèses ou Mémoires)
+        if not path:
+            continue
+
+        root_name = path[-1][1].lower()
+        if "thèse" in root_name or "these" in root_name:
+            result["type"] = "these"
+            result["sous_entite_type"] = "ecole_doctorale"
+        elif "mémoire" in root_name or "memoire" in root_name:
+            result["type"] = "memoire"
+            result["sous_entite_type"] = "faculte"
+
+        # Sous-entité = collection juste en dessous de la racine
+        if len(path) >= 2:
+            result["sous_entite_nom"] = path[-2][1]
+        elif len(path) == 1 and result["type"]:
+            result["sous_entite_nom"] = path[0][1]
+
+        if result["type"]:
+            break
+
     return result
 
 async def sync_source(db: Session, source: ZoteroSource):
-    """Synchronise une source Zotero unique."""
     log = SyncLog(
         zotero_source_id=source.id,
         declenchement="auto",
@@ -67,30 +90,27 @@ async def sync_source(db: Session, source: ZoteroSource):
     try:
         zot = zotero.Zotero(source.zotero_id, source.zotero_type, source.api_key)
         since = source.zotero_version or 0
-        items = zot.everything(zot.items(since=since, itemType="thesis || book"))
 
-        # Charger les collections une fois
-        collections = {}
-        try:
-            for col in zot.everything(zot.collections()):
-                collections[col["key"]] = col["data"]["name"]
-        except:
-            pass
+        # Charger toutes les collections
+        raw_cols = zot.everything(zot.collections())
+        tree = construire_arbre_collections(raw_cols)
+
+        # Charger tous les items
+        items = zot.everything(zot.items(since=since))
 
         added = modified = errors = 0
 
         for item in items:
             try:
                 data = item.get("data", {})
-                if data.get("itemType") not in ("thesis", "book", "document"):
+                if data.get("itemType") not in ("thesis", "book", "document", "journalArticle", "report"):
                     continue
 
-                # Chemin de collection
                 col_keys = data.get("collections", [])
-                col_path = [collections.get(k, "") for k in col_keys if k in collections]
+                type_info = determiner_type_depuis_arbre(col_keys, tree)
 
-                type_info = determiner_type_et_sous_entite(col_path)
                 if not type_info["type"]:
+                    logger.info(f"Item ignoré (pas de type détecté): {data.get('title','')[:40]}")
                     continue
 
                 tag_info = extraire_tags(data.get("tags", []))
@@ -101,7 +121,7 @@ async def sync_source(db: Session, source: ZoteroSource):
                 annee = None
                 if date_str:
                     try:
-                        annee = int(date_str[:4])
+                        annee = int(str(date_str)[:4])
                     except:
                         pass
                 annee = annee or datetime.now().year
@@ -109,19 +129,17 @@ async def sync_source(db: Session, source: ZoteroSource):
                 # Auteur
                 creators = data.get("creators", [])
                 auteur = ""
+                directeur = ""
                 for c in creators:
-                    if c.get("creatorType") == "author":
-                        auteur = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
-                        break
+                    role = c.get("creatorType", "")
+                    nom = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
+                    if role == "author" and not auteur:
+                        auteur = nom
+                    elif role in ("contributor", "editor", "seriesEditor") and not directeur:
+                        directeur = nom
                 if not auteur and creators:
                     c = creators[0]
                     auteur = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
-
-                directeur = ""
-                for c in creators:
-                    if c.get("creatorType") in ("contributor", "editor"):
-                        directeur = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
-                        break
 
                 zotero_key = data.get("key", "")
                 existing = db.query(Document).filter(Document.zotero_item_key == zotero_key).first()
@@ -160,7 +178,8 @@ async def sync_source(db: Session, source: ZoteroSource):
                         sous_entite_type=type_info["sous_entite_type"],
                         directeur=directeur,
                         resume=data.get("abstractNote"),
-                        mots_cles=[t["tag"] for t in data.get("tags", []) if not t["tag"].startswith("statut:") and not t["tag"].startswith("domaine:")],
+                        mots_cles=[t["tag"] for t in data.get("tags", [])
+                                   if not t["tag"].lower().startswith(("statut:", "domaine:"))],
                         url_document=data.get("url"),
                         zotero_source_id=source.id,
                         zotero_item_key=zotero_key,
@@ -174,10 +193,8 @@ async def sync_source(db: Session, source: ZoteroSource):
                 logger.error(f"Erreur item {item.get('key')}: {e}")
                 errors += 1
 
-        # Mettre à jour le cursor de version
         try:
-            new_version = zot.last_modified_version()
-            source.zotero_version = new_version
+            source.zotero_version = zot.last_modified_version()
         except:
             pass
 
@@ -198,7 +215,6 @@ async def sync_source(db: Session, source: ZoteroSource):
         logger.error(f"Sync échouée pour source {source.id}: {e}")
 
 async def sync_all(db: Session):
-    """Lance la synchronisation de toutes les sources actives."""
     sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).all()
     for source in sources:
         await sync_source(db, source)

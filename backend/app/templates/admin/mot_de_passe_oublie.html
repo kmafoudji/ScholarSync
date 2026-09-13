@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mot de passe oublié — {{ params.nom_outil }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>:root{--primary:{{ params.couleur_principale }};--secondary:{{ params.couleur_secondaire }};--primary-light:color-mix(in srgb,{{ params.couleur_principale }} 12%,white);}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}</style>
+</head>
+<body>
+<div style="width:100%;max-width:420px;padding:1.5rem;">
+  <div style="text-align:center;margin-bottom:2rem;">
+    <div style="width:56px;height:56px;background:var(--primary-light);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+      <i class="ti ti-lock-open" style="font-size:24px;color:var(--primary);"></i>
+    </div>
+    <h2 style="font-size:1.375rem;font-weight:700;margin-bottom:.375rem;">Mot de passe oublié</h2>
+    <p style="font-size:.875rem;color:var(--text-2);">Entrez votre email pour recevoir un lien de réinitialisation</p>
+  </div>
+  {% if message %}<div class="alert alert--success" style="margin-bottom:1.25rem;"><i class="ti ti-check"></i> {{ message }}</div>{% endif %}
+  {% if erreur %}<div class="alert alert--danger" style="margin-bottom:1.25rem;"><i class="ti ti-alert-circle"></i> {{ erreur }}</div>{% endif %}
+  {% if not message %}
+  <div class="card card--lg">
+    <form method="post" action="/admin/mot-de-passe-oublie">
+      <div class="form-group">
+        <label class="form-label">Adresse email</label>
+        <div style="position:relative;">
+          <i class="ti ti-mail" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:16px;"></i>
+          <input type="email" name="email" class="form-control" style="padding-left:2.25rem;" placeholder="votre@email.com" required autofocus>
+        </div>
+      </div>
+      <button type="submit" class="btn btn--primary" style="width:100%;justify-content:center;">
+        <i class="ti ti-send"></i> Envoyer le lien
+      </button>
+    </form>
+  </div>
+  {% endif %}
+  <div style="text-align:center;margin-top:1.5rem;">
+    <a href="/admin/connexion" style="font-size:.8rem;color:var(--text-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+      <i class="ti ti-arrow-left" style="font-size:13px;"></i> Retour à la connexion
+    </a>
+  </div>
+</div>
+</body>
+</html>

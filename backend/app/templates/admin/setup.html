@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuration initiale — {{ params.nom_outil }}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="/static/css/main.css">
+  <style>:root{--primary:{{ params.couleur_principale }};--secondary:{{ params.couleur_secondaire }};--primary-light:color-mix(in srgb,{{ params.couleur_principale }} 12%,white);}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}</style>
+</head>
+<body>
+<div style="width:100%;max-width:460px;padding:1.5rem;">
+  <div style="text-align:center;margin-bottom:2rem;">
+    <div style="width:64px;height:64px;background:var(--primary);border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+      <i class="ti ti-settings" style="font-size:28px;color:#fff;"></i>
+    </div>
+    <h2 style="font-size:1.375rem;font-weight:700;margin-bottom:.375rem;">Configuration initiale</h2>
+    <p style="font-size:.875rem;color:var(--text-2);">Créez le premier compte administrateur de {{ params.nom_outil }}</p>
+  </div>
+  {% if erreur %}<div class="alert alert--danger" style="margin-bottom:1.25rem;"><i class="ti ti-alert-circle"></i> {{ erreur }}</div>{% endif %}
+  <div class="card card--lg">
+    <form method="post" action="/admin/setup">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+        <div class="form-group"><label class="form-label">Prénom</label><input type="text" name="prenom" class="form-control" placeholder="Prénom"></div>
+        <div class="form-group"><label class="form-label">Nom</label><input type="text" name="nom" class="form-control" placeholder="Nom"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email <span class="required">*</span></label>
+        <input type="email" name="email" class="form-control" placeholder="admin@institution.sn" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mot de passe <span class="required">*</span></label>
+        <input type="password" name="password" id="pw1" class="form-control" placeholder="Minimum 8 caractères" required minlength="8">
+        <div class="form-hint">Choisissez un mot de passe fort</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirmer le mot de passe <span class="required">*</span></label>
+        <input type="password" name="password2" id="pw2" class="form-control" placeholder="Répétez le mot de passe" required minlength="8">
+        <div id="matchError" style="display:none;font-size:.78rem;color:var(--danger);margin-top:.25rem;">Les mots de passe ne correspondent pas</div>
+      </div>
+      <button type="submit" class="btn btn--primary" style="width:100%;justify-content:center;padding:.75rem;">
+        <i class="ti ti-check"></i> Créer le compte administrateur
+      </button>
+    </form>
+  </div>
+</div>
+<script>
+document.querySelector('form').addEventListener('submit', e => {
+  const pw1 = document.getElementById('pw1').value;
+  const pw2 = document.getElementById('pw2').value;
+  if (pw1 !== pw2) {
+    e.preventDefault();
+    document.getElementById('matchError').style.display = 'block';
+    document.getElementById('pw2').focus();
+  }
+});
+document.getElementById('pw2').addEventListener('input', () => {
+  document.getElementById('matchError').style.display = 'none';
+});
+</script>
+</body>
+</html>

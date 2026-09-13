@@ -884,7 +884,8 @@ async def admin_mdp_oublie_post(
     if user:
         token = create_token({"sub": user.email, "type": "reset"}, expires_minutes=60)
         reset_url = f"{request.base_url}admin/reset-password?token={token}"
-        print(f"[RESET] Lien pour {email}: {reset_url}")
+        from app.core.auth import send_reset_email
+        send_reset_email(user.email, reset_url, params)
     return templates.TemplateResponse("admin/mot_de_passe_oublie.html", {
         "request": request, "params": params, "message": message, "erreur": None,
     })
@@ -953,3 +954,46 @@ async def admin_setup_post(
     db.add(user)
     db.commit()
     return RedirectResponse("/admin/connexion?message=Compte+créé", status_code=303)
+
+@app.post("/admin/parametres/smtp")
+async def admin_smtp_save(
+    db: Session = Depends(get_db),
+    smtp_host: str = Form(""), smtp_port: str = Form("587"),
+    smtp_user: str = Form(""), smtp_password: str = Form(""),
+    smtp_from_name: str = Form(""), smtp_from_email: str = Form("")
+):
+    updates = {
+        "smtp_host": smtp_host, "smtp_port": smtp_port,
+        "smtp_user": smtp_user, "smtp_from_name": smtp_from_name,
+        "smtp_from_email": smtp_from_email,
+    }
+    if smtp_password:
+        updates["smtp_password"] = smtp_password
+    for cle, valeur in updates.items():
+        row = db.query(Parametre).filter(Parametre.cle == cle).first()
+        if row: row.valeur = valeur
+        else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
+    db.commit()
+    return RedirectResponse("/admin/parametres/general", status_code=303)
+
+@app.post("/admin/parametres/smtp/tester")
+async def admin_smtp_tester(db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    try:
+        import smtplib
+        from email.mime.text import MIMEText
+        host = params.get("smtp_host", "")
+        port = int(params.get("smtp_port", "587"))
+        user = params.get("smtp_user", "")
+        password = params.get("smtp_password", "")
+        if not host or not user:
+            return JSONResponse({"ok": False, "message": "Configurez d'abord le serveur SMTP"})
+        with smtplib.SMTP(host, port, timeout=10) as server:
+            server.ehlo()
+            if port == 587:
+                server.starttls()
+            if password:
+                server.login(user, password)
+        return JSONResponse({"ok": True, "message": f"Connexion réussie à {host}:{port}"})
+    except Exception as e:
+        return JSONResponse({"ok": False, "message": f"Échec : {str(e)[:100]}"})
