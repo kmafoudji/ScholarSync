@@ -43,14 +43,17 @@
       <div class="fiche-resume">{{ doc.resume }}</div>
     </section>
     {% else %}
+    {# Note discrète plutôt qu'un grand bloc centré : sans résumé la
+       colonne est déjà vide, un état vide imposant ne ferait qu'en
+       souligner le vide. #}
     <section class="fiche-bloc">
-      <div class="state" style="padding:2.5rem 1rem;">
-        <i class="ti ti-file-text state__icon" aria-hidden="true"></i>
-        <div class="state__title">Pas de résumé</div>
-        <p class="state__text">
-          Ce document n'a pas de résumé dans la notice Zotero d'origine.
-        </p>
-      </div>
+      <h2 class="fiche-bloc__titre">Résumé</h2>
+      <p class="fiche-absent">
+        <i class="ti ti-file-text" aria-hidden="true"></i>
+        Aucun résumé dans la notice Zotero d'origine. Ajoutez-le au champ
+        « Résumé » de l'entrée Zotero : il apparaîtra à la prochaine
+        synchronisation.
+      </p>
     </section>
     {% endif %}
 

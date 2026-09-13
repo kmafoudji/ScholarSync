@@ -1758,7 +1758,12 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   line-height: 1.22;
   color: #fff;
   margin-bottom: .875rem;
-  max-width: 30ch;
+  /* 30ch ne donnait que 26 signes par ligne : le titre occupait 540 px
+     dans un bandeau de 1180, et un titre long grimpait à sept lignes.
+     56ch tient 48 signes par ligne — dans la fourchette de confort pour
+     un titre, qui se parcourt au lieu de se lire au long — et ramène le
+     pire cas du catalogue (212 signes) de sept lignes à quatre. */
+  max-width: 56ch;
   text-wrap: pretty;
   overflow-wrap: anywhere;
 }
@@ -1942,3 +1947,20 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
 .fiche-voisins a:hover { color: var(--primary); }
 .fiche-voisins a .ti { color: var(--text-3); flex-shrink: 0; }
 .fiche-voisins a:hover .ti { color: var(--primary); }
+
+/* Absence de contenu dans une fiche : une note posée dans le flux, pas
+   un bloc centré — la colonne étant déjà vide, un grand état vide ne
+   ferait qu'en souligner le vide. */
+.fiche-absent {
+  display: flex;
+  align-items: flex-start;
+  gap: .625rem;
+  max-width: 60ch;
+  font-size: var(--fs-xs);
+  line-height: 1.65;
+  color: var(--text-2);
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: .875rem 1rem;
+}
+.fiche-absent .ti { color: var(--text-3); font-size: 18px; flex-shrink: 0; }
