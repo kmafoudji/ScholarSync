@@ -1,118 +1,197 @@
 {% extends "public/base.html" %}
 {% block title %}{{ doc.titre[:60] }} — {{ params.nom_outil }}{% endblock %}
+{% block description %}{{ doc.resume[:160] if doc.resume else doc.titre }}{% endblock %}
 
 {% block content %}
-<div style="background:var(--primary);padding:1.5rem 0 0;">
-  <div class="container-sm">
-    <a href="javascript:history.back()" style="color:rgba(255,255,255,.65);font-size:var(--fs-sm);text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;">
-      <i class="ti ti-arrow-left"></i> Retour aux résultats
+
+{# ── Bandeau de tête ─────────────────────────────────────────── #}
+<header class="fiche-tete">
+  <div class="fiche-tete__inner">
+    <a href="/recherche" class="fiche-retour">
+      <i class="ti ti-arrow-left" aria-hidden="true"></i> Retour aux résultats
     </a>
-    <div style="display:flex;align-items:flex-start;gap:1rem;padding-bottom:1.5rem;">
-      <div style="flex:1;">
-        <div style="display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;">
-          <span class="badge badge--{{ doc.type }}">{{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}</span>
-          <span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}</span>
-          {% if doc.langue %}<span class="badge" style="background:rgba(255,255,255,.15);color:rgba(255,255,255,.9);">{{ doc.langue }}</span>{% endif %}
-        </div>
-        <h1 class="serif" style="color:#fff;font-size:1.5rem;line-height:1.35;margin-bottom:1rem;">{{ doc.titre }}</h1>
-        <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
-          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
-            <i class="ti ti-user"></i> {{ doc.auteur }}
-          </span>
-          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
-            <i class="ti ti-building-bank"></i> {{ doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}
-          </span>
-          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
-            <i class="ti ti-calendar"></i> {{ doc.annee }}
-          </span>
-        </div>
-      </div>
-    </div>
+
+    <p class="fiche-genre">
+      <span class="fiche-annee">{{ doc.annee }}</span>
+      <span class="fiche-sep" aria-hidden="true">·</span>
+      {{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}
+      {% if doc.statut != 'soutenu' %}
+      <span class="fiche-sep" aria-hidden="true">·</span> En préparation
+      {% endif %}
+      {% if doc.acces == 'restreint' %}
+      <span class="fiche-sep" aria-hidden="true">·</span>
+      <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
+      {% endif %}
+    </p>
+
+    <h1 class="fiche-titre">{{ doc.titre }}</h1>
+
+    <p class="fiche-auteur">{{ doc.auteur }}</p>
+    <p class="fiche-origine">
+      {{ doc.etablissement.nom if doc.etablissement else doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}
+    </p>
   </div>
-</div>
+</header>
 
-<div class="container-sm" style="padding-top:1.5rem;padding-bottom:2rem;">
-  <div style="display:grid;grid-template-columns:1fr 280px;gap:1.5rem;align-items:start;">
-    <div>
-      <!-- Résumé -->
-      {% if doc.resume %}
-      <div class="card card--lg" style="margin-bottom:1rem;">
-        <h2 style="font-size:var(--fs-base);margin-bottom:.875rem;">Résumé</h2>
-        <p style="color:var(--text-2);line-height:1.75;font-size:var(--fs-sm);">{{ doc.resume }}</p>
-      </div>
-      {% endif %}
+<div class="fiche">
 
-      <!-- Mots-clés -->
-      {% if doc.mots_cles %}
-      <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:var(--fs-sm);margin-bottom:.625rem;color:var(--text-2);">Mots-clés</h3>
-        <div style="display:flex;flex-wrap:wrap;gap:.375rem;">
-          {% for mc in doc.mots_cles %}
-          <a href="/recherche?q={{ mc }}" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:var(--fs-xs);color:var(--text-2);text-decoration:none;">
-            {{ mc }}
-          </a>
-          {% endfor %}
-        </div>
+  {# ── Colonne de lecture ──────────────────────────────────── #}
+  <article class="fiche-contenu">
+    {% if doc.resume %}
+    <section class="fiche-bloc">
+      <h2 class="fiche-bloc__titre">Résumé</h2>
+      <div class="fiche-resume">{{ doc.resume }}</div>
+    </section>
+    {% else %}
+    <section class="fiche-bloc">
+      <div class="state" style="padding:2.5rem 1rem;">
+        <i class="ti ti-file-text state__icon" aria-hidden="true"></i>
+        <div class="state__title">Pas de résumé</div>
+        <p class="state__text">
+          Ce document n'a pas de résumé dans la notice Zotero d'origine.
+        </p>
       </div>
-      {% endif %}
+    </section>
+    {% endif %}
 
-      <!-- Jury -->
-      {% if doc.jury %}
-      <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:var(--fs-sm);margin-bottom:.625rem;color:var(--text-2);">Jury</h3>
-        <p style="font-size:var(--fs-sm);color:var(--text-2);">{{ doc.jury }}</p>
-      </div>
+    {% if doc.mots_cles %}
+    <section class="fiche-bloc">
+      <h2 class="fiche-bloc__titre">Mots-clés</h2>
+      <ul class="fiche-motscles">
+        {% for mc in doc.mots_cles %}
+        <li><a href="/recherche?q={{ mc | urlencode }}">{{ mc }}</a></li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endif %}
+
+    {% if doc.jury %}
+    <section class="fiche-bloc">
+      <h2 class="fiche-bloc__titre">Jury</h2>
+      <p class="fiche-texte">{{ doc.jury }}</p>
+    </section>
+    {% endif %}
+  </article>
+
+  {# ── Colonne de référence ────────────────────────────────── #}
+  <aside class="fiche-cote">
+
+    <div class="fiche-acces">
+      {% if doc.acces == 'restreint' %}
+      <p class="fiche-acces__etat">
+        <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
+      </p>
+      <p class="fiche-acces__note">
+        Contactez {{ doc.etablissement.nom if doc.etablissement else doc.etablissement_code }}
+        pour consulter ce document.
+      </p>
+      {% elif doc.url_document %}
+      <a href="{{ doc.url_document }}" target="_blank" rel="noopener"
+         class="btn btn--primary fiche-acces__lien">
+        <i class="ti ti-external-link" aria-hidden="true"></i> Consulter le document
+      </a>
+      <p class="fiche-acces__note">Redirige vers le dépôt de l'établissement</p>
+      {% else %}
+      <p class="fiche-acces__etat fiche-acces__etat--absent">
+        <i class="ti ti-file-off" aria-hidden="true"></i> Non disponible en ligne
+      </p>
+      <p class="fiche-acces__note">
+        La notice est référencée, le texte intégral n'est pas encore déposé.
+      </p>
       {% endif %}
     </div>
 
-    <!-- Panneau latéral -->
-    <div>
-      <!-- Accès au document -->
-      <div class="card card--lg" style="margin-bottom:1rem;">
-        {% if doc.acces == 'restreint' %}
-        <div style="text-align:center;padding:.5rem 0;">
-          <i class="ti ti-lock" style="font-size:2rem;color:var(--text-3);display:block;margin-bottom:.5rem;"></i>
-          <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:.75rem;">Accès restreint</p>
-          <p style="font-size:var(--fs-xs);color:var(--text-3);">Contactez l'établissement pour accéder à ce document.</p>
-        </div>
-        {% elif doc.url_document %}
-        <a href="{{ doc.url_document }}" target="_blank" rel="noopener" class="btn btn--primary" style="width:100%;justify-content:center;">
-          <i class="ti ti-external-link"></i> Consulter le document
-        </a>
-        <p style="font-size:var(--fs-xs);color:var(--text-3);text-align:center;margin-top:.5rem;">Redirige vers le dépôt de l'établissement</p>
-        {% else %}
-        <p style="font-size:var(--fs-sm);color:var(--text-3);text-align:center;">Document non disponible en ligne</p>
-        {% endif %}
-      </div>
-
-      <!-- Métadonnées -->
-      <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:var(--fs-sm);font-weight:700;color:var(--text-2);margin-bottom:.875rem;text-transform:uppercase;letter-spacing:.04em;">Informations</h3>
-        <table style="width:100%;font-size:var(--fs-sm);">
-          {% if doc.directeur %}
-          <tr><td style="color:var(--text-3);padding:4px 0;width:40%;">Directeur</td><td style="color:var(--text);font-weight:500;">{{ doc.directeur }}</td></tr>
-          {% endif %}
-          <tr><td style="color:var(--text-3);padding:4px 0;">Type</td><td>{{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}</td></tr>
-          <tr><td style="color:var(--text-3);padding:4px 0;">Statut</td><td>{{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}</td></tr>
-          <tr><td style="color:var(--text-3);padding:4px 0;">Année</td><td>{{ doc.annee }}</td></tr>
-          <tr><td style="color:var(--text-3);padding:4px 0;">Langue</td><td>{{ doc.langue or '—' }}</td></tr>
-          {% if doc.domaine %}
-          <tr><td style="color:var(--text-3);padding:4px 0;">Domaine</td><td>{{ doc.domaine }}</td></tr>
-          {% endif %}
-          <tr><td style="color:var(--text-3);padding:4px 0;">Établissement</td><td>{{ doc.etablissement_code }}</td></tr>
-          {% if doc.sous_entite_nom %}
-          <tr><td style="color:var(--text-3);padding:4px 0;">{{ 'École doctorale' if doc.sous_entite_type == 'ecole_doctorale' else 'Faculté' }}</td><td>{{ doc.sous_entite_nom }}</td></tr>
-          {% endif %}
-        </table>
-      </div>
-
-      <!-- Numéro national -->
-      <div class="card" style="background:var(--bg);border-style:dashed;">
-        <div style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.375rem;">Numéro national</div>
-        <div style="font-family:monospace;font-size:var(--fs-sm);font-weight:600;color:var(--primary);letter-spacing:.05em;">{{ doc.numero_national }}</div>
-        <div style="font-size:var(--fs-2xs);color:var(--text-3);margin-top:.25rem;">Identifiant unique ScholarSync</div>
-      </div>
+    {# Le numéro national est l'identifiant officiel du dépôt : il mérite
+       sa place, pas une ligne de tableau parmi d'autres. #}
+    <div class="fiche-numero">
+      <span class="fiche-numero__libelle">Numéro national</span>
+      <span class="fiche-numero__valeur">{{ doc.numero_national }}</span>
+      <button type="button" class="fiche-numero__copier"
+              data-copier="{{ doc.numero_national }}">
+        <i class="ti ti-copy" aria-hidden="true"></i> Copier
+      </button>
     </div>
-  </div>
+
+    <div class="fiche-infos">
+      <h2 class="fiche-bloc__titre">Informations</h2>
+      <dl class="fiche-champs">
+        {% macro champ(icone, libelle, valeur) %}
+          {% if valeur %}
+          <div class="fiche-champ">
+            <dt><i class="ti ti-{{ icone }}" aria-hidden="true"></i> {{ libelle }}</dt>
+            <dd>{{ valeur }}</dd>
+          </div>
+          {% endif %}
+        {% endmacro %}
+
+        {{ champ('certificate', 'Type',
+                 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master') }}
+        {{ champ('circle-check', 'Statut',
+                 'Soutenu' if doc.statut == 'soutenu' else 'En préparation') }}
+        {{ champ('calendar', 'Année', doc.annee) }}
+        {{ champ('user-check', 'Direction', doc.directeur) }}
+        {{ champ('building-bank', 'Établissement',
+                 doc.etablissement.nom if doc.etablissement else doc.etablissement_code) }}
+        {{ champ('school',
+                 'École doctorale' if doc.sous_entite_type == 'ecole_doctorale' else 'Faculté',
+                 doc.sous_entite_nom) }}
+        {{ champ('tag', 'Domaine', doc.domaine) }}
+        {{ champ('language', 'Langue', doc.langue) }}
+      </dl>
+    </div>
+
+    <nav class="fiche-voisins" aria-label="Recherches liées">
+      <h2 class="fiche-bloc__titre">Explorer</h2>
+      <a href="/recherche?etablissement={{ doc.etablissement_code | urlencode }}">
+        <i class="ti ti-building-bank" aria-hidden="true"></i>
+        Tous les travaux de {{ doc.etablissement_code }}
+      </a>
+      {% if doc.sous_entite_nom %}
+      <a href="/recherche?sous_entite={{ doc.sous_entite_nom | urlencode }}&etablissement={{ doc.etablissement_code | urlencode }}">
+        <i class="ti ti-school" aria-hidden="true"></i>
+        {{ doc.sous_entite_nom }}
+      </a>
+      {% endif %}
+      <a href="/recherche?annee={{ doc.annee }}">
+        <i class="ti ti-calendar" aria-hidden="true"></i>
+        Travaux de {{ doc.annee }}
+      </a>
+    </nav>
+
+  </aside>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.querySelectorAll('[data-copier]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var valeur = b.getAttribute('data-copier');
+      var fini = function (ok) {
+        window.ScholarSync.toast(
+          ok ? 'Numéro national copié : ' + valeur
+             : 'Copie impossible — sélectionnez le numéro à la main.',
+          ok ? 'success' : 'warning'
+        );
+      };
+      // navigator.clipboard n'existe qu'en contexte sécurisé : sur une
+      // instance en HTTP simple, il faut un repli.
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(valeur).then(
+          function () { fini(true); }, function () { fini(false); });
+      } else {
+        var z = document.createElement('textarea');
+        z.value = valeur;
+        z.style.position = 'fixed';
+        z.style.opacity = '0';
+        document.body.appendChild(z);
+        z.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+        document.body.removeChild(z);
+        fini(ok);
+      }
+    });
+  });
+</script>
 {% endblock %}
