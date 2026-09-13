@@ -41,6 +41,7 @@
         catalogue.innerHTML = html;
         if (ajouterHistorique) history.pushState({ url: url }, '', url);
 
+        refleterEtatFiltres();
         var compte = catalogue.querySelector('.results-count');
         annoncer(compte ? compte.textContent.trim() : 'Résultats mis à jour.');
 
@@ -91,6 +92,27 @@
   window.addEventListener('popstate', function () {
     charger(window.location.pathname + window.location.search, false);
   });
+
+  /* Repli des facettes sur petit écran. L'état vit sur #catalogue, qui
+     survit au remplacement du contenu — le bouton, lui, est recréé à
+     chaque filtrage, d'où la délégation. */
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('#filtresBascule')) return;
+    var ouvert = catalogue.classList.toggle('filtres-ouverts');
+    var bouton = document.getElementById('filtresBascule');
+    if (bouton) bouton.setAttribute('aria-expanded', ouvert ? 'true' : 'false');
+  });
+
+  // Après un filtrage, refléter l'état sur le bouton fraîchement rendu
+  function refleterEtatFiltres() {
+    var bouton = document.getElementById('filtresBascule');
+    if (bouton) {
+      bouton.setAttribute(
+        'aria-expanded',
+        catalogue.classList.contains('filtres-ouverts') ? 'true' : 'false'
+      );
+    }
+  }
 
   // Zone d'annonce pour les lecteurs d'écran : sans elle, un changement
   // de résultats sans rechargement passe totalement inaperçu.

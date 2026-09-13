@@ -5,8 +5,8 @@
   </span>
   <label class="sr-only" for="tri">Trier les résultats</label>
   <select class="sort-select" id="tri" name="sort">
-    <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
     <option value="annee"  {{ 'selected' if sort == 'annee' }}>Année décroissante</option>
+    <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
     <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Année croissante</option>
     <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
   </select>
@@ -31,37 +31,51 @@
 {% endif %}
 
 {% if documents %}
+  {#
+    Traitement éditorial : l'année passe à gauche en gros chiffre et sert
+    de repère de lecture. Sur un catalogue trié par année, c'est elle qui
+    structure la liste — le lecteur se repère dessus avant même de lire
+    les titres.
+  #}
   {% for doc in documents %}
-  <a href="/document/{{ doc.id }}" class="doc-card">
-    <div class="doc-card__top">
-      <div class="doc-card__title">{{ doc.titre }}</div>
-      <div class="doc-card__badges">
-        <span class="badge badge--{{ doc.type }}">
-          {{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}
-        </span>
-        <span class="badge badge--{{ doc.statut }}">
-          {{ 'Soutenu' if doc.statut == 'soutenu' else 'En préparation' }}
-        </span>
+  <article class="notice">
+    <div class="notice__ancre">
+      <span class="notice__annee">{{ doc.annee }}</span>
+      <span class="notice__genre">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span>
+    </div>
+
+    <div class="notice__corps">
+      <h3 class="notice__titre">
+        <a href="/document/{{ doc.id }}">{{ doc.titre }}</a>
+      </h3>
+
+      <p class="notice__auteur">{{ doc.auteur }}</p>
+
+      <p class="notice__origine">
+        {{ doc.etablissement.nom if doc.etablissement else doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}
+      </p>
+
+      {% if doc.directeur or doc.domaine %}
+      <p class="notice__complement">
+        {%- if doc.directeur %}Sous la direction de {{ doc.directeur }}{% endif -%}
+        {%- if doc.directeur and doc.domaine %} · {% endif -%}
+        {%- if doc.domaine %}{{ doc.domaine }}{% endif -%}
+      </p>
+      {% endif %}
+
+      <p class="notice__pied">
+        <span class="notice__num">{{ doc.numero_national }}</span>
+        {% if doc.statut != 'soutenu' %}
+        <span class="notice__etat">En préparation</span>
+        {% endif %}
         {% if doc.acces == 'restreint' %}
-        <span class="badge badge--restreint">
-          <i class="ti ti-lock" style="font-size:var(--fs-2xs);"></i> Restreint
+        <span class="notice__etat notice__etat--restreint">
+          <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
         </span>
         {% endif %}
-      </div>
+      </p>
     </div>
-    <div class="doc-card__meta">
-      <span><i class="ti ti-user"></i> {{ doc.auteur }}</span>
-      <span><i class="ti ti-building-bank"></i> {{ doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}</span>
-      <span><i class="ti ti-calendar"></i> {{ doc.annee }}</span>
-      {% if doc.directeur %}
-      <span><i class="ti ti-user-circle"></i> Dir. {{ doc.directeur }}</span>
-      {% endif %}
-      {% if doc.domaine %}
-      <span><i class="ti ti-tag"></i> {{ doc.domaine }}</span>
-      {% endif %}
-    </div>
-    <div class="doc-card__num">{{ doc.numero_national }}</div>
-  </a>
+  </article>
   {% endfor %}
 
   <!-- Pagination -->

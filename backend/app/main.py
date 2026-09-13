@@ -445,21 +445,57 @@ async def sante(db: Session = Depends(get_db)):
 
 # ─── ROUTES PUBLIQUES ─────────────────────────────────────────────
 
+TRIS = {
+    "annee":  (Document.annee.desc(), Document.titre.asc()),
+    "ancien": (Document.annee.asc(), Document.titre.asc()),
+    "titre":  (Document.titre.asc(),),
+    "recent": (Document.created_at.desc(),),
+}
+
+TRI_DEFAUT = "annee"
+
+
+def contexte_catalogue(request: Request, db: Session, filtres: dict,
+                       sort: str, page: int) -> dict:
+    """
+    Contexte du catalogue, partagé par l'accueil et la recherche.
+
+    Les deux routes construisaient auparavant le même contexte chacune de
+    leur côté, avec un tri écrit en dur d'un côté seulement : toute
+    évolution devait être reportée deux fois, et l'accueil affichait déjà
+    un tri différent de celui annoncé par son propre sélecteur.
+    """
+    if sort not in TRIS:
+        sort = TRI_DEFAUT
+
+    query = appliquer_filtres(db.query(Document), filtres).order_by(*TRIS[sort])
+    docs, pagination = paginate(query, page)
+
+    return {
+        "request": request,
+        "params": get_params_with_defaults(db),
+        "stats": get_stats(db),
+        "facettes": get_facettes(db, filtres),
+        "documents": docs,
+        "pagination": pagination,
+        "current_filters": filtres,
+        "sort": sort,
+        "query_string": construire_query_string(filtres, sort),
+        "nb_filtres_actifs": sum(
+            len(v) for k, v in filtres.items() if k != "q"
+        ) + (1 if filtres.get("q") else 0),
+        "annees_recentes": [],
+        "active_nav": "accueil",
+        "lang": "fr",
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, db: Session = Depends(get_db)):
-    params = get_params_with_defaults(db)
-    stats = get_stats(db)
-    facettes = get_facettes(db)
-    docs, pagination = paginate(
-        db.query(Document).order_by(Document.created_at.desc()), 1
+    return templates.TemplateResponse(
+        "public/index.html",
+        contexte_catalogue(request, db, filtres={}, sort=TRI_DEFAUT, page=1),
     )
-    annees_recentes = [r[0] for r in db.query(Document.annee).distinct().order_by(Document.annee.desc()).limit(4).all()]
-    return templates.TemplateResponse("public/index.html", {
-        "request": request, "params": params, "stats": stats,
-        "facettes": facettes, "documents": docs, "pagination": pagination,
-        "current_filters": {}, "sort": "recent", "query_string": "",
-        "annees_recentes": annees_recentes, "active_nav": "accueil", "lang": "fr",
-    })
 
 @app.get("/recherche", response_class=HTMLResponse)
 async def recherche(
@@ -476,39 +512,17 @@ async def recherche(
     annee: List[str] = Query(default=[]),
     langue: List[str] = Query(default=[]),
     sous_entite: List[str] = Query(default=[]),
-    sort: str = "recent", page: int = 1,
+    # L'année est le repère de lecture de la liste : la trier par date
+    # d'ajout afficherait une colonne d'années dans le désordre.
+    sort: str = "annee", page: int = 1,
 ):
-    params = get_params_with_defaults(db)
     filtres = {k: v for k, v in {
         "q": q.strip(), "type": type, "statut": statut,
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
 
-    query = appliquer_filtres(db.query(Document), filtres)
-
-    if sort == "ancien":
-        query = query.order_by(Document.annee.asc(), Document.titre.asc())
-    elif sort == "titre":
-        query = query.order_by(Document.titre.asc())
-    elif sort == "annee":
-        query = query.order_by(Document.annee.desc(), Document.titre.asc())
-    else:
-        query = query.order_by(Document.created_at.desc())
-
-    docs, pagination = paginate(query, page)
-    facettes = get_facettes(db, filtres)
-
-    contexte = {
-        "request": request, "params": params, "stats": get_stats(db),
-        "facettes": facettes, "documents": docs, "pagination": pagination,
-        "current_filters": filtres, "sort": sort,
-        "query_string": construire_query_string(filtres, sort),
-        "nb_filtres_actifs": sum(
-            len(v) for k, v in filtres.items() if k != "q"
-        ) + (1 if filtres.get("q") else 0),
-        "annees_recentes": [], "active_nav": "accueil", "lang": "fr",
-    }
+    contexte = contexte_catalogue(request, db, filtres, sort, page)
 
     # Requête émise par le script de facettes : on ne renvoie que les
     # fragments qui changent, pas la page entière.

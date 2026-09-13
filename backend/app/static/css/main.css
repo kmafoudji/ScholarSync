@@ -374,9 +374,11 @@ h4 { font-size: var(--fs-md); }
 /* ── CATALOGUE ── */
 .catalogue {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  grid-template-columns: 260px minmax(0, 1fr);
   gap: 0;
   min-height: 60vh;
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
 /* ── SIDEBAR FACETTES ── */
@@ -539,15 +541,19 @@ h4 { font-size: var(--fs-md); }
 }
 
 /* ── RESULTS ── */
-.results { padding: 1.5rem; }
+.results { padding: 1.5rem 2rem 3rem; min-width: 0; }
+@media (max-width: 860px) { .results { padding: 1.25rem 1rem 2.5rem; } }
 .results-header {
   display: flex; align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1rem;
+  padding-bottom: .875rem;
+  border-bottom: 2px solid var(--text);
   gap: 1rem;
   flex-wrap: wrap;
 }
 .results-count { font-size: var(--fs-sm); color: var(--text-2); }
+.results-count strong { font-variant-numeric: tabular-nums; }
 .results-count strong { color: var(--text); font-weight: 600; }
 
 .sort-select {
@@ -561,37 +567,130 @@ h4 { font-size: var(--fs-md); }
   cursor: pointer;
 }
 
-/* ── DOC CARD ── */
-.doc-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1.125rem 1.25rem;
-  margin-bottom: .625rem;
-  transition: all .15s;
-  cursor: pointer;
-  text-decoration: none;
+/* ── NOTICE (traitement éditorial) ──────────────────────────────
+   L'année en gros chiffre à gauche est le repère de lecture : sur une
+   liste triée par année, c'est elle qui donne sa structure à la page.
+   Pas de carte ni d'ombre — l'air entre les notices et un filet fin
+   suffisent à les séparer, et le titre en serif porte la hiérarchie. */
+
+.notice {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 1.5rem;
+  padding: 1.75rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.notice:first-of-type { padding-top: .5rem; }
+.notice:last-of-type { border-bottom: none; }
+
+.notice__ancre { padding-top: .15rem; }
+.notice__annee {
   display: block;
-}
-.doc-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-sm);
-  transform: translateY(-1px);
-}
-.doc-card__top {
-  display: flex; align-items: flex-start;
-  justify-content: space-between;
-  gap: .75rem;
-  margin-bottom: .625rem;
-}
-.doc-card__title {
-  font-size: var(--fs-md);
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
   font-weight: 600;
-  color: var(--text);
-  line-height: 1.35;
+  line-height: 1;
+  color: var(--primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.01em;
 }
-.doc-card:hover .doc-card__title { color: var(--primary); }
-.doc-card__badges { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+.notice__genre {
+  display: block;
+  margin-top: .35rem;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+
+.notice__corps { min-width: 0; }
+
+.notice__titre {
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 .5rem;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.notice__titre a {
+  color: var(--text);
+  text-decoration: none;
+}
+.notice__titre a:hover {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.notice__auteur {
+  margin: 0 0 .125rem;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text);
+}
+.notice__origine {
+  margin: 0 0 .5rem;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  line-height: 1.45;
+}
+.notice__complement {
+  margin: 0 0 .5rem;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-style: italic;
+}
+
+.notice__pied {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  flex-wrap: wrap;
+}
+.notice__num {
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  letter-spacing: .02em;
+}
+.notice__etat {
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warning-bg);
+  color: var(--warning);
+  white-space: nowrap;
+}
+.notice__etat--restreint {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+.notice__etat .ti { font-size: 12px; }
+
+@media (max-width: 560px) {
+  .notice {
+    grid-template-columns: minmax(0, 1fr);
+    gap: .5rem;
+    padding: 1.25rem 0;
+  }
+  /* L'année reprend sa place dans le flux : en colonne unique, elle
+     gaspillerait une ligne entière pour quatre chiffres. */
+  .notice__ancre {
+    display: flex;
+    align-items: baseline;
+    gap: .625rem;
+    padding-top: 0;
+  }
+  .notice__annee { font-size: var(--fs-lg); }
+  .notice__genre { margin-top: 0; }
+  .notice__titre { font-size: var(--fs-md); }
+}
 
 .badge {
   font-size: var(--fs-2xs);
@@ -998,7 +1097,7 @@ tr:hover td { background: var(--bg); }
 
 @media (max-width: 1024px) {
   :root { --sidebar-w: 216px; }
-  .catalogue { grid-template-columns: 240px 1fr; gap: 1.5rem; }
+  .catalogue { grid-template-columns: 232px minmax(0, 1fr); }
   .entries { grid-template-columns: repeat(2, 1fr); }
   .stat-cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
@@ -1533,3 +1632,56 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   align-items: center;
 }
 .filter-chip:hover { text-decoration: none; }
+
+/* ── FACETTES REPLIABLES SUR PETIT ÉCRAN ────────────────────────
+   En colonne unique, la liste des critères repoussait le premier
+   document hors de l'écran : il fallait la parcourir entièrement avant
+   de voir un seul résultat. */
+.filtres-bascule { display: none; }
+
+@media (max-width: 860px) {
+  .filtres-bascule {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    width: 100%;
+    justify-content: center;
+    margin: 0 0 1rem;
+    padding: .75rem 1rem;
+    font: inherit;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--primary);
+    background: var(--surface);
+    border: 1.5px solid var(--primary);
+    border-radius: var(--radius);
+    cursor: pointer;
+  }
+  .filtres-bascule__compte {
+    background: var(--primary);
+    color: #fff;
+    border-radius: 999px;
+    min-width: 20px;
+    padding: 0 6px;
+    font-size: var(--fs-2xs);
+    line-height: 20px;
+  }
+
+  /* Repliée : hauteur nulle plutôt que display:none, pour que l'état
+     reste annonçable et que l'ouverture puisse s'animer. */
+  .facettes {
+    max-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+    transition: max-height .25s ease;
+  }
+  #catalogue.filtres-ouverts .facettes {
+    max-height: none;
+    overflow: visible;
+    padding-bottom: 1.5rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+}

@@ -2,6 +2,19 @@
    exactement ce qui change quand un filtre est posé. Les comptes de
    facettes évoluant avec les filtres, les deux doivent être renvoyés
    ensemble. #}
+
+{# Sur petit écran, les facettes sont repliées : sinon il faut faire
+   défiler toute la colonne de critères avant d'atteindre le premier
+   document. Le bouton est rendu dans le fragment pour survivre au
+   remplacement du contenu ; l'état ouvert/fermé vit sur #catalogue, qui
+   lui n'est pas remplacé. #}
+<button type="button" class="filtres-bascule" id="filtresBascule"
+        aria-controls="facettes" aria-expanded="false">
+  <i class="ti ti-adjustments-horizontal" aria-hidden="true"></i>
+  Affiner la recherche
+  {% if nb_filtres_actifs %}<span class="filtres-bascule__compte">{{ nb_filtres_actifs }}</span>{% endif %}
+</button>
+
 <aside class="facettes" id="facettes">
   {% include "public/components/facettes.html" %}
 </aside>
