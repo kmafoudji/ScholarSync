@@ -5,22 +5,26 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import Optional
-import json, os, math
+import json, os, math, logging
 from datetime import datetime
 
-from app.core.database import get_db, engine
+from app.core.database import get_db, engine, SessionLocal
 from app.core.config import settings
 from app.core.auth import (
     hash_password, verify_password, create_token, decode_token,
     get_current_user, require_auth, require_super_admin
 )
+from app.core import tasks
+from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as FLASH_COOKIE
+from app.core.schema import ensure_schema
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
 )
 
-# Créer les tables
+# Créer les tables, puis rattraper les colonnes ajoutées après coup
 Base.metadata.create_all(bind=engine)
+ensure_schema(engine)
 
 app = FastAPI(title="ScholarSync", docs_url="/api/docs")
 
@@ -44,13 +48,39 @@ class AdminAuthMiddleware(BaseHTTPMiddleware):
                 return StarletteRedirect("/admin/connexion")
         return await call_next(request)
 
+class FlashMiddleware(BaseHTTPMiddleware):
+    """Lit le message flash, le rend disponible au template, puis l'efface."""
+    async def dispatch(self, request, call_next):
+        request.state.flash = read_flash(request)
+        response = await call_next(request)
+        # Effacer seulement si le message vient d'être consommé et qu'aucune
+        # nouvelle notification n'a été posée par la route courante.
+        if request.state.flash and FLASH_COOKIE not in response.headers.get("set-cookie", ""):
+            response.delete_cookie(FLASH_COOKIE, path="/")
+        return response
+
+
+app.add_middleware(FlashMiddleware)
 app.add_middleware(AdminAuthMiddleware)
 
 # Fichiers statiques
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# Templates
-templates = Jinja2Templates(directory="app/templates")
+
+# ─── Templates ────────────────────────────────────────────────────
+def flash_context(request: Request) -> dict:
+    """Injecte la notification et l'état de sync dans TOUS les templates."""
+    flash = getattr(request.state, "flash", None)
+    return {
+        "flash_message": flash["message"] if flash else None,
+        "flash_type": flash["type"] if flash else None,
+        "sync_en_cours": any(k.startswith("sync") for k in tasks.running_keys()),
+    }
+
+
+templates = Jinja2Templates(
+    directory="app/templates", context_processors=[flash_context]
+)
 
 # ─── Filtres Jinja2 ───────────────────────────────────────────────
 import json as _json
@@ -390,21 +420,41 @@ async def admin_zotero_ajouter(
     etablissement_id: int = Form(...), zotero_type: str = Form(...),
     zotero_id: str = Form(...), api_key: str = Form(...), label: str = Form("")
 ):
-    source = ZoteroSource(
+    etab = db.query(Etablissement).filter(Etablissement.id == etablissement_id).first()
+    if not etab:
+        return redirect_flash("/admin/zotero", "Établissement introuvable.", "danger")
+    if db.query(ZoteroSource).filter(
+        ZoteroSource.etablissement_id == etablissement_id
+    ).first():
+        return redirect_flash(
+            "/admin/zotero",
+            f"{etab.code} possède déjà un compte Zotero. Modifiez-le ou supprimez-le d'abord.",
+            "warning",
+        )
+
+    db.add(ZoteroSource(
         etablissement_id=etablissement_id, zotero_type=zotero_type,
-        zotero_id=zotero_id, api_key=api_key, label=label or None
-    )
-    db.add(source)
-    db.commit()
-    return RedirectResponse("/admin/zotero", status_code=303)
+        zotero_id=zotero_id.strip(), api_key=api_key.strip(), label=label.strip() or None
+    ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash(
+            "/admin/zotero", "Enregistrement impossible : vérifiez les informations saisies.", "danger"
+        )
+    return redirect_flash("/admin/zotero", f"Compte Zotero ajouté pour {etab.code}.", "success")
 
 @app.post("/admin/zotero/{source_id}/toggle")
 async def admin_zotero_toggle(source_id: int, db: Session = Depends(get_db)):
     src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
-    if src:
-        src.actif = not src.actif
-        db.commit()
-    return RedirectResponse("/admin/zotero", status_code=303)
+    if not src:
+        return redirect_flash("/admin/zotero", "Source introuvable.", "danger")
+    src.actif = not src.actif
+    db.commit()
+    libelle = src.etablissement.code if src.etablissement else f"source {src.id}"
+    etat = "activé" if src.actif else "désactivé"
+    return redirect_flash("/admin/zotero", f"Compte {libelle} {etat}.", "success")
 
 @app.post("/admin/zotero/{source_id}/tester")
 async def admin_zotero_tester(source_id: int, db: Session = Depends(get_db)):
@@ -435,9 +485,70 @@ async def admin_zotero_tester_nouveau(
 @app.post("/admin/sync/lancer")
 async def admin_sync_lancer(db: Session = Depends(get_db)):
     from app.sync.engine import sync_all
-    import asyncio
-    asyncio.create_task(sync_all(db))
-    return RedirectResponse("/admin/sync", status_code=303)
+
+    nb_sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).count()  # noqa: E712
+    if not nb_sources:
+        return redirect_flash(
+            "/admin/sync",
+            "Aucune source Zotero active. Activez au moins un compte avant de synchroniser.",
+            "warning",
+        )
+
+    lance = tasks.run_in_background(sync_all, declenchement="manuel", key="sync")
+    if not lance:
+        return redirect_flash(
+            "/admin/sync", "Une synchronisation est déjà en cours.", "info"
+        )
+    return redirect_flash(
+        "/admin/sync",
+        f"Synchronisation lancée sur {nb_sources} source(s). "
+        "L'avancement s'affiche ci-dessous.",
+        "success",
+    )
+
+@app.get("/admin/sync/etat")
+async def admin_sync_etat(db: Session = Depends(get_db)):
+    """Avancement de la synchronisation, interrogé par le client toutes les 2 s."""
+    en_cours = any(k.startswith("sync") for k in tasks.running_keys())
+
+    log = (
+        db.query(SyncLog)
+        .filter(SyncLog.statut == "en_cours")
+        .order_by(SyncLog.debut.desc())
+        .first()
+    )
+    if log is None:
+        log = db.query(SyncLog).order_by(SyncLog.debut.desc()).first()
+
+    if log is None:
+        return JSONResponse({"en_cours": en_cours, "log": None})
+
+    total = log.documents_total or 0
+    traites = log.documents_traites or 0
+    source = (
+        db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
+    )
+
+    return JSONResponse({
+        "en_cours": en_cours,
+        "log": {
+            "id": log.id,
+            "statut": log.statut,
+            "etablissement": (
+                source.etablissement.code if source and source.etablissement else "—"
+            ),
+            "total": total,
+            "traites": traites,
+            "pourcentage": round(traites / total * 100) if total else 0,
+            "ajoutes": log.documents_ajoutes or 0,
+            "modifies": log.documents_modifies or 0,
+            "erreurs": log.documents_erreur or 0,
+            "message_erreur": log.message_erreur,
+            "debut": log.debut.isoformat() if log.debut else None,
+            "fin": log.fin.isoformat() if log.fin else None,
+        },
+    })
+
 
 @app.get("/admin/parametres/identite", response_class=HTMLResponse)
 async def admin_parametres_identite(request: Request, db: Session = Depends(get_db)):
@@ -478,7 +589,9 @@ async def admin_parametres_identite_save(
         else:
             db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
-    return RedirectResponse("/admin/parametres/identite", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/identite", "Identité visuelle enregistrée.", "success"
+    )
 
 @app.post("/admin/parametres/sync-intervalle")
 async def admin_sync_intervalle(minutes: int = Form(60), db: Session = Depends(get_db)):
@@ -488,7 +601,11 @@ async def admin_sync_intervalle(minutes: int = Form(60), db: Session = Depends(g
     else:
         db.add(Parametre(cle="sync_intervalle_min", valeur=str(minutes), type="text"))
     db.commit()
-    return RedirectResponse("/admin/zotero", status_code=303)
+    return redirect_flash(
+        "/admin/zotero",
+        f"Synchronisation automatique programmée toutes les {minutes} minutes.",
+        "success",
+    )
 
 @app.get("/admin/documents", response_class=HTMLResponse)
 async def admin_documents(
@@ -527,19 +644,40 @@ async def admin_etablissements_ajouter(
     code: str = Form(...), nom: str = Form(...), nom_court: str = Form(""),
     pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form("")
 ):
-    etab = Etablissement(code=code.upper(), nom=nom, nom_court=nom_court or None,
-                         pays=pays, ville=ville or None, url_site=url_site or None)
-    db.add(etab)
-    db.commit()
-    return RedirectResponse("/admin/etablissements", status_code=303)
+    code = code.strip().upper()
+    if not code or not nom.strip():
+        return redirect_flash(
+            "/admin/etablissements", "Le code et le nom sont obligatoires.", "danger"
+        )
+    if db.query(Etablissement).filter(Etablissement.code == code).first():
+        return redirect_flash(
+            "/admin/etablissements", f"Le code {code} est déjà utilisé.", "warning"
+        )
+
+    db.add(Etablissement(
+        code=code, nom=nom.strip(), nom_court=nom_court.strip() or None,
+        pays=pays, ville=ville.strip() or None, url_site=url_site.strip() or None,
+    ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash(
+            "/admin/etablissements", "Enregistrement impossible.", "danger"
+        )
+    return redirect_flash(
+        "/admin/etablissements", f"Établissement {code} ajouté.", "success"
+    )
 
 @app.post("/admin/etablissements/{etab_id}/toggle")
 async def admin_etablissements_toggle(etab_id: int, db: Session = Depends(get_db)):
     etab = db.query(Etablissement).filter(Etablissement.id == etab_id).first()
-    if etab:
-        etab.actif = not etab.actif
-        db.commit()
-    return RedirectResponse("/admin/etablissements", status_code=303)
+    if not etab:
+        return redirect_flash("/admin/etablissements", "Établissement introuvable.", "danger")
+    etab.actif = not etab.actif
+    db.commit()
+    etat = "activé" if etab.actif else "désactivé"
+    return redirect_flash("/admin/etablissements", f"{etab.code} {etat}.", "success")
 
 @app.get("/admin/sync", response_class=HTMLResponse)
 async def admin_sync(request: Request, db: Session = Depends(get_db)):
@@ -621,7 +759,9 @@ async def admin_parametres_contenu_save(
         if row: row.valeur = valeur
         else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
-    return RedirectResponse("/admin/parametres/contenu", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/contenu", "Contenu de la page À propos enregistré.", "success"
+    )
 
 @app.get("/admin/parametres/partenaires", response_class=HTMLResponse)
 async def admin_parametres_partenaires(request: Request, db: Session = Depends(get_db)):
@@ -642,27 +782,61 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
 @app.post("/admin/documents/{doc_id}/toggle-acces")
 async def admin_document_toggle_acces(doc_id: str, db: Session = Depends(get_db)):
     doc = db.query(Document).filter(Document.id == doc_id).first()
-    if doc:
-        doc.acces = "restreint" if doc.acces == "public" else "public"
-        db.commit()
-    return RedirectResponse("/admin/documents", status_code=303)
+    if not doc:
+        return redirect_flash("/admin/documents", "Document introuvable.", "danger")
+    doc.acces = "restreint" if doc.acces == "public" else "public"
+    db.commit()
+    return redirect_flash(
+        "/admin/documents",
+        f"« {doc.titre[:60]} » est désormais {doc.acces}.",
+        "success",
+    )
 
 @app.post("/admin/zotero/{source_id}/supprimer")
 async def admin_zotero_supprimer(source_id: int, db: Session = Depends(get_db)):
     src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
-    if src:
+    if not src:
+        return redirect_flash("/admin/zotero", "Source introuvable.", "danger")
+    libelle = src.etablissement.code if src.etablissement else f"source {src.id}"
+    try:
         db.delete(src)
         db.commit()
-    return RedirectResponse("/admin/zotero", status_code=303)
+    except Exception:
+        db.rollback()
+        return redirect_flash(
+            "/admin/zotero",
+            f"Suppression impossible : des documents sont encore rattachés à {libelle}.",
+            "danger",
+        )
+    return redirect_flash("/admin/zotero", f"Compte Zotero de {libelle} supprimé.", "success")
 
 @app.post("/admin/sync/lancer/{source_id}")
 async def admin_sync_lancer_source(source_id: int, db: Session = Depends(get_db)):
     from app.sync.engine import sync_source
-    import asyncio
+
     src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
-    if src:
-        asyncio.create_task(sync_source(db, src))
-    return RedirectResponse("/admin/sync", status_code=303)
+    if not src:
+        return redirect_flash("/admin/sync", "Source introuvable.", "danger")
+    if not src.actif:
+        return redirect_flash(
+            "/admin/sync",
+            "Cette source est désactivée. Réactivez-la avant de la synchroniser.",
+            "warning",
+        )
+
+    libelle = src.etablissement.code if src.etablissement else f"source {src.id}"
+
+    def _sync_une(db_bg, source_id: int):
+        source = db_bg.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
+        if source:
+            sync_source(db_bg, source, declenchement="manuel")
+
+    lance = tasks.run_in_background(_sync_une, src.id, key=f"sync:{src.id}")
+    if not lance:
+        return redirect_flash(
+            "/admin/sync", f"La synchronisation de {libelle} est déjà en cours.", "info"
+        )
+    return redirect_flash("/admin/sync", f"Synchronisation de {libelle} lancée.", "success")
 
 @app.post("/admin/acces/definir")
 async def admin_acces_definir(
@@ -678,15 +852,19 @@ async def admin_acces_definir(
     else:
         db.add(AccesException(niveau=niveau, reference=reference, acces=acces))
     db.commit()
-    return RedirectResponse("/admin/acces", status_code=303)
+    return redirect_flash(
+        "/admin/acces", f"Règle d'accès enregistrée pour « {reference} ».", "success"
+    )
 
 @app.post("/admin/acces/{ex_id}/supprimer")
 async def admin_acces_supprimer(ex_id: int, db: Session = Depends(get_db)):
     ex = db.query(AccesException).filter(AccesException.id == ex_id).first()
-    if ex:
-        db.delete(ex)
-        db.commit()
-    return RedirectResponse("/admin/acces", status_code=303)
+    if not ex:
+        return redirect_flash("/admin/acces", "Règle introuvable.", "danger")
+    reference = ex.reference
+    db.delete(ex)
+    db.commit()
+    return redirect_flash("/admin/acces", f"Règle sur « {reference} » supprimée.", "success")
 
 @app.get("/admin/exports/documents")
 async def admin_exports_documents(
@@ -771,7 +949,9 @@ async def admin_partenaires_ajouter(
     if row: row.valeur = json.dumps(partenaires)
     else: db.add(Parametre(cle="partenaires_json", valeur=json.dumps(partenaires), type="json"))
     db.commit()
-    return RedirectResponse("/admin/parametres/partenaires", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/partenaires", f"Partenaire « {nom} » ajouté.", "success"
+    )
 
 @app.post("/admin/parametres/partenaires/supprimer")
 async def admin_partenaires_supprimer(db: Session = Depends(get_db), nom: str = Form(...)):
@@ -782,7 +962,9 @@ async def admin_partenaires_supprimer(db: Session = Depends(get_db), nom: str = 
         partenaires = [p for p in partenaires if p["nom"] != nom]
         row.valeur = json.dumps(partenaires)
         db.commit()
-    return RedirectResponse("/admin/parametres/partenaires", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/partenaires", f"Partenaire « {nom} » retiré.", "success"
+    )
 
 @app.post("/admin/parametres/general")
 async def admin_parametres_general_save(
@@ -805,7 +987,9 @@ async def admin_parametres_general_save(
         if row: row.valeur = valeur
         else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
-    return RedirectResponse("/admin/parametres/general", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/general", "Paramètres généraux enregistrés.", "success"
+    )
 
 
 # ─── AUTH ─────────────────────────────────────────────────────────
@@ -974,7 +1158,9 @@ async def admin_smtp_save(
         if row: row.valeur = valeur
         else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
-    return RedirectResponse("/admin/parametres/general", status_code=303)
+    return redirect_flash(
+        "/admin/parametres/general", "Configuration SMTP enregistrée.", "success"
+    )
 
 @app.post("/admin/parametres/smtp/tester")
 async def admin_smtp_tester(db: Session = Depends(get_db)):
@@ -997,3 +1183,61 @@ async def admin_smtp_tester(db: Session = Depends(get_db)):
         return JSONResponse({"ok": True, "message": f"Connexion réussie à {host}:{port}"})
     except Exception as e:
         return JSONResponse({"ok": False, "message": f"Échec : {str(e)[:100]}"})
+
+
+# ─── PAGES D'ERREUR ───────────────────────────────────────────────
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+
+def _erreur_params() -> dict:
+    """Paramètres d'affichage, sans faire échouer la page d'erreur elle-même."""
+    db = SessionLocal()
+    try:
+        return get_params_with_defaults(db)
+    except Exception:
+        return {"nom_outil": "ScholarSync", "couleur_principale": "#1a3a5c",
+                "couleur_secondaire": "#8b1a2e", "logo_url": ""}
+    finally:
+        db.close()
+
+
+@app.exception_handler(StarletteHTTPException)
+async def handler_http(request: Request, exc: StarletteHTTPException):
+    if request.url.path.startswith(("/api/", "/admin/sync/etat")):
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
+
+    if exc.status_code == 404:
+        titre, message = "Page introuvable", (
+            "Cette adresse ne correspond à aucune page. "
+            "Le document a peut-être été retiré ou l'adresse mal recopiée."
+        )
+    elif exc.status_code == 403:
+        titre, message = "Accès refusé", (
+            "Vous n'avez pas les droits nécessaires pour consulter cette page."
+        )
+    else:
+        titre, message = "Une erreur est survenue", str(exc.detail or "")
+
+    return templates.TemplateResponse(
+        "erreur.html",
+        {"request": request, "params": _erreur_params(), "code": exc.status_code,
+         "titre": titre, "message": message},
+        status_code=exc.status_code,
+    )
+
+
+@app.exception_handler(Exception)
+async def handler_500(request: Request, exc: Exception):
+    logging.getLogger("scholarsync").exception(
+        "Erreur non gérée sur %s", request.url.path
+    )
+    if request.url.path.startswith("/api/"):
+        return JSONResponse({"detail": "Erreur interne"}, status_code=500)
+    return templates.TemplateResponse(
+        "erreur.html",
+        {"request": request, "params": _erreur_params(), "code": 500,
+         "titre": "Erreur interne",
+         "message": "Le serveur a rencontré un problème. L'incident a été enregistré."},
+        status_code=500,
+    )

@@ -77,12 +77,45 @@ def determiner_type_depuis_arbre(col_keys: list, tree: dict) -> dict:
 
     return result
 
-async def sync_source(db: Session, source: ZoteroSource):
+PROGRESS_EVERY = 25  # commit de l'avancement tous les N items
+
+
+def _extraire_annee(date_str) -> int:
+    if date_str:
+        try:
+            return int(str(date_str)[:4])
+        except (TypeError, ValueError):
+            pass
+    return datetime.now().year
+
+
+def _extraire_personnes(creators: list) -> tuple:
+    auteur = directeur = ""
+    for c in creators:
+        role = c.get("creatorType", "")
+        nom = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
+        if role == "author" and not auteur:
+            auteur = nom
+        elif role in ("contributor", "editor", "seriesEditor") and not directeur:
+            directeur = nom
+    if not auteur and creators:
+        c = creators[0]
+        auteur = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
+    return auteur, directeur
+
+
+def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") -> SyncLog:
+    """
+    Synchronise une source Zotero. Fonction bloquante : à lancer via
+    app.core.tasks.run_in_background, jamais directement dans une route.
+    """
     log = SyncLog(
         zotero_source_id=source.id,
-        declenchement="auto",
+        declenchement=declenchement,
         statut="en_cours",
-        debut=datetime.now()
+        debut=datetime.now(),
+        documents_total=0,
+        documents_traites=0,
     )
     db.add(log)
     db.commit()
@@ -91,58 +124,45 @@ async def sync_source(db: Session, source: ZoteroSource):
         zot = zotero.Zotero(source.zotero_id, source.zotero_type, source.api_key)
         since = source.zotero_version or 0
 
-        # Charger toutes les collections
         raw_cols = zot.everything(zot.collections())
         tree = construire_arbre_collections(raw_cols)
 
-        # Charger tous les items
         items = zot.everything(zot.items(since=since))
 
-        added = modified = errors = 0
+        log.documents_total = len(items)
+        db.commit()
 
-        for item in items:
+        added = modified = errors = 0
+        etab_code = source.etablissement.code
+
+        for index, item in enumerate(items, start=1):
             try:
                 data = item.get("data", {})
-                if data.get("itemType") not in ("thesis", "book", "document", "journalArticle", "report"):
+                if data.get("itemType") not in (
+                    "thesis", "book", "document", "journalArticle", "report"
+                ):
                     continue
 
                 col_keys = data.get("collections", [])
                 type_info = determiner_type_depuis_arbre(col_keys, tree)
-
                 if not type_info["type"]:
-                    logger.info(f"Item ignoré (pas de type détecté): {data.get('title','')[:40]}")
+                    logger.info(
+                        "Item ignoré (type non détecté) : %s",
+                        data.get("title", "")[:40],
+                    )
                     continue
 
                 tag_info = extraire_tags(data.get("tags", []))
                 statut = tag_info.get("statut") or "soutenu"
-
-                # Année
-                date_str = data.get("date", "")
-                annee = None
-                if date_str:
-                    try:
-                        annee = int(str(date_str)[:4])
-                    except:
-                        pass
-                annee = annee or datetime.now().year
-
-                # Auteur
-                creators = data.get("creators", [])
-                auteur = ""
-                directeur = ""
-                for c in creators:
-                    role = c.get("creatorType", "")
-                    nom = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
-                    if role == "author" and not auteur:
-                        auteur = nom
-                    elif role in ("contributor", "editor", "seriesEditor") and not directeur:
-                        directeur = nom
-                if not auteur and creators:
-                    c = creators[0]
-                    auteur = f"{c.get('lastName', '')} {c.get('firstName', '')}".strip()
+                annee = _extraire_annee(data.get("date", ""))
+                auteur, directeur = _extraire_personnes(data.get("creators", []))
 
                 zotero_key = data.get("key", "")
-                existing = db.query(Document).filter(Document.zotero_item_key == zotero_key).first()
+                existing = (
+                    db.query(Document)
+                    .filter(Document.zotero_item_key == zotero_key)
+                    .first()
+                )
 
                 if existing:
                     existing.titre = data.get("title", existing.titre)
@@ -153,18 +173,20 @@ async def sync_source(db: Session, source: ZoteroSource):
                     existing.directeur = directeur or existing.directeur
                     existing.resume = data.get("abstractNote") or existing.resume
                     existing.url_document = data.get("url") or existing.url_document
-                    existing.sous_entite_nom = type_info["sous_entite_nom"] or existing.sous_entite_nom
+                    existing.sous_entite_nom = (
+                        type_info["sous_entite_nom"] or existing.sous_entite_nom
+                    )
                     existing.synced_at = datetime.now()
                     modified += 1
                 else:
                     numero = generer_numero(
                         db,
-                        etablissement_code=source.etablissement.code,
+                        etablissement_code=etab_code,
                         type_doc=type_info["type"],
                         statut=statut,
-                        annee=annee
+                        annee=annee,
                     )
-                    doc = Document(
+                    db.add(Document(
                         numero_national=numero,
                         titre=data.get("title", "Sans titre"),
                         auteur=auteur or "Auteur inconnu",
@@ -173,48 +195,70 @@ async def sync_source(db: Session, source: ZoteroSource):
                         langue=data.get("language") or "français",
                         annee=annee,
                         domaine=tag_info.get("domaine"),
-                        etablissement_code=source.etablissement.code,
+                        etablissement_code=etab_code,
                         sous_entite_nom=type_info["sous_entite_nom"],
                         sous_entite_type=type_info["sous_entite_type"],
                         directeur=directeur,
                         resume=data.get("abstractNote"),
-                        mots_cles=[t["tag"] for t in data.get("tags", [])
-                                   if not t["tag"].lower().startswith(("statut:", "domaine:"))],
+                        mots_cles=[
+                            t["tag"] for t in data.get("tags", [])
+                            if not t["tag"].lower().startswith(("statut:", "domaine:"))
+                        ],
                         url_document=data.get("url"),
                         zotero_source_id=source.id,
                         zotero_item_key=zotero_key,
                         zotero_version=data.get("version"),
-                        synced_at=datetime.now()
-                    )
-                    db.add(doc)
+                        synced_at=datetime.now(),
+                    ))
                     added += 1
 
             except Exception as e:
-                logger.error(f"Erreur item {item.get('key')}: {e}")
+                # Un item fautif ne doit pas emporter toute la sync : on
+                # annule sa transaction et on passe au suivant.
+                logger.error("Erreur item %s : %s", item.get("key"), e)
+                db.rollback()
                 errors += 1
+
+            if index % PROGRESS_EVERY == 0:
+                log.documents_traites = index
+                log.documents_ajoutes = added
+                log.documents_modifies = modified
+                log.documents_erreur = errors
+                db.commit()
 
         try:
             source.zotero_version = zot.last_modified_version()
-        except:
-            pass
+        except Exception:
+            logger.warning("Version Zotero non récupérée pour la source %s", source.id)
 
         source.derniere_sync = datetime.now()
         log.statut = "succes"
         log.documents_ajoutes = added
         log.documents_modifies = modified
         log.documents_erreur = errors
+        log.documents_traites = len(items)
         log.fin = datetime.now()
         db.commit()
-        logger.info(f"Sync {source.etablissement.code}: +{added} modifiés:{modified} erreurs:{errors}")
+        logger.info(
+            "Sync %s : +%s modifiés:%s erreurs:%s", etab_code, added, modified, errors
+        )
 
     except Exception as e:
-        log.statut = "erreur"
-        log.message_erreur = str(e)[:500]
-        log.fin = datetime.now()
-        db.commit()
-        logger.error(f"Sync échouée pour source {source.id}: {e}")
+        logger.exception("Sync échouée pour la source %s", source.id)
+        db.rollback()
+        # Le rollback a pu détacher `log` : on le recharge avant d'écrire.
+        log = db.query(SyncLog).filter(SyncLog.id == log.id).first()
+        if log:
+            log.statut = "erreur"
+            log.message_erreur = str(e)[:500]
+            log.fin = datetime.now()
+            db.commit()
 
-async def sync_all(db: Session):
-    sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).all()
+    return log
+
+
+def sync_all(db: Session, declenchement: str = "auto") -> None:
+    sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).all()  # noqa: E712
+    logger.info("Sync globale : %s source(s) active(s)", len(sources))
     for source in sources:
-        await sync_source(db, source)
+        sync_source(db, source, declenchement=declenchement)

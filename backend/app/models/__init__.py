@@ -96,6 +96,8 @@ class SyncLog(Base):
     documents_ajoutes   = Column(Integer, default=0)
     documents_modifies  = Column(Integer, default=0)
     documents_erreur    = Column(Integer, default=0)
+    documents_total     = Column(Integer, default=0)
+    documents_traites   = Column(Integer, default=0)
     message_erreur      = Column(Text)
     debut               = Column(DateTime(timezone=True), server_default=func.now())
     fin                 = Column(DateTime(timezone=True))

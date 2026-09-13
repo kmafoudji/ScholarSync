@@ -1,0 +1,20 @@
+{% extends "public/base.html" %}
+{% block title %}{{ titre }} — {{ params.nom_outil }}{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="state state--page" role="alert">
+    <div class="state__code">{{ code }}</div>
+    <h1 class="state__title">{{ titre }}</h1>
+    <p class="state__text">{{ message }}</p>
+    <div class="state__actions">
+      <a href="/" class="btn btn--primary">
+        <i class="ti ti-home" aria-hidden="true"></i> Retour à l'accueil
+      </a>
+      <a href="/recherche" class="btn btn--ghost">
+        <i class="ti ti-search" aria-hidden="true"></i> Rechercher un document
+      </a>
+    </div>
+  </div>
+</div>
+{% endblock %}
