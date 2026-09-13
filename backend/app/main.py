@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Request, Depends, HTTPException, Form, UploadFile, File, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import Optional, List
-import json, os, math, logging
+import json, os, math, logging, re, io, csv
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 
@@ -19,6 +19,7 @@ from app.core import tasks
 from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as FLASH_COOKIE
 from app.core import schema as schema_bd
 from app.core import html_riche
+from app.core import citations
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -526,6 +527,9 @@ def url_maj(request: Request, **modifs) -> str:
 
 
 templates.env.globals["url_maj"] = url_maj
+# La limite affichée dans les formulaires doit être celle réellement
+# appliquée : deux valeurs qui divergent, c'est un refus incompris.
+templates.env.globals["max_logo_mo"] = settings.MAX_LOGO_SIZE_MB
 
 # ─── SANTÉ ────────────────────────────────────────────────────────
 @app.get("/sante")
@@ -656,6 +660,122 @@ async def recherche(
     return templates.TemplateResponse("public/index.html", contexte)
 
 
+# Plafond d'export public. Un catalogue national peut compter des
+# dizaines de milliers de notices ; sans borne, une adresse sans filtre
+# suffirait à mobiliser le serveur. Le plafond est annoncé dans le
+# fichier produit plutôt que silencieux.
+EXPORT_PUBLIC_MAX = 5000
+
+FORMATS_EXPORT_PUBLIC = {
+    "csv": ("text/csv", "csv"),
+    "bib": ("application/x-bibtex", "bib"),
+    "ris": ("application/x-research-info-systems", "ris"),
+}
+
+
+@app.get("/export")
+async def export_public(
+    request: Request, db: Session = Depends(get_db),
+    format: str = "csv",
+    q: str = "",
+    type: List[str] = Query(default=[]),
+    statut: List[str] = Query(default=[]),
+    etablissement: List[str] = Query(default=[]),
+    domaine: List[str] = Query(default=[]),
+    annee: List[str] = Query(default=[]),
+    langue: List[str] = Query(default=[]),
+    sous_entite: List[str] = Query(default=[]),
+    sort: str = "annee",
+):
+    """Exporte les résultats filtrés du catalogue public.
+
+    Les paramètres sont exactement ceux de /recherche : le bouton
+    d'export reprend la chaîne de requête affichée, si bien que le
+    fichier contient ce que le lecteur a sous les yeux — et pas autre
+    chose, ce qui serait la manière la plus sûre de le tromper.
+    """
+    if format not in FORMATS_EXPORT_PUBLIC:
+        raise HTTPException(status_code=404)
+    mime, extension = FORMATS_EXPORT_PUBLIC[format]
+
+    filtres = {k: v for k, v in {
+        "q": q.strip(), "type": type, "statut": statut,
+        "etablissement": etablissement, "domaine": domaine,
+        "annee": annee, "langue": langue, "sous_entite": sous_entite,
+    }.items() if v}
+
+    if sort not in TRIS:
+        sort = TRI_DEFAUT
+    requete = appliquer_filtres(db.query(Document), filtres).order_by(*TRIS[sort])
+    total = requete.count()
+    docs = requete.limit(EXPORT_PUBLIC_MAX).all()
+
+    noms_etabs = {
+        e.code: e.nom for e in db.query(Etablissement).all()
+    }
+    base = str(request.base_url).rstrip("/")
+    horodatage = datetime.now().strftime("%Y%m%d")
+    nom_fichier = f"catalogue-{horodatage}.{extension}"
+
+    if format == "csv":
+        tampon = io.StringIO()
+        # Le point-virgule et le BOM sont ce qu'attend Excel en locale
+        # française : sans eux, la feuille s'ouvre en une seule colonne
+        # et les accents ressortent en mojibake.
+        tampon.write("\ufeff")
+        graveur = csv.writer(tampon, delimiter=";", quoting=csv.QUOTE_MINIMAL)
+        graveur.writerow([
+            "Numero national", "Titre", "Auteur", "Type", "Statut", "Annee",
+            "Etablissement", "Ecole doctorale / Faculte", "Domaine", "Langue",
+            "Direction", "Mots-cles", "Acces", "URL du document", "URL de la notice",
+        ])
+        for d in docs:
+            graveur.writerow([
+                d.numero_national, d.titre, d.auteur,
+                "These de doctorat" if d.type == "these" else "Memoire de master",
+                "Soutenu" if d.statut == "soutenu" else "En preparation",
+                d.annee,
+                noms_etabs.get(d.etablissement_code, d.etablissement_code),
+                d.sous_entite_nom or "", d.domaine or "", d.langue or "",
+                d.directeur or "",
+                "; ".join(d.mots_cles) if d.mots_cles else "",
+                "Public" if d.acces == "public" else "Restreint",
+                d.url_document or "",
+                f"{base}/document/{d.id}",
+            ])
+        contenu = tampon.getvalue()
+    else:
+        rendre = citations.bibtex if format == "bib" else citations.ris
+        entete = (
+            f"% {total} notice(s) correspondent à cette recherche"
+            if format == "bib" else
+            f"TY  - GEN\nTI  - Export ScholarSync ({total} notices)\nER  - "
+        )
+        morceaux = []
+        if total > EXPORT_PUBLIC_MAX and format == "bib":
+            morceaux.append(
+                f"% Export limité aux {EXPORT_PUBLIC_MAX} premières notices "
+                f"sur {total}. Affinez les filtres pour un export complet.\n"
+            )
+        for d in docs:
+            morceaux.append(rendre(
+                d, noms_etabs.get(d.etablissement_code, d.etablissement_code), base
+            ))
+        contenu = "\n".join(morceaux)
+
+    return Response(
+        content=contenu,
+        media_type=f"{mime}; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{nom_fichier}"',
+            # Le lecteur doit pouvoir constater que son export est
+            # tronqué sans ouvrir le fichier.
+            "X-Total-Notices": str(total),
+            "X-Notices-Exportees": str(len(docs)),
+        },
+    )
+
+
 @app.get("/theses", response_class=HTMLResponse)
 async def theses(request: Request, db: Session = Depends(get_db), page: int = 1):
     return RedirectResponse(f"/recherche?type=these&page={page}", status_code=302)
@@ -670,10 +790,94 @@ async def detail_document(doc_id: str, request: Request, db: Session = Depends(g
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(status_code=404)
+    nom_etab = doc.etablissement.nom if doc.etablissement else doc.etablissement_code
     return templates.TemplateResponse("public/document.html", {
         "request": request, "params": params, "doc": doc,
+        "citation_apa": citations.apa(doc, nom_etab),
+        "voisins": documents_proches(db, doc),
         "active_nav": "", "lang": "fr",
     })
+
+
+def documents_proches(db: Session, doc, limite: int = 4):
+    """Travaux du même champ, pour prolonger la lecture.
+
+    La colonne de lecture d'une fiche se termine souvent après le résumé
+    et deux mots-clés, laissant la page à moitié vide — un catalogue qui
+    s'arrête là oblige à repartir par la recherche pour trouver le
+    travail voisin, qui est pourtant ce qu'on cherche ensuite.
+
+    La parenté se lit par cercles concentriques, du plus proche au plus
+    lointain : même école doctorale, puis même domaine, puis même
+    établissement. On s'arrête dès qu'on a de quoi remplir la liste,
+    sans jamais mélanger un travail sans rapport pour faire nombre.
+    """
+    trouves, vus = [], {doc.id}
+
+    cercles = []
+    if doc.sous_entite_nom:
+        cercles.append(Document.sous_entite_nom == doc.sous_entite_nom)
+    if doc.domaine:
+        cercles.append(Document.domaine == doc.domaine)
+    cercles.append(Document.etablissement_code == doc.etablissement_code)
+
+    for condition in cercles:
+        if len(trouves) >= limite:
+            break
+        lot = (
+            db.query(Document)
+            .filter(condition, Document.id.notin_(list(vus)))
+            # Les travaux récents d'abord : dans un catalogue vivant,
+            # c'est ce qui a le plus de chances d'intéresser.
+            .order_by(Document.annee.desc(), Document.created_at.desc())
+            .limit(limite - len(trouves))
+            .all()
+        )
+        for d in lot:
+            trouves.append(d)
+            vus.add(d.id)
+
+    return trouves
+
+
+FORMATS_CITATION = {
+    # extension : (fonction, type MIME)
+    "bib": (citations.bibtex, "application/x-bibtex"),
+    "ris": (citations.ris, "application/x-research-info-systems"),
+}
+
+
+@app.get("/document/{doc_id}/citation.{format}")
+async def citation_document(
+    doc_id: str, format: str, request: Request, db: Session = Depends(get_db)
+):
+    """Télécharge la notice au format demandé.
+
+    Le format vient de l'URL : il est confronté à une liste fermée, sans
+    quoi n'importe quelle chaîne atteindrait le nom du fichier proposé
+    au téléchargement.
+    """
+    entree = FORMATS_CITATION.get(format.lower())
+    if not entree:
+        raise HTTPException(status_code=404)
+
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        raise HTTPException(status_code=404)
+
+    rendre, mime = entree
+    nom_etab = doc.etablissement.nom if doc.etablissement else doc.etablissement_code
+    # L'URL publique de la notice entre dans le fichier : le lecteur qui
+    # importe la référence doit pouvoir revenir à la source.
+    base = str(request.base_url).rstrip("/")
+    contenu = rendre(doc, nom_etab, base)
+
+    nom = citations.nom_fichier(doc, format.lower())
+    return Response(
+        content=contenu,
+        media_type=f"{mime}; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{nom}"'},
+    )
 
 @app.get("/a-propos", response_class=HTMLResponse)
 async def apropos(request: Request, db: Session = Depends(get_db)):
@@ -970,8 +1174,23 @@ SIGNATURES_LOGO = {
 }
 
 
-async def enregistrer_logo(logo: UploadFile) -> dict:
-    """Valide puis enregistre le logo. Renvoie {"url": …} ou {"erreur": …}."""
+# Le nom de base du fichier vient du code d'établissement, donc d'une
+# saisie. Une valeur comme « ../../etc/cron.d/x » écrirait hors du
+# dossier des téléversements : on n'accepte qu'un jeu fermé de
+# caractères, et jamais un séparateur de chemin.
+MOTIF_BASE_LOGO = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
+
+
+async def enregistrer_logo(logo: UploadFile, base: str = "logo") -> dict:
+    """Valide puis enregistre un logo. Renvoie {"url": …} ou {"erreur": …}.
+
+    `base` nomme le fichier sans son extension : « logo » pour l'outil,
+    « etab-UCAD » pour un établissement. Les deux usages partagent le
+    même contrôle — format, taille, signature, script dans un SVG — pour
+    qu'une vérification ajoutée ici profite aux deux.
+    """
+    if not MOTIF_BASE_LOGO.match(base):
+        return {"erreur": "Nom de fichier refusé."}
     extension = EXTENSIONS_LOGO.get((logo.content_type or "").lower())
     if not extension:
         acceptes = ", ".join(sorted({e.upper() for e in EXTENSIONS_LOGO.values()}))
@@ -1003,7 +1222,7 @@ async def enregistrer_logo(logo: UploadFile) -> dict:
             return {"erreur": "Ce SVG contient du script : il a été refusé."}
 
     dossier = f"app/{settings.UPLOAD_DIR}"
-    chemin = f"{dossier}/logo.{extension}"
+    chemin = f"{dossier}/{base}.{extension}"
     try:
         os.makedirs(dossier, exist_ok=True)
         with open(chemin, "wb") as f:
@@ -1012,7 +1231,7 @@ async def enregistrer_logo(logo: UploadFile) -> dict:
         # resterait servi à côté du nouveau.
         for autre in set(EXTENSIONS_LOGO.values()) - {extension}:
             try:
-                os.remove(f"{dossier}/logo.{autre}")
+                os.remove(f"{dossier}/{base}.{autre}")
             except FileNotFoundError:
                 pass
     except PermissionError:
@@ -1030,7 +1249,8 @@ async def enregistrer_logo(logo: UploadFile) -> dict:
 
     # Paramètre anti-cache : sans lui le navigateur garde l'ancien logo,
     # l'URL étant identique d'un téléversement à l'autre.
-    return {"url": f"/static/img/uploads/logo.{extension}?v={int(datetime.now().timestamp())}"}
+    return {"url": (f"/static/img/uploads/{base}.{extension}"
+                    f"?v={int(datetime.now().timestamp())}")}
 
 
 @app.get("/admin/parametres/identite", response_class=HTMLResponse)
@@ -1168,25 +1388,53 @@ async def admin_etablissements(
         "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
+# Le code d'établissement nomme aussi son fichier de logo : il doit
+# rester un identifiant, pas une chaîne libre.
+MOTIF_CODE_ETAB = re.compile(r"^[A-Z0-9][A-Z0-9_-]{0,9}$")
+
+
 @app.post("/admin/etablissements/ajouter")
 async def admin_etablissements_ajouter(
     db: Session = Depends(get_db),
     code: str = Form(...), nom: str = Form(...), nom_court: str = Form(""),
-    pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form("")
+    pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form(""),
+    logo: UploadFile = File(None),
 ):
     code = code.strip().upper()
     if not code or not nom.strip():
         return redirect_flash(
             "/admin/etablissements", "Le code et le nom sont obligatoires.", "danger"
         )
+    if not MOTIF_CODE_ETAB.match(code):
+        return redirect_flash(
+            "/admin/etablissements",
+            "Le code ne peut contenir que des lettres, des chiffres, "
+            "un tiret ou un tiret bas (10 caractères au plus).",
+            "danger",
+        )
     if db.query(Etablissement).filter(Etablissement.code == code).first():
         return redirect_flash(
             "/admin/etablissements", f"Le code {code} est déjà utilisé.", "warning"
         )
 
+    # Le logo est enregistré avant la ligne en base : si le fichier est
+    # refusé, rien n'est créé et l'administrateur corrige d'un seul
+    # geste, plutôt que de retrouver un établissement à moitié saisi.
+    logo_url = None
+    if logo is not None and logo.filename:
+        resultat = await enregistrer_logo(logo, base=f"etab-{code}")
+        if "erreur" in resultat:
+            return redirect_flash(
+                "/admin/etablissements",
+                f"Logo refusé : {resultat['erreur']} L'établissement n'a pas été créé.",
+                "danger",
+            )
+        logo_url = resultat["url"]
+
     db.add(Etablissement(
         code=code, nom=nom.strip(), nom_court=nom_court.strip() or None,
         pays=pays, ville=ville.strip() or None, url_site=url_site.strip() or None,
+        logo_url=logo_url,
     ))
     try:
         db.commit()
@@ -1197,6 +1445,55 @@ async def admin_etablissements_ajouter(
         )
     return redirect_flash(
         "/admin/etablissements", f"Établissement {code} ajouté.", "success"
+    )
+
+
+@app.post("/admin/etablissements/{etab_id}/modifier")
+async def admin_etablissements_modifier(
+    etab_id: int, db: Session = Depends(get_db),
+    nom: str = Form(...), nom_court: str = Form(""),
+    pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form(""),
+    logo: UploadFile = File(None), retirer_logo: str = Form(None),
+):
+    """Le code n'est pas modifiable : il identifie les documents
+    synchronisés et nomme le fichier de logo. Le changer romprait les
+    deux liens sans prévenir."""
+    etab = db.query(Etablissement).filter(Etablissement.id == etab_id).first()
+    if not etab:
+        return redirect_flash(
+            "/admin/etablissements", "Établissement introuvable.", "danger"
+        )
+    if not nom.strip():
+        return redirect_flash(
+            "/admin/etablissements", "Le nom est obligatoire.", "danger"
+        )
+
+    if logo is not None and logo.filename:
+        resultat = await enregistrer_logo(logo, base=f"etab-{etab.code}")
+        if "erreur" in resultat:
+            return redirect_flash(
+                "/admin/etablissements",
+                f"Logo refusé : {resultat['erreur']} Rien n'a été modifié.",
+                "danger",
+            )
+        etab.logo_url = resultat["url"]
+    elif retirer_logo:
+        etab.logo_url = None
+
+    etab.nom = nom.strip()
+    etab.nom_court = nom_court.strip() or None
+    etab.pays = pays
+    etab.ville = ville.strip() or None
+    etab.url_site = url_site.strip() or None
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash(
+            "/admin/etablissements", "Enregistrement impossible.", "danger"
+        )
+    return redirect_flash(
+        "/admin/etablissements", f"Établissement {etab.code} mis à jour.", "success"
     )
 
 @app.post("/admin/etablissements/{etab_id}/toggle")
@@ -1523,8 +1820,20 @@ async def admin_acces(
     }, defaut="creation")
     exceptions, pagination = paginate(requete, page, normaliser_par_page(par_page))
     etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+
+    # État en cours par établissement : sans lui, les deux boutons du bloc
+    # « Accès rapide » se ressemblaient et rien ne disait lequel était
+    # appliqué. On ne peut pas choisir sans voir où l'on en est.
+    regles_etab = {
+        r.reference: r.acces
+        for r in db.query(AccesException).filter(
+            AccesException.niveau == "etablissement"
+        ).all()
+    }
+
     return templates.TemplateResponse("admin/acces.html", {
         "request": request, "params": params, "exceptions": exceptions, "etablissements": etabs,
+        "regles_etab": regles_etab,
         "pagination": pagination, "tri": etat_tri,
         "current_user": require_auth(request, db), "active_nav": "acces",
     })
@@ -1679,8 +1988,6 @@ async def admin_exports_documents(
     db: Session = Depends(get_db),
     format: str = "csv", etablissement: str = "", type: str = ""
 ):
-    from fastapi.responses import StreamingResponse
-    import csv, io
     query = db.query(Document)
     if etablissement: query = query.filter(Document.etablissement_code == etablissement)
     if type: query = query.filter(Document.type == type)

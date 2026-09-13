@@ -28,16 +28,34 @@ SOURCES = [
 PAQUET = os.path.join(RACINE, "node_modules/@tabler/icons-webfont/dist")
 SORTIE = os.path.join(RACINE, "backend/app/static/vendor/icones")
 
-# Deux écritures cohabitent : `ti ti-nom` dans le HTML, et `icone: 'nom'`
-# dans le JavaScript qui compose la classe à la volée. Ne relever que la
-# première laisserait les icônes de l'éditeur hors de la police.
+# Trois écritures cohabitent : `ti ti-nom` dans le HTML, `icone: 'nom'`
+# dans le JavaScript qui compose la classe à la volée, et un nom passé en
+# argument de macro Jinja — `champ('user-check', 'Direction', …)`. Cette
+# troisième forme avait d'abord été oubliée, et l'icône correspondante
+# manquait à la police sans que rien ne le signale.
+#
+# Le troisième motif relève donc toute chaîne entre guillemets qui a la
+# forme d'un nom d'icône, puis on la recoupe avec la table des noms
+# Tabler. Le recoupement rend l'excès sans conséquence : un mot qui n'est
+# pas une icône est écarté, et un mot qui se trouve en être une ajoute
+# deux cents octets à la police. C'est le bon sens de l'erreur — une
+# icône en trop ne se voit pas, une icône manquante s'affiche en carré
+# vide.
 MOTIFS = [
     re.compile(r"\bti-([a-z0-9][a-z0-9-]*)"),
     re.compile(r"icone:\s*'([a-z0-9][a-z0-9-]*)'"),
+    re.compile(r"['\"]([a-z][a-z0-9]*(?:-[a-z0-9]+)*)['\"]"),
 ]
 
 
-def icones_employees() -> set:
+def icones_employees(larges: bool = True) -> set:
+    """Noms d'icônes cités dans les sources.
+
+    `larges=False` limite la relève aux écritures sans ambiguïté
+    (`ti-nom`, `icone: 'nom'`), pour distinguer un vrai nom mal
+    orthographié d'un mot ordinaire ramassé par le motif général.
+    """
+    motifs = MOTIFS if larges else MOTIFS[:2]
     trouvees = set()
     for racine in SOURCES:
         for dossier, _, fichiers in os.walk(racine):
@@ -48,7 +66,7 @@ def icones_employees() -> set:
                     continue
                 with open(os.path.join(dossier, nom), encoding="utf-8") as f:
                     contenu = f.read()
-                for motif in MOTIFS:
+                for motif in motifs:
                     trouvees |= set(motif.findall(contenu))
     # `ti` seul est la classe de base, pas une icône.
     return {n for n in trouvees if n not in ("ti",)}
@@ -73,7 +91,11 @@ def main():
 
     voulues = icones_employees()
     connues = {n: codes[n] for n in sorted(voulues) if n in codes}
-    manquantes = sorted(voulues - set(connues))
+
+    # Seules les formes explicites méritent un avertissement : le motif
+    # large ramène forcément des mots qui ne sont pas des icônes.
+    explicites = icones_employees(larges=False)
+    manquantes = sorted(explicites - set(codes))
     if manquantes:
         print("⚠ icônes inconnues du paquet (vérifiez le nom) :", ", ".join(manquantes))
 

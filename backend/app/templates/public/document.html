@@ -39,15 +39,22 @@
   <article class="fiche-contenu">
     {% if doc.resume %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre">Résumé</h2>
-      <div class="fiche-resume">{{ doc.resume }}</div>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> Résumé</h2>
+      {# La césure automatique s'appuie sur la langue déclarée. Celle du
+         résumé est celle du document, qui n'est pas forcément celle de
+         l'interface : une thèse en anglais se coupe selon les règles
+         anglaises. On ne pose l'attribut que si la valeur ressemble à un
+         code de langue, pour ne pas inventer un « lang=français ». #}
+      {% set code_langue = (doc.langue or '')|lower %}
+      <div class="fiche-resume"
+           {% if code_langue|length == 2 %}lang="{{ code_langue }}"{% endif %}>{{ doc.resume }}</div>
     </section>
     {% else %}
     {# Note discrète plutôt qu'un grand bloc centré : sans résumé la
        colonne est déjà vide, un état vide imposant ne ferait qu'en
        souligner le vide. #}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre">Résumé</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> Résumé</h2>
       <p class="fiche-absent">
         <i class="ti ti-file-text" aria-hidden="true"></i>
         Aucun résumé dans la notice Zotero d'origine. Ajoutez-le au champ
@@ -59,7 +66,7 @@
 
     {% if doc.mots_cles %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre">Mots-clés</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-tag" aria-hidden="true"></i> Mots-clés</h2>
       <ul class="fiche-motscles">
         {% for mc in doc.mots_cles %}
         <li><a href="/recherche?q={{ mc | urlencode }}">{{ mc }}</a></li>
@@ -70,8 +77,44 @@
 
     {% if doc.jury %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre">Jury</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-users" aria-hidden="true"></i> Jury</h2>
       <p class="fiche-texte">{{ doc.jury }}</p>
+    </section>
+    {% endif %}
+
+    {# Une fiche se terminait souvent après le résumé, laissant la
+       colonne à moitié vide. Un lecteur qui arrive ici cherche presque
+       toujours le travail voisin : autant le lui montrer plutôt que de
+       le renvoyer à la recherche. #}
+    {% if voisins %}
+    <section class="fiche-bloc">
+      <h2 class="fiche-bloc__titre">
+        <i class="ti ti-books" aria-hidden="true"></i> Travaux proches
+      </h2>
+      <ul class="fiche-proches">
+        {% for v in voisins %}
+        <li>
+          <a href="/document/{{ v.id }}" class="fiche-proche">
+            <span class="fiche-proche__genre">
+              <i class="ti ti-{{ 'certificate' if v.type == 'these' else 'book' }}"
+                 aria-hidden="true"></i>
+              {{ 'Thèse' if v.type == 'these' else 'Mémoire' }}
+              <span class="fiche-sep" aria-hidden="true">·</span>
+              {{ v.annee }}
+            </span>
+            <span class="fiche-proche__titre">{{ v.titre }}</span>
+            <span class="fiche-proche__auteur">{{ v.auteur }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+
+      <a href="/recherche?{{ 'domaine=' ~ (doc.domaine|urlencode) if doc.domaine else 'etablissement=' ~ (doc.etablissement_code|urlencode) }}"
+         class="fiche-proches__tout">
+        Voir tous les travaux
+        {% if doc.domaine %}en {{ doc.domaine|lower }}{% else %}de {{ doc.etablissement_code }}{% endif %}
+        <i class="ti ti-arrow-right" aria-hidden="true"></i>
+      </a>
     </section>
     {% endif %}
   </article>
@@ -110,13 +153,52 @@
       <span class="fiche-numero__libelle">Numéro national</span>
       <span class="fiche-numero__valeur">{{ doc.numero_national }}</span>
       <button type="button" class="fiche-numero__copier"
-              data-copier="{{ doc.numero_national }}">
+              data-copier="{{ doc.numero_national }}"
+              data-libelle="Numéro national copié : {{ doc.numero_national }}">
         <i class="ti ti-copy" aria-hidden="true"></i> Copier
       </button>
     </div>
 
+    {# Un catalogue de thèses sert d'abord à être cité. Sans export,
+       chaque lecteur retape les métadonnées à la main. #}
+    <div class="fiche-citer">
+      <h2 class="fiche-bloc__titre">
+        <i class="ti ti-quote" aria-hidden="true"></i> Citer ce document
+      </h2>
+
+      <div class="fiche-citer__apa">
+        <p class="fiche-citer__texte">{{ citation_apa }}</p>
+        <button type="button" class="fiche-citer__copier"
+                data-copier="{{ citation_apa }}"
+                data-libelle="Citation APA copiée.">
+          <i class="ti ti-copy" aria-hidden="true"></i> Copier la citation
+        </button>
+      </div>
+
+      <div class="fiche-citer__formats">
+        <a href="/document/{{ doc.id }}/citation.bib" class="fiche-citer__format">
+          <i class="ti ti-math-function" aria-hidden="true"></i>
+          <span>
+            <strong>BibTeX</strong>
+            <small>LaTeX, Overleaf</small>
+          </span>
+          <i class="ti ti-download fiche-citer__fleche" aria-hidden="true"></i>
+        </a>
+        <a href="/document/{{ doc.id }}/citation.ris" class="fiche-citer__format">
+          <i class="ti ti-books" aria-hidden="true"></i>
+          <span>
+            <strong>RIS</strong>
+            <small>Zotero, Mendeley, EndNote</small>
+          </span>
+          <i class="ti ti-download fiche-citer__fleche" aria-hidden="true"></i>
+        </a>
+      </div>
+    </div>
+
     <div class="fiche-infos">
-      <h2 class="fiche-bloc__titre">Informations</h2>
+      <h2 class="fiche-bloc__titre">
+        <i class="ti ti-list-details" aria-hidden="true"></i> Informations
+      </h2>
       <dl class="fiche-champs">
         {% macro champ(icone, libelle, valeur) %}
           {% if valeur %}
@@ -144,7 +226,7 @@
     </div>
 
     <nav class="fiche-voisins" aria-label="Recherches liées">
-      <h2 class="fiche-bloc__titre">Explorer</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-compass" aria-hidden="true"></i> Explorer</h2>
       <a href="/recherche?etablissement={{ doc.etablissement_code | urlencode }}">
         <i class="ti ti-building-bank" aria-hidden="true"></i>
         Tous les travaux de {{ doc.etablissement_code }}
@@ -170,10 +252,11 @@
   document.querySelectorAll('[data-copier]').forEach(function (b) {
     b.addEventListener('click', function () {
       var valeur = b.getAttribute('data-copier');
+      var libelle = b.getAttribute('data-libelle') || 'Copié.';
       var fini = function (ok) {
         window.ScholarSync.toast(
-          ok ? 'Numéro national copié : ' + valeur
-             : 'Copie impossible — sélectionnez le numéro à la main.',
+          ok ? libelle
+             : 'Copie impossible — sélectionnez le texte à la main.',
           ok ? 'success' : 'warning'
         );
       };

@@ -73,31 +73,64 @@
 </div>
 
 <div class="card card--lg">
-  <h2 style="font-size:var(--fs-sm);margin-bottom:1rem;">Accès rapide par établissement</h2>
-  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;">
+  <div class="acces-rapide__entete">
+    <h2>Accès rapide par établissement</h2>
+    <p>
+      Applique une règle à tout le fonds d'un établissement. Les règles
+      plus fines, définies ci-dessus, restent prioritaires.
+    </p>
+  </div>
+
+  <div class="acces-rapide">
     {% for etab in etablissements %}
-    <div style="border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;">
-      <div style="font-weight:700;font-size:var(--fs-sm);margin-bottom:.5rem;">{{ etab.code }}</div>
-      <div style="font-size:var(--fs-xs);color:var(--text-2);margin-bottom:.75rem;">{{ etab.nom_court or etab.nom }}</div>
-      <div style="display:flex;gap:.375rem;">
-        <form method="post" action="/admin/acces/definir">
-          <input type="hidden" name="niveau" value="etablissement">
-          <input type="hidden" name="reference" value="{{ etab.code }}">
-          <input type="hidden" name="acces" value="public">
-          <button type="submit" class="btn btn--ghost btn--sm" style="font-size:var(--fs-xs);">
-            <i class="ti ti-lock-open"></i> Public
-          </button>
-        </form>
-        <form method="post" action="/admin/acces/definir">
-          <input type="hidden" name="niveau" value="etablissement">
-          <input type="hidden" name="reference" value="{{ etab.code }}">
-          <input type="hidden" name="acces" value="restreint">
-          <button type="submit" class="btn btn--ghost btn--sm" style="font-size:var(--fs-xs);color:var(--danger);">
-            <i class="ti ti-lock"></i> Restreint
-          </button>
-        </form>
+    {% set regle = regles_etab.get(etab.code) %}
+    <div class="acces-carte {{ 'acces-carte--restreint' if regle == 'restreint' }}">
+      <div class="acces-carte__titre">
+        {% if etab.logo_url %}
+        <img src="{{ etab.logo_url }}" alt="" class="acces-carte__logo">
+        {% else %}
+        <span class="acces-carte__initiales" aria-hidden="true">{{ etab.code[:2] }}</span>
+        {% endif %}
+        <span class="acces-carte__code">{{ etab.code }}</span>
       </div>
+      <p class="acces-carte__nom">{{ etab.nom_court or etab.nom }}</p>
+
+      {# Les deux boutons formaient deux formulaires côte à côte dans une
+         boîte flexible sans retour à la ligne : sur une carte étroite,
+         « Restreint » sortait de son cadre. Ils deviennent un sélecteur
+         segmenté, dont les deux moitiés se partagent la largeur
+         disponible quelle qu'elle soit, et qui montre l'état en cours. #}
+      <div class="acces-choix" role="group"
+           aria-label="Accès du fonds {{ etab.code }}">
+        {% for valeur, libelle, icone in [
+             ('public', 'Public', 'lock-open'),
+             ('restreint', 'Restreint', 'lock')] %}
+        <form method="post" action="/admin/acces/definir">
+          <input type="hidden" name="niveau" value="etablissement">
+          <input type="hidden" name="reference" value="{{ etab.code }}">
+          <input type="hidden" name="acces" value="{{ valeur }}">
+          <button type="submit"
+                  class="acces-choix__btn acces-choix__btn--{{ valeur }} {{ 'is-actif' if regle == valeur }}"
+                  {{ 'aria-pressed=true' if regle == valeur else 'aria-pressed=false' }}>
+            <i class="ti ti-{{ icone }}" aria-hidden="true"></i>
+            <span>{{ libelle }}</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+
+      <p class="acces-carte__etat">
+        {% if regle == 'public' %}
+        <i class="ti ti-circle-check" aria-hidden="true"></i> Tout le fonds est public
+        {% elif regle == 'restreint' %}
+        <i class="ti ti-alert-circle" aria-hidden="true"></i> Tout le fonds est restreint
+        {% else %}
+        <i class="ti ti-minus" aria-hidden="true"></i> Aucune règle — accès défini document par document
+        {% endif %}
+      </p>
     </div>
+    {% else %}
+    <p class="facettes__vide">Aucun établissement actif.</p>
     {% endfor %}
   </div>
 </div>

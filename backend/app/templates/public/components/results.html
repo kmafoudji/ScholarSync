@@ -61,6 +61,42 @@
         <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
       </select>
     </label>
+
+    {# L'export reprend la chaîne de requête affichée : le fichier
+       contient ce que le lecteur a sous les yeux, filtres compris. Ce
+       sont de vrais liens — le menu se déplie en CSS pur, et sans
+       JavaScript ils restent tous accessibles. #}
+    {% if pagination.total %}
+    <div class="export-menu">
+      <button type="button" class="export-menu__bouton" aria-expanded="false"
+              aria-haspopup="true" aria-controls="menuExport">
+        <i class="ti ti-download" aria-hidden="true"></i>
+        <span>Exporter</span>
+        <i class="ti ti-chevron-down export-menu__chevron" aria-hidden="true"></i>
+      </button>
+      <div class="export-menu__liste" id="menuExport" hidden>
+        <p class="export-menu__intro">
+          {{ pagination.total|format_number }} notice{{ 's' if pagination.total != 1 }}
+          {% if nb_filtres_actifs or current_filters.q %}
+          correspondant aux filtres en cours
+          {% else %}du catalogue{% endif %}
+        </p>
+        {% for ext, titre, detail, icone in [
+             ('csv', 'Tableur (CSV)', 'Excel, LibreOffice', 'file-type-csv'),
+             ('bib', 'BibTeX', 'LaTeX, Overleaf', 'math-function'),
+             ('ris', 'RIS', 'Zotero, Mendeley, EndNote', 'books')] %}
+        <a href="/export?format={{ ext }}{{ '&' ~ query_string if query_string }}"
+           class="export-menu__item">
+          <i class="ti ti-{{ icone }}" aria-hidden="true"></i>
+          <span>
+            <strong>{{ titre }}</strong>
+            <small>{{ detail }}</small>
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </div>
 </div>
 

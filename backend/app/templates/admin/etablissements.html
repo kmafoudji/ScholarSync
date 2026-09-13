@@ -4,8 +4,8 @@
 {% block page_title %}Établissements{% endblock %}
 
 {% block topbar_actions %}
-<button onclick="document.getElementById('modalAjouter').style.display='flex'" class="btn btn--primary btn--sm">
-  <i class="ti ti-plus"></i> Ajouter
+<button type="button" class="btn btn--primary btn--sm" data-dialog-open="dlgAjout">
+  <i class="ti ti-plus" aria-hidden="true"></i> Ajouter
 </button>
 {% endblock %}
 
@@ -28,7 +28,16 @@
       <tbody>
         {% for etab in etablissements %}
         <tr>
-          <td style="font-weight:700;color:var(--primary);">{{ etab.code }}</td>
+          <td>
+            <div class="etab-identite">
+              {% if etab.logo_url %}
+              <img src="{{ etab.logo_url }}" alt="" class="etab-identite__logo">
+              {% else %}
+              <span class="etab-identite__initiales" aria-hidden="true">{{ etab.code[:2] }}</span>
+              {% endif %}
+              <span class="etab-identite__code">{{ etab.code }}</span>
+            </div>
+          </td>
           <td>
             <div style="font-weight:500;">{{ etab.nom }}</div>
             {% if etab.nom_court %}<div style="font-size:var(--fs-xs);color:var(--text-2);">{{ etab.nom_court }}</div>{% endif %}
@@ -43,16 +52,22 @@
               </button>
             </form>
           </td>
-          <td>
-            <a href="/recherche?etablissement={{ etab.code }}" target="_blank" class="btn btn--ghost btn--sm">
-              <i class="ti ti-external-link"></i>
+          <td style="white-space:nowrap;text-align:right;">
+            <button type="button" class="btn btn--ghost btn--sm"
+                    data-dialog-open="dlgEdit-{{ etab.id }}"
+                    aria-label="Modifier {{ etab.code }}">
+              <i class="ti ti-pencil" aria-hidden="true"></i>
+            </button>
+            <a href="/recherche?etablissement={{ etab.code }}" target="_blank"
+               class="btn btn--ghost btn--sm" aria-label="Voir les travaux de {{ etab.code }}">
+              <i class="ti ti-external-link" aria-hidden="true"></i>
             </a>
           </td>
         </tr>
         {% else %}
         <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-3);">
-          Aucun établissement — <button onclick="document.getElementById('modalAjouter').style.display='flex'"
-          style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:600;">Ajouter le premier</button>
+          Aucun établissement — <button type="button" data-dialog-open="dlgAjout"
+          style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:600;font-family:inherit;">Ajouter le premier</button>
         </td></tr>
         {% endfor %}
       </tbody>
@@ -61,52 +76,125 @@
   {{ t.pagination(pagination, 'bas') }}
 </div>
 
-<div class="modal-overlay" id="modalAjouter" style="display:none;">
-  <div class="modal">
-    <div class="modal__header">
-      <span class="modal__title">Ajouter un établissement</span>
-      <button class="modal__close" onclick="document.getElementById('modalAjouter').style.display='none'">
-        <i class="ti ti-x"></i>
+{# ── Champs partagés entre création et modification ──────────────
+   Un seul gabarit pour les deux formulaires : sans cela, un champ
+   ajouté à la création finit par manquer à la modification. #}
+{% macro champs_etab(e=None) %}
+  <div class="form-group">
+    <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-nom">
+      Nom complet <span class="required">*</span>
+    </label>
+    <input id="{{ 'e' ~ e.id if e else 'a' }}-nom" type="text" name="nom"
+           class="form-control" required
+           value="{{ e.nom if e else '' }}"
+           placeholder="Université Cheikh Anta Diop">
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-nom_court">Nom court</label>
+    <input id="{{ 'e' ~ e.id if e else 'a' }}-nom_court" type="text" name="nom_court"
+           class="form-control" value="{{ e.nom_court or '' if e else '' }}"
+           placeholder="UCAD Dakar">
+  </div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-pays">Pays</label>
+      <input id="{{ 'e' ~ e.id if e else 'a' }}-pays" type="text" name="pays"
+             class="form-control" value="{{ e.pays if e else 'Sénégal' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-ville">Ville</label>
+      <input id="{{ 'e' ~ e.id if e else 'a' }}-ville" type="text" name="ville"
+             class="form-control" value="{{ e.ville or '' if e else '' }}" placeholder="Dakar">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-url_site">Site web</label>
+    <input id="{{ 'e' ~ e.id if e else 'a' }}-url_site" type="url" name="url_site"
+           class="form-control" value="{{ e.url_site or '' if e else '' }}"
+           placeholder="https://ucad.sn">
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-logo">Logo</label>
+    <div class="logo-champ">
+      <div class="logo-champ__apercu">
+        {% if e and e.logo_url %}
+        <img src="{{ e.logo_url }}" alt="Logo actuel de {{ e.code }}">
+        {% else %}
+        <i class="ti ti-photo" aria-hidden="true"></i>
+        {% endif %}
+      </div>
+      <div class="logo-champ__corps">
+        <input id="{{ 'e' ~ e.id if e else 'a' }}-logo" type="file" name="logo"
+               class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        <div class="form-hint">
+          PNG, JPEG, WebP ou SVG — {{ max_logo_mo }} Mo au plus.
+          Un fond transparent s'intègre mieux aux listes.
+        </div>
+        {% if e and e.logo_url %}
+        <label class="logo-champ__retirer">
+          <input type="checkbox" name="retirer_logo" value="1"> Retirer le logo actuel
+        </label>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endmacro %}
+
+{# ── Création ──────────────────────────────────────────────────── #}
+<dialog id="dlgAjout" class="dialog">
+  {# enctype multipart : sans lui le navigateur n'envoie que le nom du
+     fichier, jamais son contenu. #}
+  <form method="post" action="/admin/etablissements/ajouter" enctype="multipart/form-data">
+    <div class="dialog__head">
+      <h2>Ajouter un établissement</h2>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
       </button>
     </div>
-    <form method="post" action="/admin/etablissements/ajouter">
-      <div class="modal__body">
-        <div style="display:grid;grid-template-columns:1fr 2fr;gap:1rem;">
-          <div class="form-group">
-            <label class="form-label" for="f-code">Code <span class="required">*</span></label>
-            <input id="f-code" type="text" name="code" class="form-control" placeholder="UCAD" required maxlength="10"
-                   style="text-transform:uppercase;">
-            <div class="form-hint">Sigle court</div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="f-nom">Nom complet <span class="required">*</span></label>
-            <input id="f-nom" type="text" name="nom" class="form-control" placeholder="Université Cheikh Anta Diop" required>
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="f-nom_court">Nom court</label>
-          <input id="f-nom_court" type="text" name="nom_court" class="form-control" placeholder="UCAD Dakar">
-        </div>
-        <div class="grid-2">
-          <div class="form-group">
-            <label class="form-label" for="f-pays">Pays</label>
-            <input id="f-pays" type="text" name="pays" class="form-control" value="Sénégal">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="f-ville">Ville</label>
-            <input id="f-ville" type="text" name="ville" class="form-control" placeholder="Dakar">
-          </div>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="f-url_site">Site web</label>
-          <input id="f-url_site" type="url" name="url_site" class="form-control" placeholder="https://ucad.sn">
+    <div class="dialog__body">
+      <div class="form-group">
+        <label class="form-label" for="a-code">Code <span class="required">*</span></label>
+        <input id="a-code" type="text" name="code" class="form-control" required
+               maxlength="10" placeholder="UCAD" style="text-transform:uppercase;"
+               pattern="[A-Za-z0-9][A-Za-z0-9_-]{0,9}">
+        <div class="form-hint">
+          Sigle court, lettres et chiffres. Il identifie les documents
+          synchronisés et ne pourra plus être changé ensuite.
         </div>
       </div>
-      <div class="modal__footer">
-        <button type="button" onclick="document.getElementById('modalAjouter').style.display='none'" class="btn btn--ghost">Annuler</button>
-        <button type="submit" class="btn btn--primary"><i class="ti ti-check"></i> Enregistrer</button>
-      </div>
-    </form>
-  </div>
-</div>
+      {{ champs_etab() }}
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-check" aria-hidden="true"></i> Enregistrer
+      </button>
+    </div>
+  </form>
+</dialog>
+
+{# ── Modification ──────────────────────────────────────────────── #}
+{% for etab in etablissements %}
+<dialog id="dlgEdit-{{ etab.id }}" class="dialog">
+  <form method="post" action="/admin/etablissements/{{ etab.id }}/modifier"
+        enctype="multipart/form-data">
+    <div class="dialog__head">
+      <h2>{{ etab.code }} — modifier</h2>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dialog__body">
+      {{ champs_etab(etab) }}
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-check" aria-hidden="true"></i> Enregistrer
+      </button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
 {% endblock %}

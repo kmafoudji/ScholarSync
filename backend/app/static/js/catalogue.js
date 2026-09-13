@@ -241,4 +241,37 @@
     region.setAttribute('aria-live', 'polite');
     document.body.appendChild(region);
   }
+
+  /* Menu d'export : dépliage au clic, fermeture au clic extérieur et à
+     la touche Échap. Délégation plutôt qu'écouteur par bouton, parce
+     que la liste de résultats est remplacée à chaque filtrage — un
+     écouteur posé sur l'ancien bouton serait perdu. */
+  document.addEventListener('click', function (ev) {
+    var bouton = ev.target.closest('.export-menu__bouton');
+    document.querySelectorAll('.export-menu__bouton').forEach(function (b) {
+      if (b === bouton) return;
+      b.setAttribute('aria-expanded', 'false');
+      var l = document.getElementById(b.getAttribute('aria-controls'));
+      if (l) l.hidden = true;
+    });
+    if (!bouton) return;
+    ev.preventDefault();
+    var liste = document.getElementById(bouton.getAttribute('aria-controls'));
+    if (!liste) return;
+    var ouvert = bouton.getAttribute('aria-expanded') === 'true';
+    bouton.setAttribute('aria-expanded', ouvert ? 'false' : 'true');
+    liste.hidden = ouvert;
+  });
+
+  document.addEventListener('keydown', function (ev) {
+    if (ev.key !== 'Escape') return;
+    document.querySelectorAll('.export-menu__bouton[aria-expanded="true"]')
+      .forEach(function (b) {
+        b.setAttribute('aria-expanded', 'false');
+        var l = document.getElementById(b.getAttribute('aria-controls'));
+        if (l) l.hidden = true;
+        b.focus();
+      });
+  });
+
 })();

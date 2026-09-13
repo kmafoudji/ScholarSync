@@ -1611,6 +1611,11 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   box-shadow: var(--shadow-lg);
   background: var(--surface);
   color: var(--text);
+  /* Une <dialog> modale est centrée par le navigateur au moyen d'un
+     `margin: auto` de sa feuille par défaut. La remise à zéro globale
+     `*{margin:0}` en tête de ce fichier l'écrasait : les fenêtres
+     s'affichaient collées en haut à gauche. On le rétablit ici. */
+  margin: auto;
 }
 .dialog::backdrop { background: rgba(16, 18, 22, .45); }
 
@@ -1866,10 +1871,18 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   line-height: 1.8;
   color: var(--text);
   max-width: 68ch;
-  /* Fer à gauche plutôt que justifié : la césure automatique française
-     dépend d'un dictionnaire que tous les navigateurs n'embarquent pas,
-     et sans elle la justification creuse des rivières blanches. */
-  text-align: left;
+  /* Justifié, avec la césure automatique. Les deux vont ensemble : la
+     justification sans césure étire les espaces jusqu'à creuser des
+     rivières blanches dans le paragraphe. La césure s'appuie sur le
+     dictionnaire de la langue déclarée par l'attribut lang de la page.
+     Là où un navigateur ne l'embarque pas, il justifie sans couper —
+     c'est moins beau, jamais cassé. */
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  /* Empêche la césure de laisser une syllabe orpheline en bout de
+     ligne, et la justification de séparer deux caractères. */
+  hyphenate-limit-chars: 6 3 3;
 }
 
 .fiche-motscles {
@@ -2362,3 +2375,451 @@ td.col-numero {
   .table--documents { table-layout: auto; }
   .table--documents .col-titre { min-width: 220px; }
 }
+
+/* ── Accès rapide par établissement ──────────────────────────────
+   Les deux boutons vivaient dans deux formulaires côte à côte, sans
+   retour à la ligne possible : sur une carte étroite, « Restreint »
+   sortait du cadre. Ils forment maintenant un sélecteur segmenté dont
+   les moitiés se partagent la largeur, quelle qu'elle soit. */
+
+.acces-rapide__entete { margin-bottom: 1.25rem; }
+.acces-rapide__entete h2 { font-size: var(--fs-base); margin-bottom: .25rem; }
+.acces-rapide__entete p {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  max-width: 62ch;
+  margin: 0;
+}
+
+.acces-rapide {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+
+.acces-carte {
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--surface);
+  min-width: 0;
+}
+/* Un liseré de couleur porte l'état : lisible d'un coup d'œil sur une
+   grille de vingt établissements, là où un badge se cherche. */
+.acces-carte:has(.acces-choix__btn--public.is-actif) { border-left-color: var(--success); }
+.acces-carte--restreint { border-left-color: var(--danger); }
+
+.acces-carte__titre {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .25rem;
+  min-width: 0;
+}
+.acces-carte__logo {
+  width: 26px; height: 26px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.acces-carte__initiales {
+  width: 26px; height: 26px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--primary);
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+.acces-carte__code {
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.acces-carte__nom {
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  margin: 0 0 .875rem;
+  /* Deux lignes au plus : les noms d'université sont longs et feraient
+     des cartes de hauteurs très inégales. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.acces-choix {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.acces-choix form { flex: 1 1 0; min-width: 0; }
+.acces-choix form + form { border-left: 1px solid var(--border); }
+
+.acces-choix__btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .3rem;
+  padding: .45rem .35rem;
+  border: none;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  cursor: pointer;
+  /* Le libellé peut rétrécir jusqu'à l'ellipse plutôt que pousser le
+     bouton hors de la carte. */
+  min-width: 0;
+  white-space: nowrap;
+}
+.acces-choix__btn span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.acces-choix__btn:hover { background: var(--surface-2); color: var(--text); }
+.acces-choix__btn--public.is-actif {
+  background: var(--success);
+  color: #fff;
+}
+.acces-choix__btn--restreint.is-actif {
+  background: var(--danger);
+  color: #fff;
+}
+
+.acces-carte__etat {
+  margin: .625rem 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+/* ── Identité d'un établissement dans une liste ──────────────────── */
+.etab-identite {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  min-width: 0;
+}
+.etab-identite__logo {
+  width: 28px; height: 28px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+/* À défaut de logo, les deux premières lettres du code : une case vide
+   ferait croire à une image qui n'a pas chargé. */
+.etab-identite__initiales {
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+.etab-identite__code { font-weight: 700; color: var(--primary); }
+
+/* ── Champ de téléversement d'un logo ────────────────────────────
+   L'aperçu montre ce qui est en place : sans lui, on ne sait pas si un
+   logo existe déjà, et on en téléverse un par précaution. */
+.logo-champ {
+  display: flex;
+  align-items: flex-start;
+  gap: .875rem;
+}
+.logo-champ__apercu {
+  width: 64px; height: 64px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  color: var(--text-3);
+  font-size: 24px;
+  overflow: hidden;
+}
+.logo-champ__apercu img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-champ__corps { flex: 1; min-width: 0; }
+.logo-champ__retirer {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin-top: .5rem;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  cursor: pointer;
+}
+
+/* ══ Fiche document : relief et couleur ═══════════════════════════
+   La colonne de droite était juste : hiérarchie correcte, rien qui
+   déborde — mais uniformément grise et menue, au point que l'œil n'y
+   trouvait aucune prise. On lui donne des repères colorés et des
+   caractères lisibles, sans toucher à sa structure. */
+
+/* Les titres de section portent une icône colorée : sur une colonne de
+   quatre blocs, elle sert de repère avant même la lecture. */
+.fiche-bloc__titre {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.fiche-bloc__titre .ti {
+  font-size: 18px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+/* Fiche technique : l'étiquette reste discrète, la valeur devient
+   lisible. C'est la valeur qu'on vient chercher. */
+.fiche-champ { padding: .75rem 0; }
+.fiche-champ dt { font-size: var(--fs-xs); }
+.fiche-champ dt .ti {
+  font-size: 17px;
+  color: var(--primary);
+  opacity: .75;
+}
+.fiche-champ dd {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  padding-left: calc(17px + .375rem);
+}
+
+/* Liens d'exploration : ils invitent au parcours, autant qu'ils en
+   aient l'air. */
+.fiche-voisins a {
+  font-size: var(--fs-sm);
+  padding: .625rem .5rem;
+  margin: 0 -.5rem;
+  border-radius: var(--radius-sm);
+}
+.fiche-voisins a .ti { font-size: 18px; color: var(--primary); opacity: .75; }
+.fiche-voisins a:hover { background: var(--primary-light); }
+.fiche-voisins a:hover .ti { opacity: 1; }
+
+/* Numéro national : l'identifiant officiel mérite d'être lu sans
+   effort, et le bouton de copie d'être vu. */
+.fiche-numero { background: var(--surface-2); }
+.fiche-numero__libelle { font-size: var(--fs-2xs); text-transform: uppercase; letter-spacing: .05em; }
+.fiche-numero__valeur { font-size: var(--fs-md); letter-spacing: .01em; }
+.fiche-numero__copier { font-size: var(--fs-xs); }
+.fiche-numero__copier .ti { font-size: 16px; }
+
+/* ── Citer ce document ───────────────────────────────────────────── */
+.fiche-citer {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.125rem 1.125rem;
+  background: var(--surface);
+}
+.fiche-citer__apa {
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  padding: .75rem .875rem;
+  margin-bottom: .875rem;
+}
+.fiche-citer__texte {
+  margin: 0 0 .5rem;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--text);
+  /* Une référence se relit ligne à ligne : un retrait négatif rend
+     visible où commence chaque entrée, comme dans une bibliographie. */
+  padding-left: 1.25rem;
+  text-indent: -1.25rem;
+}
+.fiche-citer__copier {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--primary);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+}
+.fiche-citer__copier:hover { text-decoration: underline; }
+.fiche-citer__copier .ti { font-size: 16px; }
+
+.fiche-citer__formats { display: flex; flex-direction: column; gap: .5rem; }
+.fiche-citer__format {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .625rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+  background: var(--surface);
+}
+.fiche-citer__format > .ti:first-child {
+  font-size: 22px;
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.fiche-citer__format span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.fiche-citer__format strong { font-size: var(--fs-sm); font-weight: 600; }
+/* Le nom du format ne dit rien à qui ne le connaît pas : la ligne
+   au-dessous nomme les outils qui le lisent. */
+.fiche-citer__format small {
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fiche-citer__fleche { font-size: 17px; color: var(--text-3); flex-shrink: 0; }
+.fiche-citer__format:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+.fiche-citer__format:hover .fiche-citer__fleche { color: var(--primary); }
+
+/* ── Menu d'export du catalogue public ───────────────────────────── */
+.export-menu { position: relative; }
+.export-menu__bouton {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .75rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.export-menu__bouton:hover { border-color: var(--primary); color: var(--primary); }
+.export-menu__bouton .ti { font-size: 17px; }
+.export-menu__chevron { font-size: 15px; transition: transform .15s ease; }
+.export-menu__bouton[aria-expanded="true"] .export-menu__chevron { transform: rotate(180deg); }
+
+.export-menu__liste {
+  position: absolute;
+  top: calc(100% + .375rem);
+  right: 0;
+  z-index: 40;
+  min-width: 260px;
+  padding: .5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+.export-menu__intro {
+  margin: 0 0 .375rem;
+  padding: .25rem .5rem .5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+}
+.export-menu__item {
+  display: flex;
+  align-items: center;
+  gap: .625rem;
+  padding: .5rem;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  color: var(--text);
+}
+.export-menu__item:hover { background: var(--primary-light); }
+.export-menu__item > .ti { font-size: 21px; color: var(--primary); flex-shrink: 0; }
+.export-menu__item span { display: flex; flex-direction: column; min-width: 0; }
+.export-menu__item strong { font-size: var(--fs-xs); font-weight: 600; }
+.export-menu__item small { font-size: var(--fs-2xs); color: var(--text-3); }
+
+/* Sur téléphone, un menu ancré à droite sortirait de l'écran. */
+@media (max-width: 560px) {
+  .export-menu { position: static; }
+  .export-menu__liste { left: 0; right: 0; min-width: 0; }
+}
+
+/* ── Travaux proches ─────────────────────────────────────────────── */
+.fiche-proches {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: .5rem;
+}
+.fiche-proche {
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  padding: .875rem 1rem;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  background: var(--surface);
+}
+.fiche-proche:hover {
+  background: var(--primary-light);
+  border-color: var(--primary);
+}
+.fiche-proche__genre {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+.fiche-proche__genre .ti { font-size: 15px; color: var(--primary); }
+.fiche-proche__titre {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  /* Deux lignes : au-delà, la liste des voisins prendrait le pas sur le
+     document qu'on est venu lire. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.fiche-proche__auteur { font-size: var(--fs-xs); color: var(--text-2); }
+
+.fiche-proches__tout {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin-top: .875rem;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: none;
+}
+.fiche-proches__tout:hover { text-decoration: underline; }
