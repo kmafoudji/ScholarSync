@@ -16,15 +16,19 @@ from app.core.auth import (
 )
 from app.core import tasks
 from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as FLASH_COOKIE
-from app.core.schema import ensure_schema
+from app.core import schema as schema_bd
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
 )
 
-# Créer les tables, puis rattraper les colonnes ajoutées après coup
-Base.metadata.create_all(bind=engine)
-ensure_schema(engine)
+# Créer les tables, puis rattraper les colonnes ajoutées après coup.
+# Tolérant à une base momentanément injoignable : au premier démarrage
+# PostgreSQL met quelques secondes à accepter les connexions, et faire
+# échouer l'import ferait mourir le worker — le reverse proxy renverrait
+# un 502 sans rien expliquer. Ici l'application démarre quand même et
+# /sante dit ce qui manque.
+schema_bd.initialiser(engine, Base)
 
 app = FastAPI(title="ScholarSync", docs_url="/api/docs")
 
@@ -306,10 +310,26 @@ async def sante(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except Exception as e:
         return JSONResponse(
-            {"statut": "degrade", "base": "injoignable", "detail": str(e)[:120]},
+            {"statut": "degrade", "base": "injoignable",
+             "detail": str(e)[:200],
+             "piste": "Vérifiez POSTGRES_PASSWORD dans .env : après une "
+                      "rotation de secrets sur une base existante, il doit "
+                      "être changé des deux côtés (docs/deploiement.md)."},
             status_code=503,
         )
-    return {"statut": "ok", "base": "ok"}
+
+    if not schema_bd.etat["pret"]:
+        # La base répond mais le schéma n'a pas pu être initialisé :
+        # on retente maintenant plutôt que d'attendre un redémarrage.
+        schema_bd.initialiser(engine, Base, tentatives=1)
+        if not schema_bd.etat["pret"]:
+            return JSONResponse(
+                {"statut": "degrade", "base": "ok", "schema": "non initialisé",
+                 "detail": schema_bd.etat["erreur"]},
+                status_code=503,
+            )
+
+    return {"statut": "ok", "base": "ok", "schema": "ok"}
 
 
 # ─── ROUTES PUBLIQUES ─────────────────────────────────────────────

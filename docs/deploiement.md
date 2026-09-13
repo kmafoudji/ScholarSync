@@ -30,8 +30,24 @@ sessions signées avec l'ancienne clé doivent cesser d'être valides.
 
 > **Le mot de passe PostgreSQL est différent.** Si la base existe déjà, le
 > changer dans `.env` ne le change pas dans PostgreSQL, et l'application
-> ne pourra plus se connecter. Voir « Changer le mot de passe d'une base
-> existante » plus bas.
+> ne pourra plus se connecter. `scripts/generer-secrets.sh` détecte
+> désormais le volume `scholarsync-db-data` et refuse d'en générer un
+> nouveau dans ce cas ; il faut alors reporter le mot de passe **actuel**
+> de la base dans `.env`.
+>
+> Symptôme si les deux valeurs divergent :
+>
+> ```
+> FATAL: password authentication failed for user "scholarsync"
+> ```
+>
+> Le conteneur redémarre en boucle (`Restarting`) et le reverse proxy
+> renvoie **502 Bad Gateway**. Récupérer l'ancien mot de passe :
+>
+> ```bash
+> git show $(git log --format=%H -1 -- docker-compose.yml)~1:docker-compose.yml \
+>   | grep POSTGRES_PASSWORD
+> ```
 
 ---
 
@@ -193,6 +209,8 @@ curl -s http://127.0.0.1:8000/sante           # {"statut":"ok","base":"ok"}
 | Symptôme | Cause probable |
 |---|---|
 | `SECRET_KEY manquant dans .env` au démarrage | `.env` absent ou vide — lancez `./scripts/generer-secrets.sh` |
+| **502 Bad Gateway** et conteneur `Restarting` | Voir les journaux : le plus souvent `password authentication failed`, c'est-à-dire `.env` désaccordé avec le volume PostgreSQL |
+| Les changements de code ne prennent pas effet | `docker compose up -d` ne reconstruit pas une image existante — utilisez `up -d --build` |
 | `/sante` renvoie 503 `base: injoignable` | PostgreSQL non démarré, ou mot de passe désaccordé avec `.env` |
 | Le logo téléversé disparaît au redémarrage | Montage `uploads` erroné — vérifiez `./uploads:/app/app/static/img/uploads` |
 | Les graphiques du tableau de bord restent vides | Chart.js vient d'un CDN : vérifiez l'accès sortant du navigateur client |
