@@ -17,27 +17,27 @@
         {% if item.etablissement.logo_url %}
         <img src="{{ item.etablissement.logo_url }}" style="width:48px;height:48px;object-fit:contain;border-radius:8px;border:1px solid var(--border);">
         {% else %}
-        <div style="width:48px;height:48px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--primary);flex-shrink:0;">
+        <div style="width:48px;height:48px;background:var(--primary-light);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:var(--fs-2xs);color:var(--primary);flex-shrink:0;">
           {{ item.etablissement.code[:2] }}
         </div>
         {% endif %}
         <div>
-          <div style="font-weight:700;font-size:.9375rem;color:var(--text);">{{ item.etablissement.code }}</div>
-          <div style="font-size:.8rem;color:var(--text-2);">{{ item.etablissement.nom_court or item.etablissement.nom }}</div>
+          <div style="font-weight:700;font-size:var(--fs-sm);color:var(--text);">{{ item.etablissement.code }}</div>
+          <div style="font-size:var(--fs-xs);color:var(--text-2);">{{ item.etablissement.nom_court or item.etablissement.nom }}</div>
         </div>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;gap:.5rem;">
-          <span style="font-size:.75rem;background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600;">
+          <span style="font-size:var(--fs-xs);background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600;">
             {{ item.count }} docs
           </span>
           {% if item.etablissement.ville %}
-          <span style="font-size:.75rem;color:var(--text-3);display:flex;align-items:center;gap:3px;">
-            <i class="ti ti-map-pin" style="font-size:11px;"></i>{{ item.etablissement.ville }}
+          <span style="font-size:var(--fs-xs);color:var(--text-3);display:flex;align-items:center;gap:3px;">
+            <i class="ti ti-map-pin" style="font-size:var(--fs-2xs);"></i>{{ item.etablissement.ville }}
           </span>
           {% endif %}
         </div>
-        <i class="ti ti-arrow-right" style="color:var(--text-3);font-size:14px;"></i>
+        <i class="ti ti-arrow-right" style="color:var(--text-3);font-size:var(--fs-xs);"></i>
       </div>
     </a>
     {% else %}

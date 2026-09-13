@@ -17,7 +17,7 @@
       <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Titre, auteur…" style="max-width:320px;">
       <button type="submit" class="btn btn--outline btn--sm"><i class="ti ti-search"></i> Filtrer</button>
     </form>
-    <span style="font-size:.8rem;color:var(--text-2);">{{ pagination.total|format_number }} documents</span>
+    <span style="font-size:var(--fs-xs);color:var(--text-2);">{{ pagination.total|format_number }} documents</span>
   </div>
 
   <div class="table-wrap">
@@ -38,24 +38,24 @@
         {% for doc in documents %}
         <tr>
           <td style="max-width:280px;">
-            <a href="/document/{{ doc.id }}" target="_blank" style="color:var(--primary);font-weight:500;font-size:.875rem;text-decoration:none;line-height:1.3;display:block;">
+            <a href="/document/{{ doc.id }}" target="_blank" style="color:var(--primary);font-weight:500;font-size:var(--fs-sm);text-decoration:none;line-height:1.3;display:block;">
               {{ doc.titre|truncate(70) }}
             </a>
             {% if doc.domaine %}
-            <span style="font-size:.72rem;color:var(--text-3);">{{ doc.domaine }}</span>
+            <span style="font-size:var(--fs-2xs);color:var(--text-3);">{{ doc.domaine }}</span>
             {% endif %}
           </td>
-          <td style="font-size:.85rem;color:var(--text-2);white-space:nowrap;">{{ doc.auteur }}</td>
-          <td style="font-weight:600;font-size:.85rem;">
+          <td style="font-size:var(--fs-sm);color:var(--text-2);white-space:nowrap;">{{ doc.auteur }}</td>
+          <td style="font-weight:600;font-size:var(--fs-sm);">
             {{ doc.etablissement_code }}
             {% if doc.sous_entite_nom %}
-            <div style="font-size:.72rem;color:var(--text-3);font-weight:400;">{{ doc.sous_entite_nom|truncate(30) }}</div>
+            <div style="font-size:var(--fs-2xs);color:var(--text-3);font-weight:400;">{{ doc.sous_entite_nom|truncate(30) }}</div>
             {% endif %}
           </td>
           <td><span class="badge badge--{{ doc.type }}">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span></td>
           <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
-          <td style="font-size:.875rem;">{{ doc.annee }}</td>
-          <td style="font-family:monospace;font-size:.75rem;color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
+          <td style="font-size:var(--fs-sm);">{{ doc.annee }}</td>
+          <td style="font-family:monospace;font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
           <td>
             <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
               <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"

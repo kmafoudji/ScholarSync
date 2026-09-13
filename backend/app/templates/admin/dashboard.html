@@ -41,60 +41,80 @@
 </div>
 
 <!-- GRAPHIQUES -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+<div class="grid-2">
   <!-- Évolution par année -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Dépôts par année</h3>
+      <h3>Dépôts par année</h3>
       <button onclick="exportChart('chartAnnee')" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
-    <canvas id="chartAnnee" height="200"></canvas>
+    <div class="chart-box">
+      <div class="chart-box__placeholder" data-for="chartAnnee">
+        <div class="skeleton skeleton--card" style="width:100%;height:180px;"></div>
+      </div>
+      <canvas id="chartAnnee" height="200"></canvas>
+    </div>
   </div>
 
   <!-- Répartition par domaine -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Répartition par domaine</h3>
+      <h3>Répartition par domaine</h3>
       <button onclick="exportChart('chartDomaine')" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
-    <canvas id="chartDomaine" height="200"></canvas>
+    <div class="chart-box">
+      <div class="chart-box__placeholder" data-for="chartDomaine">
+        <div class="skeleton skeleton--card" style="width:100%;height:180px;"></div>
+      </div>
+      <canvas id="chartDomaine" height="200"></canvas>
+    </div>
   </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;">
+<div class="grid-2">
   <!-- Par établissement -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Documents par établissement</h3>
+      <h3>Documents par établissement</h3>
       <button onclick="exportChart('chartEtab')" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
-    <canvas id="chartEtab" height="200"></canvas>
+    <div class="chart-box">
+      <div class="chart-box__placeholder" data-for="chartEtab">
+        <div class="skeleton skeleton--card" style="width:100%;height:180px;"></div>
+      </div>
+      <canvas id="chartEtab" height="200"></canvas>
+    </div>
   </div>
 
   <!-- Thèses vs Mémoires -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Thèses vs Mémoires</h3>
+      <h3>Thèses vs Mémoires</h3>
       <button onclick="exportChart('chartType')" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
-    <canvas id="chartType" height="200"></canvas>
+    <div class="chart-box">
+      <div class="chart-box__placeholder" data-for="chartType">
+        <div class="skeleton skeleton--card" style="width:100%;height:180px;"></div>
+      </div>
+      <canvas id="chartType" height="200"></canvas>
+    </div>
   </div>
 </div>
 
 <!-- DERNIÈRES SYNCS + DOCS RÉCENTS -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+<div class="grid-2">
   <!-- Dernières synchronisations -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Dernières synchronisations</h3>
+      <h3>Dernières synchronisations</h3>
       <a href="/admin/sync-logs" class="btn btn--ghost btn--sm">Voir tout</a>
     </div>
     <div class="table-wrap">
@@ -111,7 +131,7 @@
           {% for log in derniers_logs %}
           <tr>
             <td style="font-weight:500;">{{ log.etablissement_code }}</td>
-            <td style="color:var(--text-2);font-size:.8rem;">{{ log.debut|format_datetime }}</td>
+            <td style="color:var(--text-2);font-size:var(--fs-xs);">{{ log.debut|format_datetime }}</td>
             <td>
               <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
                 {{ log.statut|capitalize }}
@@ -130,30 +150,46 @@
   <!-- Documents récents -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h3 style="font-size:.9375rem;">Documents récents</h3>
+      <h3>Documents récents</h3>
       <a href="/admin/documents" class="btn btn--ghost btn--sm">Voir tout</a>
     </div>
     {% for doc in docs_recents %}
     <div style="padding:.625rem 0;border-bottom:1px solid var(--border);">
-      <div style="font-size:.875rem;font-weight:500;color:var(--text);margin-bottom:3px;line-height:1.3;">
+      <div style="font-size:var(--fs-sm);font-weight:500;color:var(--text);margin-bottom:3px;line-height:1.3;">
         {{ doc.titre|truncate(60) }}
       </div>
       <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;">
-        <span class="badge badge--{{ doc.type }}" style="font-size:.65rem;">
+        <span class="badge badge--{{ doc.type }}" style="font-size:var(--fs-2xs);">
           {{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}
         </span>
-        <span style="font-size:.75rem;color:var(--text-3);">{{ doc.etablissement_code }} · {{ doc.annee }}</span>
-        <span style="font-size:.7rem;font-family:monospace;color:var(--text-3);margin-left:auto;">{{ doc.numero_national }}</span>
+        <span style="font-size:var(--fs-xs);color:var(--text-3);">{{ doc.etablissement_code }} · {{ doc.annee }}</span>
+        <span style="font-size:var(--fs-2xs);font-family:monospace;color:var(--text-3);margin-left:auto;">{{ doc.numero_national }}</span>
       </div>
     </div>
     {% else %}
-    <p style="color:var(--text-3);text-align:center;padding:1.5rem;font-size:.875rem;">Aucun document encore</p>
+    <p style="color:var(--text-3);text-align:center;padding:1.5rem;font-size:var(--fs-sm);">Aucun document encore</p>
     {% endfor %}
   </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
+<script>
+  // Chart.js vient d'un CDN : sur un réseau restreint il peut ne jamais
+  // arriver. On le signale au lieu de laisser quatre cadres vides.
+  window.addEventListener('load', function () {
+    var dispo = typeof Chart !== 'undefined';
+    document.querySelectorAll('.chart-box__placeholder').forEach(function (ph) {
+      if (dispo) {
+        ph.remove();
+      } else {
+        ph.innerHTML =
+          '<i class="ti ti-chart-bar-off" style="font-size:28px;" aria-hidden="true"></i>' +
+          '<span>Graphique indisponible — bibliothèque non chargée</span>';
+      }
+    });
+  });
+</script>
 <script>
 const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#1a3a5c';
 const secondary = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#8b1a2e';

@@ -15,7 +15,7 @@
       <i class="ti ti-lock-open" style="font-size:24px;color:var(--primary);"></i>
     </div>
     <h2 style="font-size:1.375rem;font-weight:700;margin-bottom:.375rem;">Mot de passe oublié</h2>
-    <p style="font-size:.875rem;color:var(--text-2);">Entrez votre email pour recevoir un lien de réinitialisation</p>
+    <p style="font-size:var(--fs-sm);color:var(--text-2);">Entrez votre email pour recevoir un lien de réinitialisation</p>
   </div>
   {% if message %}<div class="alert alert--success" style="margin-bottom:1.25rem;"><i class="ti ti-check"></i> {{ message }}</div>{% endif %}
   {% if erreur %}<div class="alert alert--danger" style="margin-bottom:1.25rem;"><i class="ti ti-alert-circle"></i> {{ erreur }}</div>{% endif %}
@@ -36,8 +36,8 @@
   </div>
   {% endif %}
   <div style="text-align:center;margin-top:1.5rem;">
-    <a href="/admin/connexion" style="font-size:.8rem;color:var(--text-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
-      <i class="ti ti-arrow-left" style="font-size:13px;"></i> Retour à la connexion
+    <a href="/admin/connexion" style="font-size:var(--fs-xs);color:var(--text-2);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+      <i class="ti ti-arrow-left" style="font-size:var(--fs-2xs);"></i> Retour à la connexion
     </a>
   </div>
 </div>

@@ -5,7 +5,7 @@
 {% block content %}
 <form method="post" action="/admin/parametres/general">
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-language" style="color:var(--primary);"></i> Langues actives
     </h3>
     {% set langues = params.langues_actives|fromjson %}
@@ -14,7 +14,7 @@
         <input type="checkbox" name="langue_fr" value="fr" {{ 'checked' if 'fr' in langues }}
                style="accent-color:var(--primary);width:16px;height:16px;">
         <span style="font-weight:500;">Français</span>
-        <span style="font-size:.75rem;color:var(--text-3);">(principale)</span>
+        <span style="font-size:var(--fs-xs);color:var(--text-3);">(principale)</span>
       </label>
       <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
         <input type="checkbox" name="langue_en" value="en" {{ 'checked' if 'en' in langues }}
@@ -30,10 +30,10 @@
   </div>
 
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-refresh" style="color:var(--primary);"></i> Synchronisation automatique
     </h3>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div class="grid-2">
       <div class="form-group">
         <label class="form-label">Intervalle (minutes)</label>
         <input type="number" name="sync_intervalle_min" class="form-control"
@@ -44,7 +44,7 @@
   </div>
 
   <div class="card card--lg" style="margin-bottom:1.25rem;">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-file-description" style="color:var(--primary);"></i> Mentions légales (pied de page)
     </h3>
     <div class="form-group">
@@ -70,14 +70,14 @@
 
 <form method="post" action="/admin/parametres/smtp" style="margin-top:1rem;">
   <div class="card card--lg">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-mail" style="color:var(--primary);"></i> Serveur d'envoi d'emails (SMTP)
     </h3>
     <div class="alert alert--warning" style="margin-bottom:1.25rem;">
       <i class="ti ti-info-circle"></i>
       Requis pour l'envoi des liens de réinitialisation de mot de passe.
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div class="grid-2">
       <div class="form-group">
         <label class="form-label">Serveur SMTP</label>
         <input type="text" name="smtp_host" class="form-control"

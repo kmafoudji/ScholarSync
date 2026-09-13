@@ -5,7 +5,7 @@
 {% block content %}
 <form method="post" action="/admin/parametres/contenu">
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-file-text" style="color:var(--primary);"></i> Contenu de la page
     </h3>
     <div style="margin-bottom:1rem;">
@@ -17,31 +17,31 @@
       <div id="content-fr">
         <div class="form-group">
           <label class="form-label">Contenu en français</label>
-          <textarea name="apropos_fr" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_fr }}</textarea>
+          <textarea name="apropos_fr" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_fr }}</textarea>
           <div class="form-hint">HTML accepté — titres, listes, paragraphes</div>
         </div>
       </div>
       <div id="content-en" style="display:none;">
         <div class="form-group">
           <label class="form-label">Content in English</label>
-          <textarea name="apropos_en" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_en }}</textarea>
+          <textarea name="apropos_en" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_en }}</textarea>
         </div>
       </div>
       <div id="content-pt" style="display:none;">
         <div class="form-group">
           <label class="form-label">Conteúdo em português</label>
-          <textarea name="apropos_pt" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_pt }}</textarea>
+          <textarea name="apropos_pt" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_pt }}</textarea>
         </div>
       </div>
     </div>
   </div>
 
   <div class="card card--lg" style="margin-bottom:1.25rem;">
-    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-map-pin" style="color:var(--primary);"></i> Informations de contact
     </h3>
     {% set contact = params.contact_json|fromjson %}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div class="grid-2">
       <div class="form-group">
         <label class="form-label">Nom de l'institution</label>
         <input type="text" name="contact_nom" class="form-control"

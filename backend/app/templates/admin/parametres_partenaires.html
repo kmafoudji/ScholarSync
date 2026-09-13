@@ -5,7 +5,7 @@
 {% block content %}
 {% set partenaires = params.partenaires_json|fromjson %}
 <div class="card card--lg" style="margin-bottom:1rem;">
-  <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+  <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
     <i class="ti ti-heart-handshake" style="color:var(--primary);"></i> Partenaires affichés en pied de page
   </h3>
   {% if partenaires %}
@@ -15,11 +15,11 @@
       {% if p.logo %}
       <img src="{{ p.logo }}" style="height:40px;object-fit:contain;margin-bottom:.5rem;display:block;margin-left:auto;margin-right:auto;">
       {% endif %}
-      <div style="font-weight:600;font-size:.875rem;">{{ p.nom }}</div>
-      {% if p.url %}<div style="font-size:.75rem;color:var(--text-3);">{{ p.url }}</div>{% endif %}
+      <div style="font-weight:600;font-size:var(--fs-sm);">{{ p.nom }}</div>
+      {% if p.url %}<div style="font-size:var(--fs-xs);color:var(--text-3);">{{ p.url }}</div>{% endif %}
       <form method="post" action="/admin/parametres/partenaires/supprimer" style="margin-top:.5rem;">
         <input type="hidden" name="nom" value="{{ p.nom }}">
-        <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);font-size:.75rem;">
+        <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);font-size:var(--fs-xs);">
           <i class="ti ti-trash"></i> Supprimer
         </button>
       </form>
@@ -27,16 +27,16 @@
     {% endfor %}
   </div>
   {% else %}
-  <p style="color:var(--text-3);font-size:.875rem;margin-bottom:1.25rem;">Aucun partenaire configuré.</p>
+  <p style="color:var(--text-3);font-size:var(--fs-sm);margin-bottom:1.25rem;">Aucun partenaire configuré.</p>
   {% endif %}
 </div>
 
 <div class="card card--lg">
-  <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+  <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
     Ajouter un partenaire
   </h3>
   <form method="post" action="/admin/parametres/partenaires/ajouter">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+    <div class="grid-2">
       <div class="form-group">
         <label class="form-label">Nom <span class="required">*</span></label>
         <input type="text" name="nom" class="form-control" placeholder="CNDST" required>

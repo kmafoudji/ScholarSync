@@ -24,8 +24,8 @@
 
   {% if contact %}
   <div class="card" style="margin-bottom:1.5rem;">
-    <h2 style="font-size:1rem;margin-bottom:1rem;">Contact</h2>
-    <div style="display:grid;gap:.5rem;font-size:.9rem;color:var(--text-2);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1rem;">Contact</h2>
+    <div style="display:grid;gap:.5rem;font-size:var(--fs-sm);color:var(--text-2);">
       {% if contact.nom %}<div><i class="ti ti-building" style="color:var(--primary);margin-right:6px;"></i>{{ contact.nom }}</div>{% endif %}
       {% if contact.adresse %}<div><i class="ti ti-map-pin" style="color:var(--primary);margin-right:6px;"></i>{{ contact.adresse }}</div>{% endif %}
       {% if contact.tel %}<div><i class="ti ti-phone" style="color:var(--primary);margin-right:6px;"></i>{{ contact.tel }}</div>{% endif %}

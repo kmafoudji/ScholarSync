@@ -24,7 +24,7 @@
     {% for se in facettes.sous_entites %}
     <div class="facette-item {{ 'active' if current_filters.sous_entite == se.nom }}"
          onclick="applyFilter('sous_entite', '{{ se.nom|urlencode }}')">
-      <span class="facette-item__label" style="font-size:.77rem;">{{ se.nom }}</span>
+      <span class="facette-item__label" style="font-size:var(--fs-xs);">{{ se.nom }}</span>
       <span class="facette-count">{{ se.count }}</span>
     </div>
     {% endfor %}

@@ -8,10 +8,10 @@
   <form method="post" action="/admin/parametres/identite" enctype="multipart/form-data">
     <!-- Informations générales -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-text-caption" style="color:var(--primary);"></i> Informations générales
       </h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Nom de l'outil <span class="required">*</span></label>
           <input type="text" name="nom_outil" class="form-control" value="{{ params.nom_outil }}" required
@@ -37,10 +37,10 @@
 
     <!-- Logo -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-photo" style="color:var(--primary);"></i> Logo
       </h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;align-items:start;">
+      <div class="grid-2" style="align-items:start;">
         <div>
           <div class="form-group">
             <label class="form-label">Logo principal</label>
@@ -55,7 +55,7 @@
               {% else %}
               <i class="ti ti-upload" style="font-size:2rem;color:var(--text-3);display:block;margin-bottom:.5rem;"></i>
               {% endif %}
-              <span style="font-size:.8125rem;color:var(--text-2);">PNG, SVG, JPG · Max 2 Mo · Ratio 2:1 à 5:1</span>
+              <span style="font-size:var(--fs-xs);color:var(--text-2);">PNG, SVG, JPG · Max 2 Mo · Ratio 2:1 à 5:1</span>
             </div>
             <input type="file" id="logoInput" name="logo" accept=".png,.svg,.jpg,.jpeg" style="display:none;"
                    onchange="previewLogo(this)">
@@ -63,10 +63,10 @@
         </div>
         <div>
           <div style="background:var(--bg);border-radius:var(--radius);padding:1rem;">
-            <div style="font-size:.75rem;font-weight:600;color:var(--text-2);margin-bottom:.75rem;">
+            <div style="font-size:var(--fs-xs);font-weight:600;color:var(--text-2);margin-bottom:.75rem;">
               BONNES PRATIQUES
             </div>
-            <div style="font-size:.8rem;color:var(--text-2);line-height:1.6;">
+            <div style="font-size:var(--fs-xs);color:var(--text-2);line-height:1.6;">
               <div style="margin-bottom:.375rem;">✓ Fond transparent (PNG ou SVG)</div>
               <div style="margin-bottom:.375rem;">✓ Dimensions min. 200×60px</div>
               <div style="margin-bottom:.375rem;">✓ Version claire (sur fond coloré)</div>
@@ -80,11 +80,11 @@
 
     <!-- Couleurs et Template -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-palette" style="color:var(--primary);"></i> Couleurs
       </h3>
 
-      <div style="font-size:.8125rem;font-weight:600;color:var(--text-2);margin-bottom:.75rem;">Choisir un template</div>
+      <div style="font-size:var(--fs-xs);font-weight:600;color:var(--text-2);margin-bottom:.75rem;">Choisir un template</div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:1.25rem;" id="templateGrid">
         {% set templates = [
           ('Institutionnel', '#1a3a5c', '#8b1a2e'),
@@ -104,12 +104,12 @@
             <div style="flex:1;background:#ddd;border-radius:2px;"></div>
           </div>
           <div style="height:12px;background:{{ tpl[1] }};"></div>
-          <div style="font-size:9px;text-align:center;padding:2px;color:var(--text-2);">{{ tpl[0] }}</div>
+          <div style="font-size:var(--fs-2xs);text-align:center;padding:2px;color:var(--text-2);">{{ tpl[0] }}</div>
         </div>
         {% endfor %}
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Couleur principale (header, boutons)</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
@@ -144,10 +144,10 @@
 
     <!-- Bande et icônes -->
     <div class="card card--lg" style="margin-bottom:1.25rem;">
-      <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-layout-navbar" style="color:var(--primary);"></i> Bande décorative et icônes
       </h3>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Bande décorative</label>
           <select name="bande_decorative" class="form-control" onchange="updatePreview()">
@@ -177,10 +177,10 @@
 
   <!-- APERÇU EN TEMPS RÉEL -->
   <div style="position:sticky;top:calc(56px + 1.5rem);">
-    <div style="font-size:.8rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.625rem;">
+    <div style="font-size:var(--fs-xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.625rem;">
       Aperçu en direct
     </div>
-    <div id="livePreview" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:12px;">
+    <div id="livePreview" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:var(--fs-2xs);">
       <!-- Rendu dynamiquement -->
     </div>
   </div>
@@ -242,31 +242,31 @@ function updatePreview() {
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:space-around;pointer-events:none;">${iconsHTML}</div>
       <div style="padding:10px 14px;display:flex;align-items:center;gap:8px;position:relative;z-index:1;">
         <div style="width:24px;height:24px;background:rgba(255,255,255,.2);border-radius:5px;display:flex;align-items:center;justify-content:center;">
-          <span style="font-size:8px;font-weight:700;color:#fff;">${nom.substring(0,2).toUpperCase()}</span>
+          <span style="font-size:var(--fs-2xs);font-weight:700;color:#fff;">${nom.substring(0,2).toUpperCase()}</span>
         </div>
-        <span style="font-size:11px;font-weight:700;color:#fff;">${nom}</span>
+        <span style="font-size:var(--fs-2xs);font-weight:700;color:#fff;">${nom}</span>
         <div style="margin-left:auto;display:flex;gap:6px;">
-          <span style="font-size:9px;color:rgba(255,255,255,.7);">Thèses</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.7);">Mémoires</span>
-          <span style="font-size:9px;color:rgba(255,255,255,.7);">À propos</span>
+          <span style="font-size:var(--fs-2xs);color:rgba(255,255,255,.7);">Thèses</span>
+          <span style="font-size:var(--fs-2xs);color:rgba(255,255,255,.7);">Mémoires</span>
+          <span style="font-size:var(--fs-2xs);color:rgba(255,255,255,.7);">À propos</span>
         </div>
       </div>
     </div>
     <div style="background:#f7f6f3;padding:10px 14px;display:grid;grid-template-columns:70px 1fr;gap:8px;">
       <div>
-        <div style="font-size:8px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Établissements</div>
-        ${['UCAD','UGB','UADB'].map(e=>`<div style="font-size:9px;padding:2px 4px;border-radius:3px;margin-bottom:2px;display:flex;align-items:center;gap:3px;">
+        <div style="font-size:var(--fs-2xs);font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Établissements</div>
+        ${['UCAD','UGB','UADB'].map(e=>`<div style="font-size:var(--fs-2xs);padding:2px 4px;border-radius:3px;margin-bottom:2px;display:flex;align-items:center;gap:3px;">
           <span style="width:4px;height:4px;border-radius:50%;background:${s};flex-shrink:0;display:inline-block;"></span>${e}
         </div>`).join('')}
       </div>
       <div>
         <div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:8px 10px;margin-bottom:5px;">
-          <div style="font-size:9px;font-weight:600;color:${s};margin-bottom:2px;">Analyse des déterminants de la couverture vaccinale…</div>
-          <div style="font-size:8px;color:#888;">Fatou Diallo · UCAD · 2024</div>
+          <div style="font-size:var(--fs-2xs);font-weight:600;color:${s};margin-bottom:2px;">Analyse des déterminants de la couverture vaccinale…</div>
+          <div style="font-size:var(--fs-2xs);color:#888;">Fatou Diallo · UCAD · 2024</div>
         </div>
         <div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:8px 10px;">
-          <div style="font-size:9px;font-weight:600;color:${s};margin-bottom:2px;">Impact de la transformation numérique sur les PME…</div>
-          <div style="font-size:8px;color:#888;">C. M. Ndiaye · UCAD · 2024</div>
+          <div style="font-size:var(--fs-2xs);font-weight:600;color:${s};margin-bottom:2px;">Impact de la transformation numérique sur les PME…</div>
+          <div style="font-size:var(--fs-2xs);color:#888;">C. M. Ndiaye · UCAD · 2024</div>
         </div>
       </div>
     </div>
@@ -274,8 +274,8 @@ function updatePreview() {
       ${stripeHTML}
       <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:space-around;pointer-events:none;">${iconsHTML}</div>
       <div style="position:relative;z-index:1;text-align:center;">
-        <div style="font-size:9px;color:rgba(255,255,255,.6);">Propulsé par ${nom}</div>
-        <div style="font-size:9px;font-weight:600;color:rgba(255,255,255,.85);">${inst || 'Votre institution'}</div>
+        <div style="font-size:var(--fs-2xs);color:rgba(255,255,255,.6);">Propulsé par ${nom}</div>
+        <div style="font-size:var(--fs-2xs);font-weight:600;color:rgba(255,255,255,.85);">${inst || 'Votre institution'}</div>
       </div>
     </div>
   `;
@@ -309,7 +309,7 @@ function validateAndPreviewLogo(file) {
   reader.onload = e => {
     document.getElementById('logoDropzone').innerHTML =
       `<img src="${e.target.result}" style="max-height:60px;max-width:180px;object-fit:contain;"><br>
-       <span style="font-size:.78rem;color:var(--text-2);">${file.name}</span>`;
+       <span style="font-size:var(--fs-xs);color:var(--text-2);">${file.name}</span>`;
   };
   reader.readAsDataURL(file);
 }

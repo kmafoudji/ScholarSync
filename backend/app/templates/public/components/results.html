@@ -24,7 +24,7 @@
         </span>
         {% if doc.acces == 'restreint' %}
         <span class="badge badge--restreint">
-          <i class="ti ti-lock" style="font-size:10px;"></i> Restreint
+          <i class="ti ti-lock" style="font-size:var(--fs-2xs);"></i> Restreint
         </span>
         {% endif %}
       </div>
@@ -49,7 +49,7 @@
   <div class="pagination">
     {% if pagination.page > 1 %}
     <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn">
-      <i class="ti ti-chevron-left" style="font-size:13px;"></i>
+      <i class="ti ti-chevron-left" style="font-size:var(--fs-2xs);"></i>
     </a>
     {% endif %}
     {% for p in pagination.range %}
@@ -62,7 +62,7 @@
     {% endfor %}
     {% if pagination.page < pagination.pages %}
     <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn">
-      <i class="ti ti-chevron-right" style="font-size:13px;"></i>
+      <i class="ti ti-chevron-right" style="font-size:var(--fs-2xs);"></i>
     </a>
     {% endif %}
   </div>
@@ -71,7 +71,7 @@
 {% else %}
   <div style="text-align:center;padding:3rem 1rem;color:var(--text-3);">
     <i class="ti ti-search-off" style="font-size:3rem;display:block;margin-bottom:1rem;"></i>
-    <p style="font-size:1rem;font-weight:500;color:var(--text-2);">Aucun document trouvé</p>
-    <p style="font-size:.875rem;margin-top:.5rem;">Essayez avec d'autres mots-clés ou modifiez les filtres</p>
+    <p style="font-size:var(--fs-base);font-weight:500;color:var(--text-2);">Aucun document trouvé</p>
+    <p style="font-size:var(--fs-sm);margin-top:.5rem;">Essayez avec d'autres mots-clés ou modifiez les filtres</p>
   </div>
 {% endif %}

@@ -22,6 +22,8 @@
 </head>
 <body>
 
+<a href="#contenu-principal" class="skip-link">Aller au contenu</a>
+
 <!-- HEADER -->
 <header class="site-header">
   {% set stripe = params.bande_decorative %}
@@ -62,7 +64,11 @@
         <span class="logo__name">{{ params.nom_outil }}</span>
       {% endif %}
     </a>
-    <nav class="site-nav">
+    <button type="button" class="menu-toggle" id="menuTogglePublic"
+            aria-label="Ouvrir le menu" aria-controls="siteNav" aria-expanded="false">
+      <i class="ti ti-menu-2" aria-hidden="true"></i>
+    </button>
+    <nav class="site-nav" id="siteNav" aria-label="Navigation principale">
       <a href="/theses" class="{{ 'active' if active_nav == 'theses' }}">
         <i class="ti ti-certificate"></i> Thèses
       </a>
@@ -80,17 +86,22 @@
       </a>
     </nav>
     <div class="lang-switcher">
-      <button class="{{ 'active' if lang == 'fr' }}" onclick="setLang('fr')">FR</button>
-      <button class="{{ 'active' if lang == 'en' }}" onclick="setLang('en')">EN</button>
-      <button class="{{ 'active' if lang == 'pt' }}" onclick="setLang('pt')">PT</button>
+      <button type="button" class="{{ 'active' if lang == 'fr' }}" onclick="setLang('fr')"
+              aria-label="Français" {{ 'aria-current=true' if lang == 'fr' }}>FR</button>
+      <button type="button" class="{{ 'active' if lang == 'en' }}" onclick="setLang('en')"
+              aria-label="English" {{ 'aria-current=true' if lang == 'en' }}>EN</button>
+      <button type="button" class="{{ 'active' if lang == 'pt' }}" onclick="setLang('pt')"
+              aria-label="Português" {{ 'aria-current=true' if lang == 'pt' }}>PT</button>
     </div>
     <a href="/admin" class="btn-admin">
-      <i class="ti ti-lock" style="font-size:13px;"></i> Admin
+      <i class="ti ti-lock" style="font-size:var(--fs-2xs);"></i> Admin
     </a>
   </div>
 </header>
 
+<main id="contenu-principal">
 {% block content %}{% endblock %}
+</main>
 
 <!-- FOOTER -->
 <footer class="site-footer">
@@ -123,7 +134,7 @@
       {% for p in partenaires %}
         {% if p.url %}<a href="{{ p.url }}" target="_blank" rel="noopener">{% endif %}
         {% if p.logo %}<img src="{{ p.logo }}" alt="{{ p.nom }}">
-        {% else %}<span style="color:rgba(255,255,255,.5);font-size:.8rem;">{{ p.nom }}</span>{% endif %}
+        {% else %}<span style="color:rgba(255,255,255,.5);font-size:var(--fs-xs);">{{ p.nom }}</span>{% endif %}
         {% if p.url %}</a>{% endif %}
       {% endfor %}
     </div>
@@ -137,6 +148,12 @@
     </div>
   </div>
 </footer>
+
+{% if flash_message %}
+<script type="application/json" id="flash-data">
+  {{ {'message': flash_message, 'type': flash_type or 'success'} | tojson }}
+</script>
+{% endif %}
 
 <script src="/static/js/main.js"></script>
 {% block extra_js %}{% endblock %}

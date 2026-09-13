@@ -11,6 +11,18 @@
 {% endblock %}
 
 {% block content %}
+{# Bandeau d'avancement — alimenté par admin.js via /admin/sync/etat #}
+<div class="sync-live" id="syncLive" data-actif="{{ '1' if sync_en_cours else '0' }}"
+     {{ 'hidden' if not sync_en_cours }}>
+  <i class="ti ti-refresh" aria-hidden="true"
+     style="font-size:20px;color:var(--primary);animation:spin 1.4s linear infinite;"></i>
+  <div class="sync-live__text">Synchronisation en cours…</div>
+  <div class="progress" role="progressbar" aria-label="Avancement de la synchronisation"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="progress__bar progress__bar--indeterminate" style="width:0%"></div>
+  </div>
+</div>
+
 <div class="stat-cards">
   <div class="stat-card stat-card--accent">
     <div class="stat-card__label">Sources actives</div>
@@ -27,13 +39,13 @@
 </div>
 
 <div class="card" style="padding:0;margin-bottom:1rem;">
-  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-    <h3 style="font-size:.9375rem;">Sources Zotero</h3>
-    <div style="display:flex;align-items:center;gap:.75rem;">
-      <span style="font-size:.8rem;color:var(--text-2);">Intervalle :</span>
+  <div class="card-header" style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <h3>Sources Zotero</h3>
+    <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
+      <span style="font-size:var(--fs-sm);color:var(--text-2);">Intervalle :</span>
       <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
         <input type="number" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
-               class="form-control" style="width:80px;padding:.35rem .625rem;font-size:.85rem;">
+               class="form-control" style="width:92px;padding:.45rem .625rem;">
         <button type="submit" class="btn btn--outline btn--sm">Modifier</button>
       </form>
     </div>
@@ -54,9 +66,9 @@
         {% for source in sources %}
         <tr>
           <td style="font-weight:600;">{{ source.etablissement.code }}</td>
-          <td><span style="font-family:monospace;font-size:.8rem;background:var(--bg);padding:2px 8px;border-radius:4px;">{{ source.zotero_type }}</span></td>
-          <td style="font-family:monospace;font-size:.85rem;color:var(--text-2);">{{ source.zotero_id }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);">{{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}</td>
+          <td><span style="font-family:monospace;font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;">{{ source.zotero_type }}</span></td>
+          <td style="font-family:monospace;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}</td>
           <td><span class="status status--{{ 'ok' if source.actif else 'err' }}">{{ 'Actif' if source.actif else 'Inactif' }}</span></td>
           <td>
             <form method="post" action="/admin/sync/lancer/{{ source.id }}" style="display:inline;">
@@ -78,7 +90,7 @@
 
 <div class="card" style="padding:0;">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-    <h3 style="font-size:.9375rem;">Historique récent</h3>
+    <h3>Historique récent</h3>
   </div>
   <div class="table-wrap">
     <table>
@@ -98,9 +110,9 @@
         {% for log in logs %}
         <tr>
           <td style="font-weight:600;">{{ log.etablissement_code }}</td>
-          <td style="font-size:.8rem;">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);">{{ log.debut|format_datetime }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);">
+          <td style="font-size:var(--fs-xs);">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ log.debut|format_datetime }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">
             {% if log.fin %}
               {{ ((log.fin - log.debut).total_seconds()|int) }}s
             {% else %}—{% endif %}

@@ -17,7 +17,7 @@
     </div>
     <div>
       <div style="font-size:1.25rem;font-weight:700;color:var(--primary);">{{ sources|length }}</div>
-      <div style="font-size:.78rem;color:var(--text-2);">Comptes configurés</div>
+      <div style="font-size:var(--fs-xs);color:var(--text-2);">Comptes configurés</div>
     </div>
   </div>
   <div class="card" style="display:flex;align-items:center;gap:1rem;">
@@ -26,7 +26,7 @@
     </div>
     <div>
       <div style="font-size:1.25rem;font-weight:700;color:var(--success);">{{ sources|selectattr('actif')|list|length }}</div>
-      <div style="font-size:.78rem;color:var(--text-2);">Comptes actifs</div>
+      <div style="font-size:var(--fs-xs);color:var(--text-2);">Comptes actifs</div>
     </div>
   </div>
   <div class="card" style="display:flex;align-items:center;gap:1rem;">
@@ -35,15 +35,15 @@
     </div>
     <div>
       <div style="font-size:1.25rem;font-weight:700;color:var(--warning);">{{ sync_intervalle }} min</div>
-      <div style="font-size:.78rem;color:var(--text-2);">Intervalle de sync</div>
+      <div style="font-size:var(--fs-xs);color:var(--text-2);">Intervalle de sync</div>
     </div>
   </div>
   <div class="card" style="display:flex;align-items:center;gap:.75rem;justify-content:space-between;">
     <div>
-      <div style="font-size:.78rem;color:var(--text-2);margin-bottom:.25rem;">Modifier l'intervalle</div>
+      <div style="font-size:var(--fs-xs);color:var(--text-2);margin-bottom:.25rem;">Modifier l'intervalle</div>
       <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
         <input type="number" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
-               class="form-control" style="width:80px;padding:.35rem .625rem;font-size:.85rem;">
+               class="form-control" style="width:80px;padding:.35rem .625rem;font-size:var(--fs-sm);">
         <button type="submit" class="btn btn--outline btn--sm">OK</button>
       </form>
     </div>
@@ -58,7 +58,7 @@
 <!-- TABLEAU DES COMPTES -->
 <div class="card" style="padding:0;">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-    <h3 style="font-size:.9375rem;">Comptes configurés</h3>
+    <h3>Comptes configurés</h3>
   </div>
   <div class="table-wrap">
     <table>
@@ -78,15 +78,15 @@
         <tr>
           <td>
             <div style="font-weight:600;">{{ source.etablissement.code }}</div>
-            <div style="font-size:.78rem;color:var(--text-2);">{{ source.etablissement.nom_court or source.etablissement.nom }}</div>
+            <div style="font-size:var(--fs-xs);color:var(--text-2);">{{ source.etablissement.nom_court or source.etablissement.nom }}</div>
           </td>
           <td>
-            <span style="font-size:.8rem;background:var(--bg);padding:2px 8px;border-radius:4px;font-family:monospace;">
+            <span style="font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;font-family:monospace;">
               {{ source.zotero_type }}
             </span>
           </td>
-          <td style="font-family:monospace;font-size:.85rem;color:var(--text-2);">{{ source.zotero_id }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);">
+          <td style="font-family:monospace;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td style="font-size:var(--fs-xs);color:var(--text-2);">
             {{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}
           </td>
           <td style="font-weight:600;color:var(--primary);">{{ source.nb_documents|default(0) }}</td>
@@ -160,19 +160,19 @@
         </div>
         <div class="form-group">
           <label class="form-label">Type de compte Zotero <span class="required">*</span></label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+          <div class="grid-2" style="gap:.75rem;margin-bottom:0;">
             <label style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" id="lblUser">
               <input type="radio" name="zotero_type" value="user" style="accent-color:var(--primary);">
               <div>
-                <div style="font-weight:600;font-size:.875rem;">Utilisateur</div>
-                <div style="font-size:.75rem;color:var(--text-2);">Compte personnel</div>
+                <div style="font-weight:600;font-size:var(--fs-sm);">Utilisateur</div>
+                <div style="font-size:var(--fs-xs);color:var(--text-2);">Compte personnel</div>
               </div>
             </label>
             <label style="border:1.5px solid var(--primary);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" id="lblGroup">
               <input type="radio" name="zotero_type" value="group" checked style="accent-color:var(--primary);">
               <div>
-                <div style="font-weight:600;font-size:.875rem;">Groupe</div>
-                <div style="font-size:.75rem;color:var(--text-2);">Recommandé</div>
+                <div style="font-weight:600;font-size:var(--fs-sm);">Groupe</div>
+                <div style="font-size:var(--fs-xs);color:var(--text-2);">Recommandé</div>
               </div>
             </label>
           </div>

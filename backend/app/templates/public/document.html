@@ -4,7 +4,7 @@
 {% block content %}
 <div style="background:var(--primary);padding:1.5rem 0 0;">
   <div class="container-sm">
-    <a href="javascript:history.back()" style="color:rgba(255,255,255,.65);font-size:.875rem;text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;">
+    <a href="javascript:history.back()" style="color:rgba(255,255,255,.65);font-size:var(--fs-sm);text-decoration:none;display:inline-flex;align-items:center;gap:5px;margin-bottom:1rem;">
       <i class="ti ti-arrow-left"></i> Retour aux résultats
     </a>
     <div style="display:flex;align-items:flex-start;gap:1rem;padding-bottom:1.5rem;">
@@ -16,13 +16,13 @@
         </div>
         <h1 class="serif" style="color:#fff;font-size:1.5rem;line-height:1.35;margin-bottom:1rem;">{{ doc.titre }}</h1>
         <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
-          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
             <i class="ti ti-user"></i> {{ doc.auteur }}
           </span>
-          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
             <i class="ti ti-building-bank"></i> {{ doc.etablissement_code }}{% if doc.sous_entite_nom %} — {{ doc.sous_entite_nom }}{% endif %}
           </span>
-          <span style="color:rgba(255,255,255,.8);font-size:.875rem;display:flex;align-items:center;gap:4px;">
+          <span style="color:rgba(255,255,255,.8);font-size:var(--fs-sm);display:flex;align-items:center;gap:4px;">
             <i class="ti ti-calendar"></i> {{ doc.annee }}
           </span>
         </div>
@@ -37,18 +37,18 @@
       <!-- Résumé -->
       {% if doc.resume %}
       <div class="card card--lg" style="margin-bottom:1rem;">
-        <h2 style="font-size:1rem;margin-bottom:.875rem;">Résumé</h2>
-        <p style="color:var(--text-2);line-height:1.75;font-size:.9375rem;">{{ doc.resume }}</p>
+        <h2 style="font-size:var(--fs-base);margin-bottom:.875rem;">Résumé</h2>
+        <p style="color:var(--text-2);line-height:1.75;font-size:var(--fs-sm);">{{ doc.resume }}</p>
       </div>
       {% endif %}
 
       <!-- Mots-clés -->
       {% if doc.mots_cles %}
       <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:.875rem;margin-bottom:.625rem;color:var(--text-2);">Mots-clés</h3>
+        <h3 style="font-size:var(--fs-sm);margin-bottom:.625rem;color:var(--text-2);">Mots-clés</h3>
         <div style="display:flex;flex-wrap:wrap;gap:.375rem;">
           {% for mc in doc.mots_cles %}
-          <a href="/recherche?q={{ mc }}" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:.8rem;color:var(--text-2);text-decoration:none;">
+          <a href="/recherche?q={{ mc }}" style="background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:3px 12px;font-size:var(--fs-xs);color:var(--text-2);text-decoration:none;">
             {{ mc }}
           </a>
           {% endfor %}
@@ -59,8 +59,8 @@
       <!-- Jury -->
       {% if doc.jury %}
       <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:.875rem;margin-bottom:.625rem;color:var(--text-2);">Jury</h3>
-        <p style="font-size:.875rem;color:var(--text-2);">{{ doc.jury }}</p>
+        <h3 style="font-size:var(--fs-sm);margin-bottom:.625rem;color:var(--text-2);">Jury</h3>
+        <p style="font-size:var(--fs-sm);color:var(--text-2);">{{ doc.jury }}</p>
       </div>
       {% endif %}
     </div>
@@ -72,23 +72,23 @@
         {% if doc.acces == 'restreint' %}
         <div style="text-align:center;padding:.5rem 0;">
           <i class="ti ti-lock" style="font-size:2rem;color:var(--text-3);display:block;margin-bottom:.5rem;"></i>
-          <p style="font-size:.875rem;color:var(--text-2);margin-bottom:.75rem;">Accès restreint</p>
-          <p style="font-size:.8rem;color:var(--text-3);">Contactez l'établissement pour accéder à ce document.</p>
+          <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:.75rem;">Accès restreint</p>
+          <p style="font-size:var(--fs-xs);color:var(--text-3);">Contactez l'établissement pour accéder à ce document.</p>
         </div>
         {% elif doc.url_document %}
         <a href="{{ doc.url_document }}" target="_blank" rel="noopener" class="btn btn--primary" style="width:100%;justify-content:center;">
           <i class="ti ti-external-link"></i> Consulter le document
         </a>
-        <p style="font-size:.75rem;color:var(--text-3);text-align:center;margin-top:.5rem;">Redirige vers le dépôt de l'établissement</p>
+        <p style="font-size:var(--fs-xs);color:var(--text-3);text-align:center;margin-top:.5rem;">Redirige vers le dépôt de l'établissement</p>
         {% else %}
-        <p style="font-size:.875rem;color:var(--text-3);text-align:center;">Document non disponible en ligne</p>
+        <p style="font-size:var(--fs-sm);color:var(--text-3);text-align:center;">Document non disponible en ligne</p>
         {% endif %}
       </div>
 
       <!-- Métadonnées -->
       <div class="card" style="margin-bottom:1rem;">
-        <h3 style="font-size:.875rem;font-weight:700;color:var(--text-2);margin-bottom:.875rem;text-transform:uppercase;letter-spacing:.04em;">Informations</h3>
-        <table style="width:100%;font-size:.8375rem;">
+        <h3 style="font-size:var(--fs-sm);font-weight:700;color:var(--text-2);margin-bottom:.875rem;text-transform:uppercase;letter-spacing:.04em;">Informations</h3>
+        <table style="width:100%;font-size:var(--fs-sm);">
           {% if doc.directeur %}
           <tr><td style="color:var(--text-3);padding:4px 0;width:40%;">Directeur</td><td style="color:var(--text);font-weight:500;">{{ doc.directeur }}</td></tr>
           {% endif %}
@@ -108,9 +108,9 @@
 
       <!-- Numéro national -->
       <div class="card" style="background:var(--bg);border-style:dashed;">
-        <div style="font-size:.7rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.375rem;">Numéro national</div>
-        <div style="font-family:monospace;font-size:.9rem;font-weight:600;color:var(--primary);letter-spacing:.05em;">{{ doc.numero_national }}</div>
-        <div style="font-size:.72rem;color:var(--text-3);margin-top:.25rem;">Identifiant unique ScholarSync</div>
+        <div style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.375rem;">Numéro national</div>
+        <div style="font-family:monospace;font-size:var(--fs-sm);font-weight:600;color:var(--primary);letter-spacing:.05em;">{{ doc.numero_national }}</div>
+        <div style="font-size:var(--fs-2xs);color:var(--text-3);margin-top:.25rem;">Identifiant unique ScholarSync</div>
       </div>
     </div>
   </div>

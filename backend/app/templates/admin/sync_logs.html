@@ -24,10 +24,10 @@
         {% for log in logs %}
         <tr>
           <td style="font-weight:600;">{{ log.etablissement_code }}</td>
-          <td style="font-size:.8rem;">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);white-space:nowrap;">{{ log.debut|format_datetime }}</td>
-          <td style="font-size:.8rem;color:var(--text-2);white-space:nowrap;">{{ log.fin|format_datetime if log.fin else '—' }}</td>
-          <td style="font-size:.8rem;">
+          <td style="font-size:var(--fs-xs);">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
+          <td style="font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ log.debut|format_datetime }}</td>
+          <td style="font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ log.fin|format_datetime if log.fin else '—' }}</td>
+          <td style="font-size:var(--fs-xs);">
             {% if log.fin %}{{ ((log.fin - log.debut).total_seconds()|int) }}s{% else %}—{% endif %}
           </td>
           <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>
@@ -38,7 +38,7 @@
               {{ log.statut|capitalize }}
             </span>
           </td>
-          <td style="font-size:.75rem;color:var(--text-3);max-width:200px;">
+          <td style="font-size:var(--fs-xs);color:var(--text-3);max-width:200px;">
             {{ log.message_erreur|truncate(60) if log.message_erreur else '—' }}
           </td>
         </tr>
