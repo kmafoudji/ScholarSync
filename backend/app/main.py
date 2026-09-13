@@ -693,6 +693,90 @@ async def admin_sync_etat(db: Session = Depends(get_db)):
     })
 
 
+# Le type MIME décide de l'extension. L'ancienne version reprenait
+# l'extension du nom de fichier envoyé par le client : celle-ci pouvait
+# contenir « / » et « .. » (écriture hors du dossier prévu), ou valoir
+# « html » — un fichier alors servi depuis la même origine que
+# l'application, donc du script exécuté dans la session d'un visiteur.
+EXTENSIONS_LOGO = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/svg+xml": "svg",
+    "image/webp": "webp",
+}
+
+# Signatures de fichier : le type MIME est déclaré par le client, il ne
+# prouve rien. On vérifie que le contenu correspond vraiment.
+SIGNATURES_LOGO = {
+    "png":  [b"\x89PNG\r\n\x1a\n"],
+    "jpg":  [b"\xff\xd8\xff"],
+    "webp": [b"RIFF"],
+}
+
+
+async def enregistrer_logo(logo: UploadFile) -> dict:
+    """Valide puis enregistre le logo. Renvoie {"url": …} ou {"erreur": …}."""
+    extension = EXTENSIONS_LOGO.get((logo.content_type or "").lower())
+    if not extension:
+        acceptes = ", ".join(sorted({e.upper() for e in EXTENSIONS_LOGO.values()}))
+        return {"erreur": f"Format non accepté. Formats possibles : {acceptes}."}
+
+    contenu = await logo.read()
+
+    taille_max = settings.MAX_LOGO_SIZE_MB * 1024 * 1024
+    if len(contenu) > taille_max:
+        return {"erreur": (
+            f"Le fichier pèse {len(contenu) / 1024 / 1024:.1f} Mo, "
+            f"au-delà de la limite de {settings.MAX_LOGO_SIZE_MB} Mo."
+        )}
+    if not contenu:
+        return {"erreur": "Le fichier est vide."}
+
+    signatures = SIGNATURES_LOGO.get(extension)
+    if signatures and not any(contenu.startswith(sig) for sig in signatures):
+        return {"erreur": (
+            "Le contenu du fichier ne correspond pas à un "
+            f"{extension.upper()}. Vérifiez le fichier envoyé."
+        )}
+    if extension == "svg":
+        # Un SVG est du XML exécutable par le navigateur : il est servi
+        # depuis l'origine de l'application, donc un <script> à
+        # l'intérieur s'exécuterait dans la session d'un visiteur.
+        debut = contenu[:4096].lower()
+        if b"<script" in debut or b"javascript:" in debut or b"onload=" in debut:
+            return {"erreur": "Ce SVG contient du script : il a été refusé."}
+
+    dossier = f"app/{settings.UPLOAD_DIR}"
+    chemin = f"{dossier}/logo.{extension}"
+    try:
+        os.makedirs(dossier, exist_ok=True)
+        with open(chemin, "wb") as f:
+            f.write(contenu)
+        # Purger les logos d'un autre format, sinon l'ancien fichier
+        # resterait servi à côté du nouveau.
+        for autre in set(EXTENSIONS_LOGO.values()) - {extension}:
+            try:
+                os.remove(f"{dossier}/logo.{autre}")
+            except FileNotFoundError:
+                pass
+    except PermissionError:
+        logging.getLogger("scholarsync").error(
+            "Écriture refusée dans %s", dossier, exc_info=True
+        )
+        return {"erreur": (
+            "Le dossier des téléversements n'est pas accessible en écriture. "
+            "Sur le serveur : chown -R 1000:1000 uploads (voir "
+            "docs/deploiement.md)."
+        )}
+    except OSError as e:
+        logging.getLogger("scholarsync").error("Écriture du logo : %s", e)
+        return {"erreur": f"Enregistrement impossible : {str(e)[:120]}"}
+
+    # Paramètre anti-cache : sans lui le navigateur garde l'ancien logo,
+    # l'URL étant identique d'un téléversement à l'autre.
+    return {"url": f"/static/img/uploads/logo.{extension}?v={int(datetime.now().timestamp())}"}
+
+
 @app.get("/admin/parametres/identite", response_class=HTMLResponse)
 async def admin_parametres_identite(request: Request, db: Session = Depends(get_db)):
     params = get_params_with_defaults(db)
@@ -717,13 +801,12 @@ async def admin_parametres_identite_save(
         "bande_decorative": bande_decorative, "icones_filigrane": icones_filigrane,
     }
     if logo and logo.filename:
-        os.makedirs(f"app/{settings.UPLOAD_DIR}", exist_ok=True)
-        ext = logo.filename.rsplit(".", 1)[-1]
-        path = f"app/{settings.UPLOAD_DIR}/logo.{ext}"
-        content = await logo.read()
-        with open(path, "wb") as f:
-            f.write(content)
-        updates["logo_url"] = f"/static/img/uploads/logo.{ext}"
+        resultat = await enregistrer_logo(logo)
+        if resultat.get("erreur"):
+            return redirect_flash(
+                "/admin/parametres/identite", resultat["erreur"], "danger"
+            )
+        updates["logo_url"] = resultat["url"]
 
     for cle, valeur in updates.items():
         row = db.query(Parametre).filter(Parametre.cle == cle).first()

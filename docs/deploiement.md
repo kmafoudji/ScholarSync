@@ -151,6 +151,24 @@ ports:
 
 ---
 
+## Dossier des téléversements
+
+Le conteneur tourne sous un compte sans privilèges (UID 1000). Le dossier
+`uploads/` monté depuis l'hôte doit lui appartenir, sinon l'enregistrement
+du logo échoue :
+
+```bash
+mkdir -p uploads
+sudo chown -R 1000:1000 uploads
+```
+
+> Les logos téléversés **avant** la correction du montage n'ont jamais
+> atteint l'hôte : ils vivaient dans la couche d'écriture du conteneur,
+> perdue à chaque reconstruction. Il faut les téléverser à nouveau — une
+> seule fois, ils persisteront ensuite.
+
+---
+
 ## Sauvegardes
 
 `scripts/deployer.sh` sauvegarde avant chaque mise à jour, mais cela ne
@@ -213,5 +231,6 @@ curl -s http://127.0.0.1:8000/sante           # {"statut":"ok","base":"ok"}
 | Les changements de code ne prennent pas effet | `docker compose up -d` ne reconstruit pas une image existante — utilisez `up -d --build` |
 | `/sante` renvoie 503 `base: injoignable` | PostgreSQL non démarré, ou mot de passe désaccordé avec `.env` |
 | Le logo téléversé disparaît au redémarrage | Montage `uploads` erroné — vérifiez `./uploads:/app/app/static/img/uploads` |
+| « Le dossier des téléversements n'est pas accessible en écriture » | Le conteneur tourne sous l'UID 1000 : `mkdir -p uploads && sudo chown -R 1000:1000 uploads` |
 | Les graphiques du tableau de bord restent vides | Chart.js vient d'un CDN : vérifiez l'accès sortant du navigateur client |
 | La synchronisation ne démarre jamais | Aucune source Zotero active — voir Administration → Comptes autorisés |

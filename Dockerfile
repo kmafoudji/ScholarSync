@@ -21,7 +21,10 @@ RUN mkdir -p app/static/img/uploads
 
 # Exécution sans privilèges : une faille dans l'application ne donne pas
 # root dans le conteneur.
-RUN useradd --create-home --shell /usr/sbin/nologin scholarsync \
+# UID fixé à 1000 : le dossier uploads monté depuis l'hôte doit
+# appartenir au même identifiant, sinon l'écriture est refusée.
+#   sur le serveur : chown -R 1000:1000 uploads
+RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin scholarsync \
     && chown -R scholarsync:scholarsync /app
 USER scholarsync
 

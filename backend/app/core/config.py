@@ -21,5 +21,12 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        # Un fichier .env de déploiement porte souvent des variables
+        # destinées à d'autres services (POSTGRES_USER, POSTGRES_PASSWORD
+        # pour le conteneur PostgreSQL…). Sans « ignore », pydantic les
+        # refuse et l'application meurt au chargement de la configuration,
+        # avant même d'avoir un journal exploitable.
+        extra = "ignore"
+
 
 settings = Settings()
