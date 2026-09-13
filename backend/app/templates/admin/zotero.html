@@ -42,7 +42,8 @@
     <div>
       <div style="font-size:var(--fs-xs);color:var(--text-2);margin-bottom:.25rem;">Modifier l'intervalle</div>
       <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
-        <input type="number" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
+        <label class="sr-only" for="intervalleZotero">Intervalle de synchronisation en minutes</label>
+        <input type="number" id="intervalleZotero" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
                class="form-control" style="width:80px;padding:.35rem .625rem;font-size:var(--fs-sm);">
         <button type="submit" class="btn btn--outline btn--sm">OK</button>
       </form>
@@ -58,7 +59,7 @@
 <!-- TABLEAU DES COMPTES -->
 <div class="card" style="padding:0;">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-    <h3>Comptes configurés</h3>
+    <h2>Comptes configurés</h2>
   </div>
   <div class="table-wrap">
     <table>
@@ -155,8 +156,8 @@
     <form method="post" action="/admin/zotero/ajouter">
       <div class="modal__body">
         <div class="form-group">
-          <label class="form-label">Établissement <span class="required">*</span></label>
-          <select name="etablissement_id" class="form-control" required>
+          <label class="form-label" for="f-etablissement_id">Établissement <span class="required">*</span></label>
+          <select id="f-etablissement_id" name="etablissement_id" class="form-control" required>
             <option value="">Sélectionner un établissement…</option>
             {% for etab in etablissements_sans_source %}
             <option value="{{ etab.id }}">{{ etab.code }} — {{ etab.nom }}</option>
@@ -164,7 +165,7 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Type de compte Zotero <span class="required">*</span></label>
+          <label class="form-label" for="f-zotero_id">Type de compte Zotero <span class="required">*</span></label>
           <div class="grid-2" style="gap:.75rem;margin-bottom:0;">
             <label style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;" id="lblUser">
               <input type="radio" name="zotero_type" value="user" style="accent-color:var(--primary);">
@@ -184,17 +185,17 @@
         </div>
         <div class="form-group">
           <label class="form-label">ID Zotero <span class="required">*</span></label>
-          <input type="text" name="zotero_id" class="form-control" placeholder="ex. 4823910" required>
+          <input id="f-zotero_id" type="text" name="zotero_id" class="form-control" placeholder="ex. 4823910" required>
           <div class="form-hint">Visible dans l'URL de votre groupe/compte Zotero</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Clé API Zotero <span class="required">*</span></label>
-          <input type="password" name="api_key" class="form-control" placeholder="Clé API Zotero" required>
+          <label class="form-label" for="f-api_key">Clé API Zotero <span class="required">*</span></label>
+          <input id="f-api_key" type="password" name="api_key" class="form-control" placeholder="Clé API Zotero" required>
           <div class="form-hint">Créez une clé sur zotero.org/settings/keys avec accès lecture</div>
         </div>
         <div class="form-group">
-          <label class="form-label">Label (optionnel)</label>
-          <input type="text" name="label" class="form-control" placeholder="ex. BU centrale UCAD">
+          <label class="form-label" for="f-label">Label (optionnel)</label>
+          <input id="f-label" type="text" name="label" class="form-control" placeholder="ex. BU centrale UCAD">
         </div>
       </div>
       <div class="modal__footer">
@@ -215,7 +216,7 @@
 <dialog id="dlgZotero-{{ source.id }}" class="dialog">
   <form method="post" action="/admin/zotero/{{ source.id }}/modifier">
     <div class="dialog__head">
-      <h3>Compte Zotero — {{ source.etablissement.code }}</h3>
+      <h2>Compte Zotero — {{ source.etablissement.code }}</h2>
       <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>

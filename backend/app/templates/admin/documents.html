@@ -92,9 +92,11 @@
     <div class="pagination">
       {% for p in pagination.range %}
         {% if p == '...' %}
-        <span class="page-btn" style="border:none;cursor:default;">…</span>
+        <span class="page-btn" style="border:none;cursor:default;" aria-hidden="true">…</span>
         {% else %}
-        <a href="?q={{ q }}&page={{ p }}" class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+        <a href="?q={{ q }}&page={{ p }}" class="page-btn {{ 'active' if p == pagination.page }}"
+         aria-label="Page {{ p }}"
+         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
         {% endif %}
       {% endfor %}
     </div>

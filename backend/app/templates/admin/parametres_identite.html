@@ -8,42 +8,42 @@
   <form method="post" action="/admin/parametres/identite" enctype="multipart/form-data">
     <!-- Informations générales -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-text-caption" style="color:var(--primary);"></i> Informations générales
-      </h3>
+      </h2>
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Nom de l'outil <span class="required">*</span></label>
-          <input type="text" name="nom_outil" class="form-control" value="{{ params.nom_outil }}" required
+          <label class="form-label" for="f-nom_outil">Nom de l'outil <span class="required">*</span></label>
+          <input id="f-nom_outil" type="text" name="nom_outil" class="form-control" value="{{ params.nom_outil }}" required
                  oninput="updatePreview()">
         </div>
         <div class="form-group">
-          <label class="form-label">Slogan</label>
-          <input type="text" name="slogan" class="form-control" value="{{ params.slogan }}"
+          <label class="form-label" for="f-slogan">Slogan</label>
+          <input id="f-slogan" type="text" name="slogan" class="form-control" value="{{ params.slogan }}"
                  placeholder="Courte description" oninput="updatePreview()">
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Nom de l'institution (pied de page)</label>
-        <input type="text" name="institution_nom" class="form-control" value="{{ params.institution_nom }}"
+        <label class="form-label" for="f-institution_nom">Nom de l'institution (pied de page)</label>
+        <input id="f-institution_nom" type="text" name="institution_nom" class="form-control" value="{{ params.institution_nom }}"
                placeholder="ex. Centre National de Documentation Scientifique et Technique" oninput="updatePreview()">
       </div>
       <div class="form-group">
-        <label class="form-label">Texte pied de page</label>
-        <input type="text" name="pied_page_texte" class="form-control" value="{{ params.pied_page_texte }}"
+        <label class="form-label" for="f-pied_page_texte">Texte pied de page</label>
+        <input id="f-pied_page_texte" type="text" name="pied_page_texte" class="form-control" value="{{ params.pied_page_texte }}"
                placeholder="ex. © 2025 CNDST — Propulsé par ScholarSync">
       </div>
     </div>
 
     <!-- Logo -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-photo" style="color:var(--primary);"></i> Logo
-      </h3>
+      </h2>
       <div class="grid-2" style="align-items:start;">
         <div>
           <div class="form-group">
-            <label class="form-label">Logo principal</label>
+            <label class="form-label" for="f-bande_decorative">Logo principal</label>
             <div id="logoDropzone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:all .15s;"
                  onclick="document.getElementById('logoInput').click()"
                  ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
@@ -80,9 +80,9 @@
 
     <!-- Couleurs et Template -->
     <div class="card card--lg" style="margin-bottom:1rem;">
-      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-palette" style="color:var(--primary);"></i> Couleurs
-      </h3>
+      </h2>
 
       <div style="font-size:var(--fs-xs);font-weight:600;color:var(--text-2);margin-bottom:.75rem;">Choisir un template</div>
       <div style="display:grid;grid-template-columns:repeat(6,1fr);gap:.5rem;margin-bottom:1.25rem;" id="templateGrid">
@@ -111,25 +111,27 @@
 
       <div class="grid-2">
         <div class="form-group">
-          <label class="form-label">Couleur principale (header, boutons)</label>
+          <label class="form-label" for="colorPrimary">Couleur principale (header, boutons)</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
             <input type="color" name="couleur_principale" id="colorPrimary"
                    value="{{ params.couleur_principale }}"
                    style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:2px;cursor:pointer;"
                    oninput="updatePreview()">
             <input type="text" id="colorPrimaryHex" value="{{ params.couleur_principale }}"
+                   aria-label="Couleur principale en hexadécimal"
                    class="form-control" style="font-family:monospace;flex:1;"
                    oninput="document.getElementById('colorPrimary').value=this.value;updatePreview()">
           </div>
         </div>
         <div class="form-group">
-          <label class="form-label">Couleur secondaire (facettes, accents)</label>
+          <label class="form-label" for="colorSecondary">Couleur secondaire (facettes, accents)</label>
           <div style="display:flex;gap:.5rem;align-items:center;">
             <input type="color" name="couleur_secondaire" id="colorSecondary"
                    value="{{ params.couleur_secondaire }}"
                    style="width:44px;height:36px;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:2px;cursor:pointer;"
                    oninput="updatePreview()">
             <input type="text" id="colorSecondaryHex" value="{{ params.couleur_secondaire }}"
+                   aria-label="Couleur secondaire en hexadécimal"
                    class="form-control" style="font-family:monospace;flex:1;"
                    oninput="document.getElementById('colorSecondary').value=this.value;updatePreview()">
           </div>
@@ -144,21 +146,21 @@
 
     <!-- Bande et icônes -->
     <div class="card card--lg" style="margin-bottom:1.25rem;">
-      <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
         <i class="ti ti-layout-navbar" style="color:var(--primary);"></i> Bande décorative et icônes
-      </h3>
+      </h2>
       <div class="grid-2">
         <div class="form-group">
           <label class="form-label">Bande décorative</label>
-          <select name="bande_decorative" class="form-control" onchange="updatePreview()">
+          <select id="f-bande_decorative" name="bande_decorative" class="form-control" onchange="updatePreview()">
             <option value="senegal" {{ 'selected' if params.bande_decorative == 'senegal' }}>Drapeau sénégalais</option>
             <option value="custom" {{ 'selected' if params.bande_decorative == 'custom' }}>Couleurs de l'outil</option>
             <option value="none" {{ 'selected' if params.bande_decorative == 'none' }}>Aucune</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Icônes filigrane</label>
-          <select name="icones_filigrane" class="form-control" onchange="updatePreview()">
+          <label class="form-label" for="f-icones_filigrane">Icônes filigrane</label>
+          <select id="f-icones_filigrane" name="icones_filigrane" class="form-control" onchange="updatePreview()">
             <option value="academique" {{ 'selected' if params.icones_filigrane == 'academique' }}>Académique</option>
             <option value="recherche" {{ 'selected' if params.icones_filigrane == 'recherche' }}>Recherche</option>
             <option value="minimal" {{ 'selected' if params.icones_filigrane == 'minimal' }}>Minimal (aucune)</option>
@@ -254,7 +256,7 @@ function updatePreview() {
     </div>
     <div style="background:#f7f6f3;padding:10px 14px;display:grid;grid-template-columns:70px 1fr;gap:8px;">
       <div>
-        <div style="font-size:var(--fs-2xs);font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Établissements</div>
+        <div style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Établissements</div>
         ${['UCAD','UGB','UADB'].map(e=>`<div style="font-size:var(--fs-2xs);padding:2px 4px;border-radius:3px;margin-bottom:2px;display:flex;align-items:center;gap:3px;">
           <span style="width:4px;height:4px;border-radius:50%;background:${s};flex-shrink:0;display:inline-block;"></span>${e}
         </div>`).join('')}
@@ -262,11 +264,11 @@ function updatePreview() {
       <div>
         <div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:8px 10px;margin-bottom:5px;">
           <div style="font-size:var(--fs-2xs);font-weight:600;color:${s};margin-bottom:2px;">Analyse des déterminants de la couverture vaccinale…</div>
-          <div style="font-size:var(--fs-2xs);color:#888;">Fatou Diallo · UCAD · 2024</div>
+          <div style="font-size:var(--fs-2xs);color:var(--text-3);">Fatou Diallo · UCAD · 2024</div>
         </div>
         <div style="background:#fff;border:1px solid #e8e8e8;border-radius:6px;padding:8px 10px;">
           <div style="font-size:var(--fs-2xs);font-weight:600;color:${s};margin-bottom:2px;">Impact de la transformation numérique sur les PME…</div>
-          <div style="font-size:var(--fs-2xs);color:#888;">C. M. Ndiaye · UCAD · 2024</div>
+          <div style="font-size:var(--fs-2xs);color:var(--text-3);">C. M. Ndiaye · UCAD · 2024</div>
         </div>
       </div>
     </div>

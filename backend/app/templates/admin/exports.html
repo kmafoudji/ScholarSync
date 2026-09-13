@@ -5,9 +5,9 @@
 {% block content %}
 <div class="grid-2">
   <div class="card card--lg">
-    <h3 style="font-size:var(--fs-base);margin-bottom:.375rem;">
+    <h2 style="font-size:var(--fs-base);margin-bottom:.375rem;">
       <i class="ti ti-table" style="color:var(--primary);"></i> Export des documents
-    </h3>
+    </h2>
     <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:1.25rem;">
       Téléchargez la liste complète des documents indexés.
     </p>
@@ -25,16 +25,16 @@
   </div>
 
   <div class="card card--lg">
-    <h3 style="font-size:var(--fs-base);margin-bottom:.375rem;">
+    <h2 style="font-size:var(--fs-base);margin-bottom:.375rem;">
       <i class="ti ti-filter" style="color:var(--primary);"></i> Export filtré
-    </h3>
+    </h2>
     <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:1.25rem;">
       Filtrez par établissement et type avant d'exporter.
     </p>
     <form action="/admin/exports/documents" method="get">
       <div class="form-group">
-        <label class="form-label">Établissement</label>
-        <select name="etablissement" class="form-control">
+        <label class="form-label" for="f-etablissement">Établissement</label>
+        <select id="f-etablissement" name="etablissement" class="form-control">
           <option value="">Tous</option>
           {% for etab in etablissements %}
           <option value="{{ etab.code }}">{{ etab.code }} — {{ etab.nom_court or etab.nom }}</option>
@@ -42,16 +42,16 @@
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Type</label>
-        <select name="type" class="form-control">
+        <label class="form-label" for="f-type">Type</label>
+        <select id="f-type" name="type" class="form-control">
           <option value="">Tous</option>
           <option value="these">Thèses</option>
           <option value="memoire">Mémoires</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Format</label>
-        <select name="format" class="form-control">
+        <label class="form-label" for="f-format">Format</label>
+        <select id="f-format" name="format" class="form-control">
           <option value="csv">CSV</option>
           <option value="xlsx">Excel</option>
           <option value="pdf">PDF</option>
@@ -64,9 +64,9 @@
   </div>
 
   <div class="card card--lg">
-    <h3 style="font-size:var(--fs-base);margin-bottom:.375rem;">
+    <h2 style="font-size:var(--fs-base);margin-bottom:.375rem;">
       <i class="ti ti-chart-bar" style="color:var(--primary);"></i> Rapport statistiques
-    </h3>
+    </h2>
     <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:1.25rem;">
       Rapport PDF complet avec graphiques et tableaux.
     </p>
@@ -76,9 +76,9 @@
   </div>
 
   <div class="card card--lg">
-    <h3 style="font-size:var(--fs-base);margin-bottom:.375rem;">
+    <h2 style="font-size:var(--fs-base);margin-bottom:.375rem;">
       <i class="ti ti-building-bank" style="color:var(--primary);"></i> Export par établissement
-    </h3>
+    </h2>
     <p style="font-size:var(--fs-sm);color:var(--text-2);margin-bottom:1.25rem;">
       Un fichier Excel par établissement.
     </p>

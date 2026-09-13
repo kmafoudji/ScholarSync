@@ -48,20 +48,22 @@
   {% if pagination.pages > 1 %}
   <div class="pagination">
     {% if pagination.page > 1 %}
-    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn">
+    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn" aria-label="Page précédente" rel="prev">
       <i class="ti ti-chevron-left" style="font-size:var(--fs-2xs);"></i>
     </a>
     {% endif %}
     {% for p in pagination.range %}
       {% if p == '...' %}
-      <span class="page-btn" style="border:none;cursor:default;">…</span>
+      <span class="page-btn" style="border:none;cursor:default;" aria-hidden="true">…</span>
       {% else %}
       <a href="?{{ query_string }}&page={{ p }}"
-         class="page-btn {{ 'active' if p == pagination.page }}">{{ p }}</a>
+         class="page-btn {{ 'active' if p == pagination.page }}"
+         aria-label="Page {{ p }}"
+         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
       {% endif %}
     {% endfor %}
     {% if pagination.page < pagination.pages %}
-    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn">
+    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn" aria-label="Page suivante" rel="next">
       <i class="ti ti-chevron-right" style="font-size:var(--fs-2xs);"></i>
     </a>
     {% endif %}

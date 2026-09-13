@@ -3,6 +3,11 @@
 :root {
   --primary:   #1a3a5c;
   --secondary: #8b1a2e;
+  /* Repli d'abord : un navigateur sans color-mix() garde ces valeurs,
+     sinon --primary-light serait invalide et les badges perdraient
+     leur fond. */
+  --primary-light: #e8edf2;
+  --secondary-light: #f6e9eb;
   --primary-light: color-mix(in srgb, var(--primary) 12%, white);
   --secondary-light: color-mix(in srgb, var(--secondary) 10%, white);
 
@@ -14,7 +19,13 @@
 
   --text:      #1a1916;
   --text-2:    #5a5754;
-  --text-3:    #9a9794;
+  /* #9a9794 ne donnait que 2,49:1 sur --surface-2, très en dessous du
+     4,5:1 exigé par WCAG AA. Cette teinte atteint 4,75:1 sur le fond le
+     plus exigeant tout en restant nettement en retrait de --text-2. */
+  --text-3:    #6b6864;
+  /* Teinte décorative, réservée aux éléments non textuels (filigranes,
+     séparateurs) : ne jamais l'utiliser pour du texte à lire. */
+  --text-faint:#9a9794;
 
   --success:   #1a5c3a;
   --success-bg:#e8f4ee;
@@ -589,7 +600,7 @@ h4 { font-size: var(--fs-md); }
 }
 .site-footer__credit {
   font-size: var(--fs-xs);
-  color: rgba(255,255,255,.4);
+  color: rgba(255,255,255,.72);   /* .4 ne donnait que 3,23:1 */
 }
 
 /* ── BUTTONS ── */
@@ -682,13 +693,13 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 }
 .admin-logo__mark span { font-size: 13px; font-weight: 700; color: #fff; }
 .admin-logo__name { font-size: var(--fs-sm); font-weight: 700; color: #fff; }
-.admin-logo__role { font-size: var(--fs-2xs); color: rgba(255,255,255,.5); display: block; }
+.admin-logo__role { font-size: var(--fs-2xs); color: rgba(255,255,255,.75); display: block; }
 
 .admin-nav { padding: 1rem .75rem; flex: 1; }
 .admin-nav-section {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  color: rgba(255,255,255,.35);
+  color: rgba(255,255,255,.7);    /* .35 ne donnait que 2,82:1 */
   text-transform: uppercase;
   letter-spacing: .08em;
   padding: .75rem .5rem .375rem;
@@ -700,7 +711,7 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   border-radius: var(--radius-sm);
   font-size: var(--fs-sm);
   font-weight: 500;
-  color: rgba(255,255,255,.65);
+  color: rgba(255,255,255,.78);
   text-decoration: none;
   transition: all .12s;
   margin-bottom: 2px;
@@ -726,7 +737,7 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   display: flex; align-items: center; gap: .5rem;
   padding: .4375rem .75rem;
   font-size: var(--fs-xs);
-  color: rgba(255,255,255,.5);
+  color: rgba(255,255,255,.78);
   text-decoration: none;
   border-radius: var(--radius-sm);
   transition: all .12s;
@@ -1294,7 +1305,7 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
 }
 
 /* Titre de section dans une carte */
-.card h3 { font-size: var(--fs-md); }
+.card h2, .card h3 { font-size: var(--fs-md); }
 
 /* ══ DIALOGUES ═══════════════════════════════════════════════════
    Élément <dialog> natif : gestion du focus, de la touche Échap et de
@@ -1319,7 +1330,7 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border);
 }
-.dialog__head h3 { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.dialog__head h2, .dialog__head h3 { font-size: var(--fs-md); overflow-wrap: anywhere; }
 .dialog__close {
   background: none;
   border: none;

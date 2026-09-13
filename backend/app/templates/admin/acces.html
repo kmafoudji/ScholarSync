@@ -16,7 +16,7 @@
 
 <div class="card" style="padding:0;margin-bottom:1rem;">
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
-    <h3>Règles d'accès configurées</h3>
+    <h2>Règles d'accès configurées</h2>
   </div>
   <div class="table-wrap">
     <table>
@@ -69,7 +69,7 @@
 </div>
 
 <div class="card card--lg">
-  <h3 style="font-size:var(--fs-sm);margin-bottom:1rem;">Accès rapide par établissement</h3>
+  <h2 style="font-size:var(--fs-sm);margin-bottom:1rem;">Accès rapide par établissement</h2>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;">
     {% for etab in etablissements %}
     <div style="border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;">
@@ -109,8 +109,8 @@
     <form method="post" action="/admin/acces/definir">
       <div class="modal__body">
         <div class="form-group">
-          <label class="form-label">Niveau <span class="required">*</span></label>
-          <select name="niveau" class="form-control" required>
+          <label class="form-label" for="f-niveau">Niveau <span class="required">*</span></label>
+          <select id="f-niveau" name="niveau" class="form-control" required>
             <option value="etablissement">Établissement</option>
             <option value="collection">Collection (Thèses / Mémoires)</option>
             <option value="sous_collection">Sous-collection (Faculté / École doctorale)</option>
@@ -118,8 +118,8 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Référence <span class="required">*</span></label>
-          <input type="text" name="reference" class="form-control" required
+          <label class="form-label" for="f-reference">Référence <span class="required">*</span></label>
+          <input id="f-reference" type="text" name="reference" class="form-control" required
                  placeholder="Code établissement, nom collection, ou UUID document">
           <div class="form-hint">Ex: UCAD — ou — Thèses — ou — UUID du document</div>
         </div>

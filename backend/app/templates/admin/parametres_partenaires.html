@@ -5,9 +5,9 @@
 {% block content %}
 {% set partenaires = params.partenaires_json|fromjson %}
 <div class="card card--lg" style="margin-bottom:1rem;">
-  <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+  <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
     <i class="ti ti-heart-handshake" style="color:var(--primary);"></i> Partenaires affichés en pied de page
-  </h3>
+  </h2>
   {% if partenaires %}
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem;margin-bottom:1.25rem;">
     {% for p in partenaires %}
@@ -32,23 +32,23 @@
 </div>
 
 <div class="card card--lg">
-  <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+  <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
     Ajouter un partenaire
-  </h3>
+  </h2>
   <form method="post" action="/admin/parametres/partenaires/ajouter">
     <div class="grid-2">
       <div class="form-group">
-        <label class="form-label">Nom <span class="required">*</span></label>
-        <input type="text" name="nom" class="form-control" placeholder="CNDST" required>
+        <label class="form-label" for="f-nom">Nom <span class="required">*</span></label>
+        <input id="f-nom" type="text" name="nom" class="form-control" placeholder="CNDST" required>
       </div>
       <div class="form-group">
-        <label class="form-label">URL site web</label>
-        <input type="url" name="url" class="form-control" placeholder="https://cndst.sn">
+        <label class="form-label" for="f-url">URL site web</label>
+        <input id="f-url" type="url" name="url" class="form-control" placeholder="https://cndst.sn">
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">URL du logo</label>
-      <input type="url" name="logo" class="form-control" placeholder="https://exemple.com/logo.png">
+      <label class="form-label" for="f-logo">URL du logo</label>
+      <input id="f-logo" type="url" name="logo" class="form-control" placeholder="https://exemple.com/logo.png">
       <div class="form-hint">Lien vers l'image du logo (PNG ou SVG recommandé)</div>
     </div>
     <div style="display:flex;justify-content:flex-end;">

@@ -33,7 +33,7 @@
 <div class="card" style="padding:0;">
   <div class="card-header"
        style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-    <h3>Comptes</h3>
+    <h2>Comptes</h2>
     <form method="get" action="/admin/utilisateurs" data-no-busy
           style="display:flex;gap:.5rem;flex-wrap:wrap;">
       <label class="sr-only" for="recherche">Rechercher un compte</label>
@@ -156,7 +156,7 @@
 <dialog id="dlgAjout" class="dialog">
   <form method="post" action="/admin/utilisateurs/ajouter">
     <div class="dialog__head">
-      <h3>Nouveau compte</h3>
+      <h2>Nouveau compte</h2>
       <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>
@@ -217,7 +217,7 @@
 <dialog id="dlgEdit-{{ u.id }}" class="dialog">
   <form method="post" action="/admin/utilisateurs/{{ u.id }}/modifier">
     <div class="dialog__head">
-      <h3>Modifier {{ u.email }}</h3>
+      <h2>Modifier {{ u.email }}</h2>
       <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>
@@ -265,7 +265,7 @@
 <dialog id="dlgMdp-{{ u.id }}" class="dialog">
   <form method="post" action="/admin/utilisateurs/{{ u.id }}/mot-de-passe">
     <div class="dialog__head">
-      <h3>Nouveau mot de passe</h3>
+      <h2>Nouveau mot de passe</h2>
       <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
         <i class="ti ti-x" aria-hidden="true"></i>
       </button>

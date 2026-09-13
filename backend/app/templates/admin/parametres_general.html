@@ -5,9 +5,9 @@
 {% block content %}
 <form method="post" action="/admin/parametres/general">
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-language" style="color:var(--primary);"></i> Langues actives
-    </h3>
+    </h2>
     {% set langues = params.langues_actives|fromjson %}
     <div style="display:flex;gap:1rem;">
       <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
@@ -30,13 +30,13 @@
   </div>
 
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-refresh" style="color:var(--primary);"></i> Synchronisation automatique
-    </h3>
+    </h2>
     <div class="grid-2">
       <div class="form-group">
-        <label class="form-label">Intervalle (minutes)</label>
-        <input type="number" name="sync_intervalle_min" class="form-control"
+        <label class="form-label" for="f-sync_intervalle_min">Intervalle (minutes)</label>
+        <input id="f-sync_intervalle_min" type="number" name="sync_intervalle_min" class="form-control"
                value="{{ params.sync_intervalle_min }}" min="15" max="1440">
         <div class="form-hint">Minimum 15 minutes — maximum 24h (1440 min)</div>
       </div>
@@ -44,18 +44,18 @@
   </div>
 
   <div class="card card--lg" style="margin-bottom:1.25rem;">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-file-description" style="color:var(--primary);"></i> Mentions légales (pied de page)
-    </h3>
+    </h2>
     <div class="form-group">
-      <label class="form-label">Texte pied de page</label>
-      <input type="text" name="pied_page_texte" class="form-control"
+      <label class="form-label" for="f-pied_page_texte">Texte pied de page</label>
+      <input id="f-pied_page_texte" type="text" name="pied_page_texte" class="form-control"
              value="{{ params.pied_page_texte }}"
              placeholder="© 2025 CNDST — Propulsé par ScholarSync">
     </div>
     <div class="form-group">
-      <label class="form-label">Nom de l'institution</label>
-      <input type="text" name="institution_nom" class="form-control"
+      <label class="form-label" for="f-institution_nom">Nom de l'institution</label>
+      <input id="f-institution_nom" type="text" name="institution_nom" class="form-control"
              value="{{ params.institution_nom }}"
              placeholder="Centre National de Documentation Scientifique et Technique">
     </div>
@@ -70,49 +70,49 @@
 
 <form method="post" action="/admin/parametres/smtp" style="margin-top:1rem;">
   <div class="card card--lg">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-mail" style="color:var(--primary);"></i> Serveur d'envoi d'emails (SMTP)
-    </h3>
+    </h2>
     <div class="alert alert--warning" style="margin-bottom:1.25rem;">
       <i class="ti ti-info-circle"></i>
       Requis pour l'envoi des liens de réinitialisation de mot de passe.
     </div>
     <div class="grid-2">
       <div class="form-group">
-        <label class="form-label">Serveur SMTP</label>
-        <input type="text" name="smtp_host" class="form-control"
+        <label class="form-label" for="f-smtp_host">Serveur SMTP</label>
+        <input id="f-smtp_host" type="text" name="smtp_host" class="form-control"
                value="{{ params.smtp_host or '' }}"
                placeholder="smtp.gmail.com">
       </div>
       <div class="form-group">
-        <label class="form-label">Port</label>
-        <select name="smtp_port" class="form-control">
+        <label class="form-label" for="f-smtp_port">Port</label>
+        <select id="f-smtp_port" name="smtp_port" class="form-control">
           <option value="587" {{ 'selected' if params.smtp_port == '587' else '' }}>587 (TLS — recommandé)</option>
           <option value="465" {{ 'selected' if params.smtp_port == '465' else '' }}>465 (SSL)</option>
           <option value="25"  {{ 'selected' if params.smtp_port == '25'  else '' }}>25 (non sécurisé)</option>
         </select>
       </div>
       <div class="form-group">
-        <label class="form-label">Email expéditeur</label>
-        <input type="email" name="smtp_user" class="form-control"
+        <label class="form-label" for="f-smtp_user">Email expéditeur</label>
+        <input id="f-smtp_user" type="email" name="smtp_user" class="form-control"
                value="{{ params.smtp_user or '' }}"
                placeholder="noreply@institution.sn">
       </div>
       <div class="form-group">
-        <label class="form-label">Mot de passe</label>
-        <input type="password" name="smtp_password" class="form-control"
+        <label class="form-label" for="f-smtp_password">Mot de passe</label>
+        <input id="f-smtp_password" type="password" name="smtp_password" class="form-control"
                value="{{ params.smtp_password or '' }}"
                placeholder="Mot de passe ou clé d'application">
       </div>
       <div class="form-group">
-        <label class="form-label">Nom affiché</label>
-        <input type="text" name="smtp_from_name" class="form-control"
+        <label class="form-label" for="f-smtp_from_name">Nom affiché</label>
+        <input id="f-smtp_from_name" type="text" name="smtp_from_name" class="form-control"
                value="{{ params.smtp_from_name or params.nom_outil }}"
                placeholder="ScholarSync">
       </div>
       <div class="form-group">
-        <label class="form-label">Email expéditeur affiché</label>
-        <input type="email" name="smtp_from_email" class="form-control"
+        <label class="form-label" for="f-smtp_from_email">Email expéditeur affiché</label>
+        <input id="f-smtp_from_email" type="email" name="smtp_from_email" class="form-control"
                value="{{ params.smtp_from_email or '' }}"
                placeholder="noreply@institution.sn">
       </div>

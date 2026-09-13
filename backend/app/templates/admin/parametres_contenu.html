@@ -5,9 +5,9 @@
 {% block content %}
 <form method="post" action="/admin/parametres/contenu">
   <div class="card card--lg" style="margin-bottom:1rem;">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-file-text" style="color:var(--primary);"></i> Contenu de la page
-    </h3>
+    </h2>
     <div style="margin-bottom:1rem;">
       <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
         <button type="button" onclick="showTab('fr')" id="tab-fr" class="btn btn--primary btn--sm">FR</button>
@@ -16,53 +16,53 @@
       </div>
       <div id="content-fr">
         <div class="form-group">
-          <label class="form-label">Contenu en français</label>
-          <textarea name="apropos_fr" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_fr }}</textarea>
+          <label class="form-label" for="f-apropos_fr">Contenu en français</label>
+          <textarea id="f-apropos_fr" name="apropos_fr" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_fr }}</textarea>
           <div class="form-hint">HTML accepté — titres, listes, paragraphes</div>
         </div>
       </div>
       <div id="content-en" style="display:none;">
         <div class="form-group">
-          <label class="form-label">Content in English</label>
-          <textarea name="apropos_en" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_en }}</textarea>
+          <label class="form-label" for="f-apropos_en">Content in English</label>
+          <textarea id="f-apropos_en" name="apropos_en" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_en }}</textarea>
         </div>
       </div>
       <div id="content-pt" style="display:none;">
         <div class="form-group">
-          <label class="form-label">Conteúdo em português</label>
-          <textarea name="apropos_pt" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_pt }}</textarea>
+          <label class="form-label" for="f-apropos_pt">Conteúdo em português</label>
+          <textarea id="f-apropos_pt" name="apropos_pt" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_pt }}</textarea>
         </div>
       </div>
     </div>
   </div>
 
   <div class="card card--lg" style="margin-bottom:1.25rem;">
-    <h3 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <h2 style="font-size:var(--fs-base);margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
       <i class="ti ti-map-pin" style="color:var(--primary);"></i> Informations de contact
-    </h3>
+    </h2>
     {% set contact = params.contact_json|fromjson %}
     <div class="grid-2">
       <div class="form-group">
-        <label class="form-label">Nom de l'institution</label>
-        <input type="text" name="contact_nom" class="form-control"
+        <label class="form-label" for="f-contact_nom">Nom de l'institution</label>
+        <input id="f-contact_nom" type="text" name="contact_nom" class="form-control"
                value="{{ contact.nom if contact else '' }}"
                placeholder="Centre National de Documentation...">
       </div>
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" name="contact_email" class="form-control"
+        <label class="form-label" for="f-contact_email">Email</label>
+        <input id="f-contact_email" type="email" name="contact_email" class="form-control"
                value="{{ contact.email if contact else '' }}"
                placeholder="contact@institution.sn">
       </div>
       <div class="form-group">
-        <label class="form-label">Téléphone</label>
-        <input type="text" name="contact_tel" class="form-control"
+        <label class="form-label" for="f-contact_tel">Téléphone</label>
+        <input id="f-contact_tel" type="text" name="contact_tel" class="form-control"
                value="{{ contact.tel if contact else '' }}"
                placeholder="+221 33 000 00 00">
       </div>
       <div class="form-group">
-        <label class="form-label">Adresse</label>
-        <input type="text" name="contact_adresse" class="form-control"
+        <label class="form-label" for="f-contact_adresse">Adresse</label>
+        <input id="f-contact_adresse" type="text" name="contact_adresse" class="form-control"
                value="{{ contact.adresse if contact else '' }}"
                placeholder="Sphère Ministérielle, Dakar">
       </div>
