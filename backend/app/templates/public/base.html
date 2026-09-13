@@ -51,14 +51,16 @@
       {% endif %}
     </div>
     <a href="/" class="logo">
-      <div class="logo__mark">
-        {% if params.logo_url %}
-          <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}">
-        {% else %}
+      {% if params.logo_url %}
+        <div style="background:rgba(255,255,255,0.92);border-radius:8px;padding:4px 10px;display:flex;align-items:center;">
+          <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}" style="height:32px;width:auto;object-fit:contain;">
+        </div>
+      {% else %}
+        <div class="logo__mark">
           <span>{{ params.nom_outil[:2]|upper }}</span>
-        {% endif %}
-      </div>
-      <span class="logo__name">{{ params.nom_outil }}</span>
+        </div>
+        <span class="logo__name">{{ params.nom_outil }}</span>
+      {% endif %}
     </a>
     <nav class="site-nav">
       <a href="/theses" class="{{ 'active' if active_nav == 'theses' }}">

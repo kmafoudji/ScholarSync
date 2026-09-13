@@ -1,0 +1,61 @@
+{% extends "admin/base.html" %}
+{% block title %}Partenaires{% endblock %}
+{% block page_title %}Partenaires{% endblock %}
+
+{% block content %}
+{% set partenaires = params.partenaires_json|fromjson %}
+<div class="card card--lg" style="margin-bottom:1rem;">
+  <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    <i class="ti ti-heart-handshake" style="color:var(--primary);"></i> Partenaires affichés en pied de page
+  </h3>
+  {% if partenaires %}
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.75rem;margin-bottom:1.25rem;">
+    {% for p in partenaires %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;text-align:center;">
+      {% if p.logo %}
+      <img src="{{ p.logo }}" style="height:40px;object-fit:contain;margin-bottom:.5rem;display:block;margin-left:auto;margin-right:auto;">
+      {% endif %}
+      <div style="font-weight:600;font-size:.875rem;">{{ p.nom }}</div>
+      {% if p.url %}<div style="font-size:.75rem;color:var(--text-3);">{{ p.url }}</div>{% endif %}
+      <form method="post" action="/admin/parametres/partenaires/supprimer" style="margin-top:.5rem;">
+        <input type="hidden" name="nom" value="{{ p.nom }}">
+        <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);font-size:.75rem;">
+          <i class="ti ti-trash"></i> Supprimer
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-3);font-size:.875rem;margin-bottom:1.25rem;">Aucun partenaire configuré.</p>
+  {% endif %}
+</div>
+
+<div class="card card--lg">
+  <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+    Ajouter un partenaire
+  </h3>
+  <form method="post" action="/admin/parametres/partenaires/ajouter">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="form-group">
+        <label class="form-label">Nom <span class="required">*</span></label>
+        <input type="text" name="nom" class="form-control" placeholder="CNDST" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">URL site web</label>
+        <input type="url" name="url" class="form-control" placeholder="https://cndst.sn">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">URL du logo</label>
+      <input type="url" name="logo" class="form-control" placeholder="https://exemple.com/logo.png">
+      <div class="form-hint">Lien vers l'image du logo (PNG ou SVG recommandé)</div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;">
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-plus"></i> Ajouter
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

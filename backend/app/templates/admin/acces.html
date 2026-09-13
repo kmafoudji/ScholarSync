@@ -1,0 +1,153 @@
+{% extends "admin/base.html" %}
+{% block title %}Contrôle d'accès{% endblock %}
+{% block page_title %}Contrôle d'accès{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="document.getElementById('modalAjouter').style.display='flex'" class="btn btn--primary btn--sm">
+  <i class="ti ti-plus"></i> Ajouter une règle
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert--warning" style="margin-bottom:1.25rem;">
+  <i class="ti ti-info-circle"></i>
+  Les règles s'appliquent du niveau le plus fin au plus large. Une restriction sur un document prime sur celle de sa collection.
+</div>
+
+<div class="card" style="padding:0;margin-bottom:1rem;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:.9375rem;">Règles d'accès configurées</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Niveau</th>
+          <th>Référence</th>
+          <th>Accès</th>
+          <th>Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for ex in exceptions %}
+        <tr>
+          <td>
+            <span style="font-size:.78rem;background:var(--bg);padding:2px 8px;border-radius:4px;font-weight:500;">
+              {% if ex.niveau == 'etablissement' %}Établissement
+              {% elif ex.niveau == 'collection' %}Collection
+              {% elif ex.niveau == 'sous_collection' %}Sous-collection
+              {% else %}Document{% endif %}
+            </span>
+          </td>
+          <td style="font-family:monospace;font-size:.85rem;">{{ ex.reference }}</td>
+          <td>
+            <span class="badge badge--{{ 'soutenu' if ex.acces == 'public' else 'restreint' }}">
+              {{ 'Public' if ex.acces == 'public' else 'Restreint' }}
+            </span>
+          </td>
+          <td style="font-size:.8rem;color:var(--text-2);">{{ ex.created_at|format_datetime }}</td>
+          <td>
+            <form method="post" action="/admin/acces/{{ ex.id }}/supprimer"
+                  onsubmit="return confirm('Supprimer cette règle ?')">
+              <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);">
+                <i class="ti ti-trash"></i>
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="5" style="text-align:center;padding:2rem;color:var(--text-3);">
+            Aucune règle — par défaut tous les documents sont publics
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card card--lg">
+  <h3 style="font-size:.9375rem;margin-bottom:1rem;">Accès rapide par établissement</h3>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;">
+    {% for etab in etablissements %}
+    <div style="border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;">
+      <div style="font-weight:700;font-size:.9rem;margin-bottom:.5rem;">{{ etab.code }}</div>
+      <div style="font-size:.8rem;color:var(--text-2);margin-bottom:.75rem;">{{ etab.nom_court or etab.nom }}</div>
+      <div style="display:flex;gap:.375rem;">
+        <form method="post" action="/admin/acces/definir">
+          <input type="hidden" name="niveau" value="etablissement">
+          <input type="hidden" name="reference" value="{{ etab.code }}">
+          <input type="hidden" name="acces" value="public">
+          <button type="submit" class="btn btn--ghost btn--sm" style="font-size:.75rem;">
+            <i class="ti ti-lock-open"></i> Public
+          </button>
+        </form>
+        <form method="post" action="/admin/acces/definir">
+          <input type="hidden" name="niveau" value="etablissement">
+          <input type="hidden" name="reference" value="{{ etab.code }}">
+          <input type="hidden" name="acces" value="restreint">
+          <button type="submit" class="btn btn--ghost btn--sm" style="font-size:.75rem;color:var(--danger);">
+            <i class="ti ti-lock"></i> Restreint
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAjouter" style="display:none;">
+  <div class="modal">
+    <div class="modal__header">
+      <span class="modal__title">Ajouter une règle d'accès</span>
+      <button class="modal__close" onclick="document.getElementById('modalAjouter').style.display='none'">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <form method="post" action="/admin/acces/definir">
+      <div class="modal__body">
+        <div class="form-group">
+          <label class="form-label">Niveau <span class="required">*</span></label>
+          <select name="niveau" class="form-control" required>
+            <option value="etablissement">Établissement</option>
+            <option value="collection">Collection (Thèses / Mémoires)</option>
+            <option value="sous_collection">Sous-collection (Faculté / École doctorale)</option>
+            <option value="document">Document individuel</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Référence <span class="required">*</span></label>
+          <input type="text" name="reference" class="form-control" required
+                 placeholder="Code établissement, nom collection, ou UUID document">
+          <div class="form-hint">Ex: UCAD — ou — Thèses — ou — UUID du document</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Accès <span class="required">*</span></label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;">
+            <label style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;">
+              <input type="radio" name="acces" value="public" checked style="accent-color:var(--primary);">
+              <div>
+                <div style="font-weight:600;font-size:.875rem;">Public</div>
+                <div style="font-size:.75rem;color:var(--text-2);">Visible par tous</div>
+              </div>
+            </label>
+            <label style="border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:.75rem;cursor:pointer;display:flex;align-items:center;gap:.5rem;">
+              <input type="radio" name="acces" value="restreint" style="accent-color:var(--danger);">
+              <div>
+                <div style="font-weight:600;font-size:.875rem;">Restreint</div>
+                <div style="font-size:.75rem;color:var(--text-2);">Accès limité</div>
+              </div>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" onclick="document.getElementById('modalAjouter').style.display='none'" class="btn btn--ghost">Annuler</button>
+        <button type="submit" class="btn btn--primary"><i class="ti ti-check"></i> Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

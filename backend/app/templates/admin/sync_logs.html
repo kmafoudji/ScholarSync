@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+{% block title %}Historique synchronisation{% endblock %}
+{% block page_title %}Historique des synchronisations{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Établissement</th>
+          <th>Déclenchement</th>
+          <th>Début</th>
+          <th>Fin</th>
+          <th>Durée</th>
+          <th>Ajoutés</th>
+          <th>Modifiés</th>
+          <th>Erreurs</th>
+          <th>Statut</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-weight:600;">{{ log.etablissement_code }}</td>
+          <td style="font-size:.8rem;">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);white-space:nowrap;">{{ log.debut|format_datetime }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);white-space:nowrap;">{{ log.fin|format_datetime if log.fin else '—' }}</td>
+          <td style="font-size:.8rem;">
+            {% if log.fin %}{{ ((log.fin - log.debut).total_seconds()|int) }}s{% else %}—{% endif %}
+          </td>
+          <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>
+          <td style="color:var(--warning);">{{ log.documents_modifies }}</td>
+          <td style="color:var(--danger);">{{ log.documents_erreur }}</td>
+          <td>
+            <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
+              {{ log.statut|capitalize }}
+            </span>
+          </td>
+          <td style="font-size:.75rem;color:var(--text-3);max-width:200px;">
+            {{ log.message_erreur|truncate(60) if log.message_erreur else '—' }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-3);">Aucune synchronisation encore</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

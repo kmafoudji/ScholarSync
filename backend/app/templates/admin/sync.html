@@ -1,0 +1,124 @@
+{% extends "admin/base.html" %}
+{% block title %}Synchronisation{% endblock %}
+{% block page_title %}Synchronisation Zotero{% endblock %}
+
+{% block topbar_actions %}
+<form method="post" action="/admin/sync/lancer">
+  <button type="submit" class="btn btn--primary btn--sm">
+    <i class="ti ti-refresh"></i> Lancer une sync globale
+  </button>
+</form>
+{% endblock %}
+
+{% block content %}
+<div class="stat-cards">
+  <div class="stat-card stat-card--accent">
+    <div class="stat-card__label">Sources actives</div>
+    <div class="stat-card__value">{{ sources|selectattr('actif')|list|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Intervalle auto</div>
+    <div class="stat-card__value">{{ sync_intervalle }} min</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Dernières syncs</div>
+    <div class="stat-card__value">{{ logs|length }}</div>
+  </div>
+</div>
+
+<div class="card" style="padding:0;margin-bottom:1rem;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <h3 style="font-size:.9375rem;">Sources Zotero</h3>
+    <div style="display:flex;align-items:center;gap:.75rem;">
+      <span style="font-size:.8rem;color:var(--text-2);">Intervalle :</span>
+      <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
+        <input type="number" name="minutes" value="{{ sync_intervalle }}" min="15" max="1440"
+               class="form-control" style="width:80px;padding:.35rem .625rem;font-size:.85rem;">
+        <button type="submit" class="btn btn--outline btn--sm">Modifier</button>
+      </form>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Établissement</th>
+          <th>Type</th>
+          <th>ID Zotero</th>
+          <th>Dernière sync</th>
+          <th>Statut</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for source in sources %}
+        <tr>
+          <td style="font-weight:600;">{{ source.etablissement.code }}</td>
+          <td><span style="font-family:monospace;font-size:.8rem;background:var(--bg);padding:2px 8px;border-radius:4px;">{{ source.zotero_type }}</span></td>
+          <td style="font-family:monospace;font-size:.85rem;color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);">{{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}</td>
+          <td><span class="status status--{{ 'ok' if source.actif else 'err' }}">{{ 'Actif' if source.actif else 'Inactif' }}</span></td>
+          <td>
+            <form method="post" action="/admin/sync/lancer/{{ source.id }}" style="display:inline;">
+              <button type="submit" class="btn btn--ghost btn--sm">
+                <i class="ti ti-refresh"></i> Sync
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-3);">
+          Aucune source — <a href="/admin/zotero" style="color:var(--primary);">Ajouter un compte Zotero</a>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" style="padding:0;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h3 style="font-size:.9375rem;">Historique récent</h3>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Établissement</th>
+          <th>Déclenchement</th>
+          <th>Début</th>
+          <th>Durée</th>
+          <th>Ajoutés</th>
+          <th>Modifiés</th>
+          <th>Erreurs</th>
+          <th>Statut</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr>
+          <td style="font-weight:600;">{{ log.etablissement_code }}</td>
+          <td style="font-size:.8rem;">{{ 'Manuel' if log.declenchement == 'manuel' else 'Auto' }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);">{{ log.debut|format_datetime }}</td>
+          <td style="font-size:.8rem;color:var(--text-2);">
+            {% if log.fin %}
+              {{ ((log.fin - log.debut).total_seconds()|int) }}s
+            {% else %}—{% endif %}
+          </td>
+          <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>
+          <td style="color:var(--warning);">{{ log.documents_modifies }}</td>
+          <td style="color:var(--danger);">{{ log.documents_erreur }}</td>
+          <td>
+            <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
+              {{ log.statut|capitalize }}
+            </span>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-3);">Aucune synchronisation encore</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

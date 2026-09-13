@@ -110,7 +110,7 @@
                   <i class="ti ti-refresh"></i>
                 </button>
               </form>
-              <button onclick="ouvrirEdition({{ source|tojson }})"
+              <button onclick="ouvrirEdition({{ source.id }}, '{{ source.zotero_type }}', '{{ source.zotero_id }}', '{{ source.label or '' }}')"
                       class="btn btn--ghost btn--sm" title="Modifier">
                 <i class="ti ti-edit"></i>
               </button>

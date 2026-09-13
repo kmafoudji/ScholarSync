@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  scholarsync-app:
+    build: .
+    container_name: scholarsync-app
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://scholarsync:scholarsync2025@scholarsync-db:5432/scholarsync
+      - SECRET_KEY=356dfb7ee9e01adc793a69ba1c0b9e6241ece37e632de8a59fd64a65e276e1e1
+      - DEBUG=false
+    depends_on:
+      scholarsync-db:
+        condition: service_healthy
+    volumes:
+      - ./uploads:/app/static/img/uploads
+
+  scholarsync-db:
+    image: postgres:16-alpine
+    container_name: scholarsync-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: scholarsync
+      POSTGRES_USER: scholarsync
+      POSTGRES_PASSWORD: scholarsync2025
+    ports:
+      - "5434:5432"
+    volumes:
+      - scholarsync-db-data:/var/lib/postgresql/data
+      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scholarsync"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  scholarsync-db-data:

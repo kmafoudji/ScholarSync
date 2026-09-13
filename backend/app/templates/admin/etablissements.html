@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% block title %}Établissements{% endblock %}
+{% block page_title %}Établissements{% endblock %}
+
+{% block topbar_actions %}
+<button onclick="document.getElementById('modalAjouter').style.display='flex'" class="btn btn--primary btn--sm">
+  <i class="ti ti-plus"></i> Ajouter
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="padding:0;">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Code</th><th>Nom</th><th>Pays</th><th>Ville</th><th>Statut</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for etab in etablissements %}
+        <tr>
+          <td style="font-weight:700;color:var(--primary);">{{ etab.code }}</td>
+          <td>
+            <div style="font-weight:500;">{{ etab.nom }}</div>
+            {% if etab.nom_court %}<div style="font-size:.78rem;color:var(--text-2);">{{ etab.nom_court }}</div>{% endif %}
+          </td>
+          <td style="font-size:.875rem;color:var(--text-2);">{{ etab.pays }}</td>
+          <td style="font-size:.875rem;color:var(--text-2);">{{ etab.ville or '—' }}</td>
+          <td>
+            <form method="post" action="/admin/etablissements/{{ etab.id }}/toggle">
+              <button type="submit" class="status status--{{ 'ok' if etab.actif else 'err' }}"
+                      style="background:none;border:none;cursor:pointer;padding:0;">
+                {{ 'Actif' if etab.actif else 'Inactif' }}
+              </button>
+            </form>
+          </td>
+          <td>
+            <a href="/recherche?etablissement={{ etab.code }}" target="_blank" class="btn btn--ghost btn--sm">
+              <i class="ti ti-external-link"></i>
+            </a>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-3);">
+          Aucun établissement — <button onclick="document.getElementById('modalAjouter').style.display='flex'"
+          style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:600;">Ajouter le premier</button>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAjouter" style="display:none;">
+  <div class="modal">
+    <div class="modal__header">
+      <span class="modal__title">Ajouter un établissement</span>
+      <button class="modal__close" onclick="document.getElementById('modalAjouter').style.display='none'">
+        <i class="ti ti-x"></i>
+      </button>
+    </div>
+    <form method="post" action="/admin/etablissements/ajouter">
+      <div class="modal__body">
+        <div style="display:grid;grid-template-columns:1fr 2fr;gap:1rem;">
+          <div class="form-group">
+            <label class="form-label">Code <span class="required">*</span></label>
+            <input type="text" name="code" class="form-control" placeholder="UCAD" required maxlength="10"
+                   style="text-transform:uppercase;">
+            <div class="form-hint">Sigle court</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nom complet <span class="required">*</span></label>
+            <input type="text" name="nom" class="form-control" placeholder="Université Cheikh Anta Diop" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Nom court</label>
+          <input type="text" name="nom_court" class="form-control" placeholder="UCAD Dakar">
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+          <div class="form-group">
+            <label class="form-label">Pays</label>
+            <input type="text" name="pays" class="form-control" value="Sénégal">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Ville</label>
+            <input type="text" name="ville" class="form-control" placeholder="Dakar">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Site web</label>
+          <input type="url" name="url_site" class="form-control" placeholder="https://ucad.sn">
+        </div>
+      </div>
+      <div class="modal__footer">
+        <button type="button" onclick="document.getElementById('modalAjouter').style.display='none'" class="btn btn--ghost">Annuler</button>
+        <button type="submit" class="btn btn--primary"><i class="ti ti-check"></i> Enregistrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

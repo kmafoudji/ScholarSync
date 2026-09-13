@@ -1,0 +1,97 @@
+{% extends "admin/base.html" %}
+{% block title %}Exports{% endblock %}
+{% block page_title %}Téléchargements et exports{% endblock %}
+
+{% block content %}
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+  <div class="card card--lg">
+    <h3 style="font-size:1rem;margin-bottom:.375rem;">
+      <i class="ti ti-table" style="color:var(--primary);"></i> Export des documents
+    </h3>
+    <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1.25rem;">
+      Téléchargez la liste complète des documents indexés.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:.5rem;">
+      <a href="/admin/exports/documents?format=csv" class="btn btn--outline">
+        <i class="ti ti-file-type-csv"></i> Export CSV
+      </a>
+      <a href="/admin/exports/documents?format=xlsx" class="btn btn--outline">
+        <i class="ti ti-file-type-xls"></i> Export Excel (.xlsx)
+      </a>
+      <a href="/admin/exports/documents?format=pdf" class="btn btn--outline">
+        <i class="ti ti-file-type-pdf"></i> Export PDF
+      </a>
+    </div>
+  </div>
+
+  <div class="card card--lg">
+    <h3 style="font-size:1rem;margin-bottom:.375rem;">
+      <i class="ti ti-filter" style="color:var(--primary);"></i> Export filtré
+    </h3>
+    <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1.25rem;">
+      Filtrez par établissement et type avant d'exporter.
+    </p>
+    <form action="/admin/exports/documents" method="get">
+      <div class="form-group">
+        <label class="form-label">Établissement</label>
+        <select name="etablissement" class="form-control">
+          <option value="">Tous</option>
+          {% for etab in etablissements %}
+          <option value="{{ etab.code }}">{{ etab.code }} — {{ etab.nom_court or etab.nom }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select name="type" class="form-control">
+          <option value="">Tous</option>
+          <option value="these">Thèses</option>
+          <option value="memoire">Mémoires</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Format</label>
+        <select name="format" class="form-control">
+          <option value="csv">CSV</option>
+          <option value="xlsx">Excel</option>
+          <option value="pdf">PDF</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn--primary" style="width:100%;">
+        <i class="ti ti-download"></i> Télécharger
+      </button>
+    </form>
+  </div>
+
+  <div class="card card--lg">
+    <h3 style="font-size:1rem;margin-bottom:.375rem;">
+      <i class="ti ti-chart-bar" style="color:var(--primary);"></i> Rapport statistiques
+    </h3>
+    <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1.25rem;">
+      Rapport PDF complet avec graphiques et tableaux.
+    </p>
+    <a href="/admin/exports/rapport" class="btn btn--primary">
+      <i class="ti ti-file-type-pdf"></i> Télécharger le rapport PDF
+    </a>
+  </div>
+
+  <div class="card card--lg">
+    <h3 style="font-size:1rem;margin-bottom:.375rem;">
+      <i class="ti ti-building-bank" style="color:var(--primary);"></i> Export par établissement
+    </h3>
+    <p style="font-size:.875rem;color:var(--text-2);margin-bottom:1.25rem;">
+      Un fichier Excel par établissement.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:.375rem;">
+      {% for etab in etablissements %}
+      <a href="/admin/exports/documents?etablissement={{ etab.code }}&format=xlsx"
+         class="btn btn--ghost btn--sm" style="justify-content:flex-start;">
+        <i class="ti ti-download"></i> {{ etab.code }} — {{ etab.nom_court or etab.nom }}
+      </a>
+      {% else %}
+      <p style="color:var(--text-3);font-size:.875rem;">Aucun établissement configuré.</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

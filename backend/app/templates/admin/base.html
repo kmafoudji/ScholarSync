@@ -24,19 +24,16 @@
   <!-- SIDEBAR -->
   <aside class="admin-sidebar" id="adminSidebar">
     <a href="/admin" class="admin-logo">
+      {% if params.logo_url %}
+      <div style="background:rgba(255,255,255,0.92);border-radius:6px;padding:4px 10px;display:flex;align-items:center;">
+        <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}" style="height:26px;width:auto;object-fit:contain;">
+      </div>
+      {% else %}
       <div class="admin-logo__mark">
-        {% if params.logo_url %}
-          <img src="{{ params.logo_url }}" alt="" style="width:20px;height:20px;object-fit:contain;">
-        {% else %}
-          <span>{{ params.nom_outil[:2]|upper }}</span>
-        {% endif %}
+        <span>{{ params.nom_outil[:2]|upper }}</span>
       </div>
-      <div>
-        <span class="admin-logo__name">{{ params.nom_outil }}</span>
-        <span class="admin-logo__role">
-          {% if current_user.role == 'super_admin' %}Super Admin{% else %}Gestionnaire BU{% endif %}
-        </span>
-      </div>
+      <span class="admin-logo__name">{{ params.nom_outil }}</span>
+      {% endif %}
     </a>
 
     <nav class="admin-nav">

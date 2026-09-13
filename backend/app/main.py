@@ -12,7 +12,7 @@ from app.core.database import get_db, engine
 from app.core.config import settings
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
-    Document, SyncLog, Utilisateur, NumerotationCompteur
+    Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
 )
 
 # Créer les tables
@@ -485,3 +485,298 @@ async def admin_documents(
 @app.get("/api/stats")
 async def api_stats(db: Session = Depends(get_db)):
     return get_stats(db)
+
+@app.get("/admin/etablissements", response_class=HTMLResponse)
+async def admin_etablissements(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    etabs = db.query(Etablissement).order_by(Etablissement.nom).all()
+    return templates.TemplateResponse("admin/etablissements.html", {
+        "request": request, "params": params, "etablissements": etabs,
+        "current_user": get_current_user_mock(), "active_nav": "etablissements",
+    })
+
+@app.post("/admin/etablissements/ajouter")
+async def admin_etablissements_ajouter(
+    db: Session = Depends(get_db),
+    code: str = Form(...), nom: str = Form(...), nom_court: str = Form(""),
+    pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form("")
+):
+    etab = Etablissement(code=code.upper(), nom=nom, nom_court=nom_court or None,
+                         pays=pays, ville=ville or None, url_site=url_site or None)
+    db.add(etab)
+    db.commit()
+    return RedirectResponse("/admin/etablissements", status_code=303)
+
+@app.post("/admin/etablissements/{etab_id}/toggle")
+async def admin_etablissements_toggle(etab_id: int, db: Session = Depends(get_db)):
+    etab = db.query(Etablissement).filter(Etablissement.id == etab_id).first()
+    if etab:
+        etab.actif = not etab.actif
+        db.commit()
+    return RedirectResponse("/admin/etablissements", status_code=303)
+
+@app.get("/admin/sync", response_class=HTMLResponse)
+async def admin_sync(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    logs = db.query(SyncLog).order_by(SyncLog.debut.desc()).limit(20).all()
+    for log in logs:
+        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
+        log.etablissement_code = src.etablissement.code if src else "—"
+    sources = db.query(ZoteroSource).all()
+    sync_intervalle = int(params.get("sync_intervalle_min", "60"))
+    return templates.TemplateResponse("admin/sync.html", {
+        "request": request, "params": params, "logs": logs, "sources": sources,
+        "sync_intervalle": sync_intervalle,
+        "current_user": get_current_user_mock(), "active_nav": "sync",
+    })
+
+@app.get("/admin/sync-logs", response_class=HTMLResponse)
+async def admin_sync_logs(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    logs = db.query(SyncLog).order_by(SyncLog.debut.desc()).limit(50).all()
+    for log in logs:
+        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
+        log.etablissement_code = src.etablissement.code if src else "—"
+    return templates.TemplateResponse("admin/sync_logs.html", {
+        "request": request, "params": params, "logs": logs,
+        "current_user": get_current_user_mock(), "active_nav": "sync-logs",
+    })
+
+@app.get("/admin/utilisateurs", response_class=HTMLResponse)
+async def admin_utilisateurs(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    users = db.query(Utilisateur).order_by(Utilisateur.created_at.desc()).all()
+    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+    return templates.TemplateResponse("admin/utilisateurs.html", {
+        "request": request, "params": params, "utilisateurs": users, "etablissements": etabs,
+        "current_user": get_current_user_mock(), "active_nav": "utilisateurs",
+    })
+
+@app.get("/admin/acces", response_class=HTMLResponse)
+async def admin_acces(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    exceptions = db.query(AccesException).order_by(AccesException.created_at.desc()).all()
+    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+    return templates.TemplateResponse("admin/acces.html", {
+        "request": request, "params": params, "exceptions": exceptions, "etablissements": etabs,
+        "current_user": get_current_user_mock(), "active_nav": "acces",
+    })
+
+@app.get("/admin/exports", response_class=HTMLResponse)
+async def admin_exports(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+    return templates.TemplateResponse("admin/exports.html", {
+        "request": request, "params": params, "etablissements": etabs,
+        "current_user": get_current_user_mock(), "active_nav": "exports",
+    })
+
+@app.get("/admin/parametres/contenu", response_class=HTMLResponse)
+async def admin_parametres_contenu(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/parametres_contenu.html", {
+        "request": request, "params": params,
+        "current_user": get_current_user_mock(), "active_nav": "contenu",
+    })
+
+@app.post("/admin/parametres/contenu")
+async def admin_parametres_contenu_save(
+    db: Session = Depends(get_db),
+    apropos_fr: str = Form(""), apropos_en: str = Form(""), apropos_pt: str = Form(""),
+    contact_nom: str = Form(""), contact_adresse: str = Form(""),
+    contact_tel: str = Form(""), contact_email: str = Form("")
+):
+    import json
+    contact = json.dumps({"nom": contact_nom, "adresse": contact_adresse,
+                          "tel": contact_tel, "email": contact_email})
+    for cle, valeur in [("apropos_fr", apropos_fr), ("apropos_en", apropos_en),
+                        ("apropos_pt", apropos_pt), ("contact_json", contact)]:
+        row = db.query(Parametre).filter(Parametre.cle == cle).first()
+        if row: row.valeur = valeur
+        else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
+    db.commit()
+    return RedirectResponse("/admin/parametres/contenu", status_code=303)
+
+@app.get("/admin/parametres/partenaires", response_class=HTMLResponse)
+async def admin_parametres_partenaires(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/parametres_partenaires.html", {
+        "request": request, "params": params,
+        "current_user": get_current_user_mock(), "active_nav": "partenaires",
+    })
+
+@app.get("/admin/parametres/general", response_class=HTMLResponse)
+async def admin_parametres_general(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/parametres_general.html", {
+        "request": request, "params": params,
+        "current_user": get_current_user_mock(), "active_nav": "general",
+    })
+
+@app.post("/admin/documents/{doc_id}/toggle-acces")
+async def admin_document_toggle_acces(doc_id: str, db: Session = Depends(get_db)):
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if doc:
+        doc.acces = "restreint" if doc.acces == "public" else "public"
+        db.commit()
+    return RedirectResponse("/admin/documents", status_code=303)
+
+@app.post("/admin/zotero/{source_id}/supprimer")
+async def admin_zotero_supprimer(source_id: int, db: Session = Depends(get_db)):
+    src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
+    if src:
+        db.delete(src)
+        db.commit()
+    return RedirectResponse("/admin/zotero", status_code=303)
+
+@app.post("/admin/sync/lancer/{source_id}")
+async def admin_sync_lancer_source(source_id: int, db: Session = Depends(get_db)):
+    from app.sync.engine import sync_source
+    import asyncio
+    src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
+    if src:
+        asyncio.create_task(sync_source(db, src))
+    return RedirectResponse("/admin/sync", status_code=303)
+
+@app.post("/admin/acces/definir")
+async def admin_acces_definir(
+    db: Session = Depends(get_db),
+    niveau: str = Form(...), reference: str = Form(...), acces: str = Form(...)
+):
+    existing = db.query(AccesException).filter(
+        AccesException.niveau == niveau,
+        AccesException.reference == reference
+    ).first()
+    if existing:
+        existing.acces = acces
+    else:
+        db.add(AccesException(niveau=niveau, reference=reference, acces=acces))
+    db.commit()
+    return RedirectResponse("/admin/acces", status_code=303)
+
+@app.post("/admin/acces/{ex_id}/supprimer")
+async def admin_acces_supprimer(ex_id: int, db: Session = Depends(get_db)):
+    ex = db.query(AccesException).filter(AccesException.id == ex_id).first()
+    if ex:
+        db.delete(ex)
+        db.commit()
+    return RedirectResponse("/admin/acces", status_code=303)
+
+@app.get("/admin/exports/documents")
+async def admin_exports_documents(
+    db: Session = Depends(get_db),
+    format: str = "csv", etablissement: str = "", type: str = ""
+):
+    from fastapi.responses import StreamingResponse
+    import csv, io
+    query = db.query(Document)
+    if etablissement: query = query.filter(Document.etablissement_code == etablissement)
+    if type: query = query.filter(Document.type == type)
+    docs = query.order_by(Document.annee.desc()).all()
+
+    if format == "csv":
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow(["Numéro national","Titre","Auteur","Type","Statut","Année","Établissement","Domaine","Langue","URL"])
+        for d in docs:
+            writer.writerow([d.numero_national, d.titre, d.auteur, d.type, d.statut,
+                            d.annee, d.etablissement_code, d.domaine or "", d.langue or "", d.url_document or ""])
+        output.seek(0)
+        return StreamingResponse(io.BytesIO(output.getvalue().encode("utf-8-sig")),
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=scholarsync-documents.csv"})
+
+    elif format == "xlsx":
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Documents"
+        headers = ["Numéro national","Titre","Auteur","Type","Statut","Année","Établissement","Sous-entité","Domaine","Langue","Directeur","URL"]
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill("solid", fgColor="1a3a5c")
+            cell.alignment = Alignment(horizontal="center")
+        for row, d in enumerate(docs, 2):
+            ws.append([d.numero_national, d.titre, d.auteur, d.type, d.statut,
+                      d.annee, d.etablissement_code, d.sous_entite_nom or "",
+                      d.domaine or "", d.langue or "", d.directeur or "", d.url_document or ""])
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return StreamingResponse(output,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": "attachment; filename=scholarsync-documents.xlsx"})
+
+    return JSONResponse({"error": "Format non supporté"}, status_code=400)
+
+@app.get("/admin/exports/rapport")
+async def admin_exports_rapport(db: Session = Depends(get_db)):
+    stats = get_stats(db)
+    from fastapi.responses import HTMLResponse
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>body{{font-family:Arial,sans-serif;padding:2rem;}}
+    h1{{color:#1a3a5c;}} table{{width:100%;border-collapse:collapse;}}
+    th{{background:#1a3a5c;color:white;padding:8px;}} td{{padding:8px;border:1px solid #ddd;}}
+    </style></head><body>
+    <h1>Rapport ScholarSync</h1>
+    <p>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
+    <h2>Statistiques générales</h2>
+    <table><tr><th>Indicateur</th><th>Valeur</th></tr>
+    <tr><td>Total documents</td><td>{stats['total']}</td></tr>
+    <tr><td>Thèses</td><td>{stats['nb_theses']}</td></tr>
+    <tr><td>Mémoires</td><td>{stats['nb_memoires']}</td></tr>
+    <tr><td>Soutenus</td><td>{stats['nb_soutenus']}</td></tr>
+    <tr><td>En préparation</td><td>{stats['nb_preparation']}</td></tr>
+    <tr><td>Établissements</td><td>{stats['nb_etablissements']}</td></tr>
+    </table></body></html>"""
+    return HTMLResponse(content=html)
+
+@app.post("/admin/parametres/partenaires/ajouter")
+async def admin_partenaires_ajouter(
+    db: Session = Depends(get_db),
+    nom: str = Form(...), url: str = Form(""), logo: str = Form("")
+):
+    import json
+    row = db.query(Parametre).filter(Parametre.cle == "partenaires_json").first()
+    partenaires = json.loads(row.valeur) if row and row.valeur else []
+    partenaires.append({"nom": nom, "url": url or None, "logo": logo or None})
+    if row: row.valeur = json.dumps(partenaires)
+    else: db.add(Parametre(cle="partenaires_json", valeur=json.dumps(partenaires), type="json"))
+    db.commit()
+    return RedirectResponse("/admin/parametres/partenaires", status_code=303)
+
+@app.post("/admin/parametres/partenaires/supprimer")
+async def admin_partenaires_supprimer(db: Session = Depends(get_db), nom: str = Form(...)):
+    import json
+    row = db.query(Parametre).filter(Parametre.cle == "partenaires_json").first()
+    if row:
+        partenaires = json.loads(row.valeur)
+        partenaires = [p for p in partenaires if p["nom"] != nom]
+        row.valeur = json.dumps(partenaires)
+        db.commit()
+    return RedirectResponse("/admin/parametres/partenaires", status_code=303)
+
+@app.post("/admin/parametres/general")
+async def admin_parametres_general_save(
+    request: Request, db: Session = Depends(get_db),
+    sync_intervalle_min: str = Form("60"),
+    pied_page_texte: str = Form(""), institution_nom: str = Form(""),
+    langue_fr: str = Form(None), langue_en: str = Form(None), langue_pt: str = Form(None)
+):
+    import json
+    langues = [l for l, v in [("fr", langue_fr), ("en", langue_en), ("pt", langue_pt)] if v]
+    if not langues: langues = ["fr"]
+    updates = {
+        "sync_intervalle_min": sync_intervalle_min,
+        "pied_page_texte": pied_page_texte,
+        "institution_nom": institution_nom,
+        "langues_actives": json.dumps(langues),
+    }
+    for cle, valeur in updates.items():
+        row = db.query(Parametre).filter(Parametre.cle == cle).first()
+        if row: row.valeur = valeur
+        else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
+    db.commit()
+    return RedirectResponse("/admin/parametres/general", status_code=303)

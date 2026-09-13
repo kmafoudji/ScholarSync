@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% block title %}Paramètres généraux{% endblock %}
+{% block page_title %}Paramètres généraux{% endblock %}
+
+{% block content %}
+<form method="post" action="/admin/parametres/general">
+  <div class="card card--lg" style="margin-bottom:1rem;">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-language" style="color:var(--primary);"></i> Langues actives
+    </h3>
+    {% set langues = params.langues_actives|fromjson %}
+    <div style="display:flex;gap:1rem;">
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+        <input type="checkbox" name="langue_fr" value="fr" {{ 'checked' if 'fr' in langues }}
+               style="accent-color:var(--primary);width:16px;height:16px;">
+        <span style="font-weight:500;">Français</span>
+        <span style="font-size:.75rem;color:var(--text-3);">(principale)</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+        <input type="checkbox" name="langue_en" value="en" {{ 'checked' if 'en' in langues }}
+               style="accent-color:var(--primary);width:16px;height:16px;">
+        <span style="font-weight:500;">English</span>
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+        <input type="checkbox" name="langue_pt" value="pt" {{ 'checked' if 'pt' in langues }}
+               style="accent-color:var(--primary);width:16px;height:16px;">
+        <span style="font-weight:500;">Português</span>
+      </label>
+    </div>
+  </div>
+
+  <div class="card card--lg" style="margin-bottom:1rem;">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-refresh" style="color:var(--primary);"></i> Synchronisation automatique
+    </h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="form-group">
+        <label class="form-label">Intervalle (minutes)</label>
+        <input type="number" name="sync_intervalle_min" class="form-control"
+               value="{{ params.sync_intervalle_min }}" min="15" max="1440">
+        <div class="form-hint">Minimum 15 minutes — maximum 24h (1440 min)</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card--lg" style="margin-bottom:1.25rem;">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-file-description" style="color:var(--primary);"></i> Mentions légales (pied de page)
+    </h3>
+    <div class="form-group">
+      <label class="form-label">Texte pied de page</label>
+      <input type="text" name="pied_page_texte" class="form-control"
+             value="{{ params.pied_page_texte }}"
+             placeholder="© 2025 CNDST — Propulsé par ScholarSync">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Nom de l'institution</label>
+      <input type="text" name="institution_nom" class="form-control"
+             value="{{ params.institution_nom }}"
+             placeholder="Centre National de Documentation Scientifique et Technique">
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;">
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check"></i> Enregistrer
+    </button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "admin/base.html" %}
+{% block title %}Page À propos{% endblock %}
+{% block page_title %}Page À propos{% endblock %}
+
+{% block content %}
+<form method="post" action="/admin/parametres/contenu">
+  <div class="card card--lg" style="margin-bottom:1rem;">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-file-text" style="color:var(--primary);"></i> Contenu de la page
+    </h3>
+    <div style="margin-bottom:1rem;">
+      <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
+        <button type="button" onclick="showTab('fr')" id="tab-fr" class="btn btn--primary btn--sm">FR</button>
+        <button type="button" onclick="showTab('en')" id="tab-en" class="btn btn--ghost btn--sm">EN</button>
+        <button type="button" onclick="showTab('pt')" id="tab-pt" class="btn btn--ghost btn--sm">PT</button>
+      </div>
+      <div id="content-fr">
+        <div class="form-group">
+          <label class="form-label">Contenu en français</label>
+          <textarea name="apropos_fr" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_fr }}</textarea>
+          <div class="form-hint">HTML accepté — titres, listes, paragraphes</div>
+        </div>
+      </div>
+      <div id="content-en" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Content in English</label>
+          <textarea name="apropos_en" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_en }}</textarea>
+        </div>
+      </div>
+      <div id="content-pt" style="display:none;">
+        <div class="form-group">
+          <label class="form-label">Conteúdo em português</label>
+          <textarea name="apropos_pt" class="form-control" style="min-height:300px;font-size:.875rem;">{{ params.apropos_pt }}</textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card card--lg" style="margin-bottom:1.25rem;">
+    <h3 style="font-size:1rem;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:1px solid var(--border);">
+      <i class="ti ti-map-pin" style="color:var(--primary);"></i> Informations de contact
+    </h3>
+    {% set contact = params.contact_json|fromjson %}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="form-group">
+        <label class="form-label">Nom de l'institution</label>
+        <input type="text" name="contact_nom" class="form-control"
+               value="{{ contact.nom if contact else '' }}"
+               placeholder="Centre National de Documentation...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input type="email" name="contact_email" class="form-control"
+               value="{{ contact.email if contact else '' }}"
+               placeholder="contact@institution.sn">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Téléphone</label>
+        <input type="text" name="contact_tel" class="form-control"
+               value="{{ contact.tel if contact else '' }}"
+               placeholder="+221 33 000 00 00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Adresse</label>
+        <input type="text" name="contact_adresse" class="form-control"
+               value="{{ contact.adresse if contact else '' }}"
+               placeholder="Sphère Ministérielle, Dakar">
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;justify-content:flex-end;gap:.75rem;">
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check"></i> Enregistrer
+    </button>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showTab(lang) {
+  ['fr','en','pt'].forEach(l => {
+    document.getElementById('content-'+l).style.display = l === lang ? 'block' : 'none';
+    document.getElementById('tab-'+l).className = l === lang ? 'btn btn--primary btn--sm' : 'btn btn--ghost btn--sm';
+  });
+}
+</script>
+{% endblock %}
