@@ -52,7 +52,7 @@
         <i class="ti ti-pencil"></i><i class="ti ti-microscope"></i>
       {% endif %}
     </div>
-    <a href="/" class="logo">
+    <a href="/" class="logo" aria-label="{{ params.nom_outil }} — accueil">
       {% if params.logo_url %}
         <div style="background:rgba(255,255,255,0.92);border-radius:8px;padding:4px 10px;display:flex;align-items:center;">
           <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}" style="height:32px;width:auto;object-fit:contain;">

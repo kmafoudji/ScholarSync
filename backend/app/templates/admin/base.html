@@ -25,7 +25,7 @@
 <div class="admin-layout">
   <!-- SIDEBAR -->
   <aside class="admin-sidebar" id="adminSidebar">
-    <a href="/admin" class="admin-logo">
+    <a href="/admin" class="admin-logo" aria-label="{{ params.nom_outil }} — tableau de bord">
       {% if params.logo_url %}
       <div style="background:rgba(255,255,255,0.92);border-radius:6px;padding:4px 10px;display:flex;align-items:center;">
         <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}" style="height:26px;width:auto;object-fit:contain;">
