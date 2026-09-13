@@ -1,37 +1,58 @@
-version: '3.8'
+# ScholarSync — déploiement Docker.
+#
+# Aucun secret dans ce fichier : tout vient de .env, qui n'est pas versionné.
+# Copiez .env.example en .env et lancez scripts/generer-secrets.sh avant le
+# premier démarrage.
 
 services:
   scholarsync-app:
     build: .
     container_name: scholarsync-app
     restart: unless-stopped
+    # Le port n'est exposé que sur la boucle locale : c'est le reverse
+    # proxy (Nginx, Caddy…) qui le publie vers l'extérieur, avec TLS.
+    # Pour un accès direct sans proxy, remplacer par "0.0.0.0:8000:8000".
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - DATABASE_URL=postgresql://scholarsync:scholarsync2025@scholarsync-db:5432/scholarsync
-      - SECRET_KEY=356dfb7ee9e01adc793a69ba1c0b9e6241ece37e632de8a59fd64a65e276e1e1
-      - DEBUG=false
+      DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER manquant dans .env}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}@scholarsync-db:5432/${POSTGRES_DB:-scholarsync}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY manquant dans .env}
+      DEBUG: "false"
     depends_on:
       scholarsync-db:
         condition: service_healthy
     volumes:
-      - ./uploads:/app/static/img/uploads
+      # Le WORKDIR de l'image est /app et le code est copié dans /app/app :
+      # les téléversements vivent donc dans /app/app/static/img/uploads.
+      # L'ancien montage visait /app/static/img/uploads — un chemin qui
+      # n'existe pas — et les logos disparaissaient à chaque redémarrage.
+      - ./uploads:/app/app/static/img/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/sante', timeout=5).status==200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   scholarsync-db:
     image: postgres:16-alpine
     container_name: scholarsync-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: scholarsync
-      POSTGRES_USER: scholarsync
-      POSTGRES_PASSWORD: scholarsync2025
-    ports:
-      - "5434:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-scholarsync}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER manquant dans .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}
+    # Pas de port publié : seule l'application a besoin d'atteindre la base.
+    # Pour une inspection ponctuelle : docker compose exec scholarsync-db psql -U scholarsync
     volumes:
       - scholarsync-db-data:/var/lib/postgresql/data
-      - ./migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+      # Le schéma initial est dans backend/migrations/, pas à la racine.
+      # L'ancien chemin ./migrations/ n'existait pas : Docker y créait un
+      # dossier vide et le schéma n'était jamais appliqué.
+      - ./backend/migrations/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U scholarsync"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scholarsync} -d ${POSTGRES_DB:-scholarsync}"]
       interval: 10s
       timeout: 5s
       retries: 5

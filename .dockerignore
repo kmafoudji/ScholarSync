@@ -1,0 +1,23 @@
+# Secrets et état local — ne doivent jamais entrer dans l'image
+.env
+.env.*
+!.env.example
+sauvegardes/
+uploads/
+
+.git/
+.gitignore
+docs/
+*.md
+
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+*.egg-info/
+
+.vscode/
+.idea/
+*.swp
+.DS_Store
+*.log

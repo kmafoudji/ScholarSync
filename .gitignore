@@ -24,3 +24,10 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Secrets du déploiement
+.env
+!.env.example
+
+# Sauvegardes produites par scripts/deployer.sh
+sauvegardes/

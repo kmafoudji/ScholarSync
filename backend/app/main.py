@@ -293,6 +293,25 @@ def paginate(query, page: int, per_page: int = 20):
             page_range = [1, "...", page - 1, page, page + 1, "...", pages]
     return items, {"total": total, "pages": pages, "page": page, "per_page": per_page, "range": page_range}
 
+# ─── SANTÉ ────────────────────────────────────────────────────────
+@app.get("/sante")
+async def sante(db: Session = Depends(get_db)):
+    """
+    Sonde utilisée par le healthcheck Docker et le script de déploiement.
+    Vérifie que la base répond : un conteneur qui démarre alors que
+    PostgreSQL est injoignable ne doit pas être déclaré sain.
+    """
+    from sqlalchemy import text
+    try:
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        return JSONResponse(
+            {"statut": "degrade", "base": "injoignable", "detail": str(e)[:120]},
+            status_code=503,
+        )
+    return {"statut": "ok", "base": "ok"}
+
+
 # ─── ROUTES PUBLIQUES ─────────────────────────────────────────────
 
 @app.get("/", response_class=HTMLResponse)
