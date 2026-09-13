@@ -7,6 +7,7 @@ from sqlalchemy import func, extract
 from typing import Optional, List
 import json, os, math, logging
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from app.core.database import get_db, engine, SessionLocal
 from app.core.config import settings
@@ -17,6 +18,7 @@ from app.core.auth import (
 from app.core import tasks
 from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as FLASH_COOKIE
 from app.core import schema as schema_bd
+from app.core import html_riche
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -313,7 +315,6 @@ def get_stats(db: Session, etablissement_code: str = None) -> dict:
 def construire_query_string(filtres: dict, sort: str = "recent",
                             par_page: int = None) -> str:
     """Chaîne de requête conservant les valeurs multiples et l'encodage."""
-    from urllib.parse import urlencode
     paires = []
     for cle, valeur in filtres.items():
         if cle == "q":
@@ -475,6 +476,56 @@ def paginate(query, page: int, per_page: int = PAR_PAGE_DEFAUT):
         "fin": min(page * per_page, total),
         "options_par_page": PAR_PAGE_POSSIBLES,
     }
+
+
+# ─── TRI DES TABLEAUX D'ADMINISTRATION ────────────────────────────
+#
+# Le nom de colonne arrive de l'URL : il ne doit jamais toucher SQL
+# directement. Chaque page déclare la liste des colonnes triables ; tout
+# ce qui n'y figure pas retombe sur le tri par défaut. C'est aussi ce qui
+# garantit qu'un lien périmé donne une page correcte plutôt qu'une erreur.
+
+def appliquer_tri(query, tri, sens, colonnes: dict, defaut: str):
+    """Ordonne `query` et renvoie (query, etat) où `etat` décrit le tri
+    retenu pour que le gabarit puisse flécher la bonne colonne.
+
+    `colonnes` associe une clé publique à une colonne SQLAlchemy, ou à un
+    couple (colonne, sens_par_defaut) : une date se lit du plus récent au
+    plus ancien, un nom de A à Z — le premier clic doit faire ce que le
+    lecteur attend.
+    """
+    cle = tri if tri in colonnes else defaut
+    entree = colonnes[cle]
+    colonne, sens_naturel = entree if isinstance(entree, tuple) else (entree, "asc")
+
+    # `sens` absent : on prend le sens naturel de la colonne. Présent mais
+    # aberrant : on prend « asc » plutôt que de le refuser bruyamment.
+    if sens not in ("asc", "desc"):
+        sens = sens_naturel if tri in colonnes else sens_naturel
+
+    ordre = colonne.asc() if sens == "asc" else colonne.desc()
+    return query.order_by(ordre), {"cle": cle, "sens": sens}
+
+
+def url_maj(request: Request, **modifs) -> str:
+    """Adresse courante avec quelques paramètres changés.
+
+    Sert aux en-têtes de tri et aux liens de pagination : ils doivent
+    conserver la recherche et les filtres en cours, sinon changer de page
+    revient à tout perdre. Un paramètre mis à None ou à la chaîne vide est
+    retiré, ce qui permet de revenir à l'état par défaut sans le nommer.
+    """
+    params = dict(request.query_params)
+    for cle, valeur in modifs.items():
+        if valeur is None or valeur == "":
+            params.pop(cle, None)
+        else:
+            params[cle] = str(valeur)
+    chaine = urlencode(params)
+    return f"{request.url.path}?{chaine}" if chaine else request.url.path
+
+
+templates.env.globals["url_maj"] = url_maj
 
 # ─── SANTÉ ────────────────────────────────────────────────────────
 @app.get("/sante")
@@ -644,33 +695,18 @@ async def etablissements_page(request: Request, db: Session = Depends(get_db)):
         "active_nav": "etablissements", "lang": "fr",
     })
 
-@app.get("/statistiques", response_class=HTMLResponse)
-async def statistiques_page(request: Request, db: Session = Depends(get_db)):
-    params = get_params_with_defaults(db)
-    stats = get_stats(db)
-    stats_annees = [
-        {"annee": r[0],
-         "theses": db.query(Document).filter(Document.annee == r[0], Document.type == "these").count(),
-         "memoires": db.query(Document).filter(Document.annee == r[0], Document.type == "memoire").count()}
-        for r in db.query(Document.annee).distinct().order_by(Document.annee).all()
-    ]
-    stats_domaines = [
-        {"domaine": r[0], "count": r[1]}
-        for r in db.query(Document.domaine, func.count().label("count"))
-                   .filter(Document.domaine.isnot(None))
-                   .group_by(Document.domaine).order_by(func.count().desc()).all()
-    ]
-    stats_etabs = [
-        {"code": r[0], "count": r[1]}
-        for r in db.query(Document.etablissement_code, func.count().label("count"))
-                   .group_by(Document.etablissement_code)
-                   .order_by(func.count().desc()).all()
-    ]
-    return templates.TemplateResponse("public/statistiques.html", {
-        "request": request, "params": params, "stats": stats,
-        "stats_annees": stats_annees, "stats_domaines": stats_domaines,
-        "stats_etabs": stats_etabs, "active_nav": "statistiques", "lang": "fr",
-    })
+@app.get("/statistiques")
+async def statistiques_page():
+    """Le menu Statistiques a été retiré de la navigation publique.
+
+    Les chiffres qu'il portait — total, établissements, soutenus, en
+    préparation — figurent en tête de la page d'accueil, et le détail par
+    année, domaine et établissement se lit dans les facettes du
+    catalogue : la page faisait doublon. Redirection permanente plutôt
+    que 404, pour les liens déjà diffusés.
+    """
+    return RedirectResponse("/", status_code=308)
+
 
 # ─── ROUTES ADMIN ─────────────────────────────────────────────────
 
@@ -706,12 +742,24 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request, "params": params, "stats": stats,
-        "stats_annees": json.dumps(stats_annees),
-        "stats_domaines": json.dumps(stats_domaines),
-        "stats_etabs": json.dumps(stats_etabs),
+        # Structures Python transmises telles quelles : le gabarit les
+        # sérialise une seule fois, dans un bloc JSON. Elles étaient
+        # passées déjà encodées par json.dumps puis ré-encodées par le
+        # filtre tojson du gabarit — le script recevait une chaîne au lieu
+        # d'un tableau, .map n'existait pas, et l'erreur interrompait le
+        # dessin de tous les graphiques.
+        "donnees_graphiques": {
+            "annees": stats_annees,
+            "domaines": stats_domaines,
+            "etablissements": stats_etabs,
+            "types": {
+                "theses": stats.get("nb_theses", 0),
+                "memoires": stats.get("nb_memoires", 0),
+            },
+        },
         "derniers_logs": derniers_logs, "docs_recents": docs_recents,
         "current_user": require_auth(request, db),
-        "active_nav": "dashboard", "sync_en_cours": False,
+        "active_nav": "dashboard",
     })
 
 @app.get("/admin/zotero", response_class=HTMLResponse)
@@ -1046,6 +1094,7 @@ async def admin_documents(
     request: Request, db: Session = Depends(get_db),
     q: str = "", page: int = 1, par_page: int = PAR_PAGE_DEFAUT,
     type: str = "", statut: str = "", etablissement: str = "",
+    tri: str = "", sens: str = "",
 ):
     utilisateur = require_auth(request, db)
     params = get_params_with_defaults(db)
@@ -1072,24 +1121,25 @@ async def admin_documents(
             Document.etablissement_code == utilisateur.etablissement_code
         )
 
-    par_page = normaliser_par_page(par_page)
-    docs, pagination = paginate(
-        query.order_by(Document.created_at.desc()), page, par_page
-    )
+    query, etat_tri = appliquer_tri(query, tri, sens, {
+        "titre": Document.titre,
+        "auteur": Document.auteur,
+        "etablissement": Document.etablissement_code,
+        "type": Document.type,
+        "statut": Document.statut,
+        "annee": (Document.annee, "desc"),
+        "numero": Document.numero_national,
+        "ajout": (Document.created_at, "desc"),
+    }, defaut="ajout")
 
-    from urllib.parse import urlencode
-    filtres_admin = {k: v for k, v in {
-        "q": q, "type": type, "statut": statut, "etablissement": etablissement,
-    }.items() if v}
-    if par_page != PAR_PAGE_DEFAUT:
-        filtres_admin["par_page"] = par_page
+    par_page = normaliser_par_page(par_page)
+    docs, pagination = paginate(query, page, par_page)
 
     return templates.TemplateResponse("admin/documents.html", {
         "request": request, "params": params, "documents": docs,
-        "pagination": pagination, "q": q,
+        "pagination": pagination, "tri": etat_tri, "q": q,
         "filtre_type": type, "filtre_statut": statut,
         "filtre_etablissement": etablissement,
-        "query_string": urlencode(filtres_admin),
         "etablissements": db.query(Etablissement).order_by(Etablissement.code).all(),
         "current_user": utilisateur, "active_nav": "documents",
     })
@@ -1099,11 +1149,22 @@ async def api_stats(db: Session = Depends(get_db)):
     return get_stats(db)
 
 @app.get("/admin/etablissements", response_class=HTMLResponse)
-async def admin_etablissements(request: Request, db: Session = Depends(get_db)):
+async def admin_etablissements(
+    request: Request, db: Session = Depends(get_db),
+    page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
+):
     params = get_params_with_defaults(db)
-    etabs = db.query(Etablissement).order_by(Etablissement.nom).all()
+    requete, etat_tri = appliquer_tri(db.query(Etablissement), tri, sens, {
+        "code": Etablissement.code,
+        "nom": Etablissement.nom,
+        "ville": Etablissement.ville,
+        "pays": Etablissement.pays,
+        "actif": (Etablissement.actif, "desc"),
+    }, defaut="nom")
+    etabs, pagination = paginate(requete, page, normaliser_par_page(par_page))
     return templates.TemplateResponse("admin/etablissements.html", {
         "request": request, "params": params, "etablissements": etabs,
+        "pagination": pagination, "tri": etat_tri,
         "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
@@ -1149,31 +1210,53 @@ async def admin_etablissements_toggle(etab_id: int, db: Session = Depends(get_db
     return redirect_flash("/admin/etablissements", f"{etab.code} {etat}.", "success")
 
 @app.get("/admin/sync", response_class=HTMLResponse)
-async def admin_sync(request: Request, db: Session = Depends(get_db)):
+async def admin_sync(
+    request: Request, db: Session = Depends(get_db),
+    page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
+):
     params = get_params_with_defaults(db)
-    logs = db.query(SyncLog).order_by(SyncLog.debut.desc()).limit(20).all()
+
+    # L'historique complet vit ici désormais : la page « Historique sync »
+    # affichait la même liste sous un autre menu, ce qui obligeait à
+    # deviner laquelle des deux faisait autorité.
+    requete, etat_tri = appliquer_tri(db.query(SyncLog), tri, sens, {
+        "debut": (SyncLog.debut, "desc"),
+        "fin": (SyncLog.fin, "desc"),
+        "declenchement": SyncLog.declenchement,
+        "statut": SyncLog.statut,
+        "ajoutes": (SyncLog.documents_ajoutes, "desc"),
+        "modifies": (SyncLog.documents_modifies, "desc"),
+        "erreurs": (SyncLog.documents_erreur, "desc"),
+    }, defaut="debut")
+    logs, pagination = paginate(requete, page, normaliser_par_page(par_page))
+
+    # Une jointure suffirait, mais le nombre de lignes affichées est borné
+    # par la pagination : la lisibilité prime ici sur la micro-optimisation.
     for log in logs:
         src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
         log.etablissement_code = src.etablissement.code if src else "—"
+
     sources = db.query(ZoteroSource).all()
     sync_intervalle = int(params.get("sync_intervalle_min", "60"))
     return templates.TemplateResponse("admin/sync.html", {
         "request": request, "params": params, "logs": logs, "sources": sources,
+        "pagination": pagination, "tri": etat_tri,
+        "nb_syncs_total": pagination["total"],
         "sync_intervalle": sync_intervalle,
         "current_user": require_auth(request, db), "active_nav": "sync",
     })
 
-@app.get("/admin/sync-logs", response_class=HTMLResponse)
-async def admin_sync_logs(request: Request, db: Session = Depends(get_db)):
-    params = get_params_with_defaults(db)
-    logs = db.query(SyncLog).order_by(SyncLog.debut.desc()).limit(50).all()
-    for log in logs:
-        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
-        log.etablissement_code = src.etablissement.code if src else "—"
-    return templates.TemplateResponse("admin/sync_logs.html", {
-        "request": request, "params": params, "logs": logs,
-        "current_user": require_auth(request, db), "active_nav": "sync-logs",
-    })
+@app.get("/admin/sync-logs")
+async def admin_sync_logs(request: Request):
+    """L'historique a rejoint la page Synchronisation : un même contenu
+    sous deux menus obligeait à deviner lequel faisait autorité.
+
+    La route survit en redirection permanente, pour les favoris et les
+    liens déjà envoyés par courriel. La chaîne de requête est conservée :
+    un lien vers une page de l'historique reste un lien vers cette page.
+    """
+    suite = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(f"/admin/sync{suite}", status_code=308)
 
 # Libellé long pour les listes déroulantes, libellé court pour les
 # étiquettes de tableau où la place manque.
@@ -1369,7 +1452,8 @@ async def admin_utilisateurs_supprimer(
 
 @app.get("/admin/utilisateurs", response_class=HTMLResponse)
 async def admin_utilisateurs(
-    request: Request, db: Session = Depends(get_db), q: str = "", role: str = ""
+    request: Request, db: Session = Depends(get_db), q: str = "", role: str = "",
+    page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
 ):
     require_super_admin(request, db)
     params = get_params_with_defaults(db)
@@ -1385,7 +1469,29 @@ async def admin_utilisateurs(
     if role in ROLES:
         requete = requete.filter(Utilisateur.role == role)
 
-    users = requete.order_by(Utilisateur.created_at.desc()).all()
+    requete, etat_tri = appliquer_tri(requete, tri, sens, {
+        "nom": Utilisateur.nom,
+        "email": Utilisateur.email,
+        "role": Utilisateur.role,
+        "etablissement": Utilisateur.etablissement_code,
+        "creation": (Utilisateur.created_at, "desc"),
+        "connexion": (Utilisateur.derniere_connexion, "desc"),
+    }, defaut="creation")
+    users, pagination = paginate(requete, page, normaliser_par_page(par_page))
+
+    # Les compteurs de tête portent sur l'ensemble des comptes, pas sur la
+    # page affichée : ils étaient calculés dans le gabarit à partir de la
+    # liste rendue, ce qui devenait faux dès la première pagination.
+    nb_comptes = db.query(Utilisateur).count()
+    nb_actifs = db.query(Utilisateur).filter(
+        Utilisateur.actif == True  # noqa: E712
+    ).count()
+    nb_etabs_couverts = (
+        db.query(Utilisateur.etablissement_code)
+        .filter(Utilisateur.etablissement_code.isnot(None))
+        .distinct().count()
+    )
+
     etabs = (
         db.query(Etablissement)
         .filter(Etablissement.actif == True)  # noqa: E712
@@ -1394,6 +1500,9 @@ async def admin_utilisateurs(
     )
     return templates.TemplateResponse("admin/utilisateurs.html", {
         "request": request, "params": params, "utilisateurs": users, "etablissements": etabs,
+        "pagination": pagination, "tri": etat_tri,
+        "nb_comptes": nb_comptes, "nb_actifs": nb_actifs,
+        "nb_etabs_couverts": nb_etabs_couverts,
         "roles": ROLES, "roles_courts": ROLES_COURTS, "q": q, "role_filtre": role,
         "nb_super_admins": _compte_super_admins_actifs(db),
         "longueur_mdp_min": LONGUEUR_MDP_MIN,
@@ -1401,12 +1510,22 @@ async def admin_utilisateurs(
     })
 
 @app.get("/admin/acces", response_class=HTMLResponse)
-async def admin_acces(request: Request, db: Session = Depends(get_db)):
+async def admin_acces(
+    request: Request, db: Session = Depends(get_db),
+    page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
+):
     params = get_params_with_defaults(db)
-    exceptions = db.query(AccesException).order_by(AccesException.created_at.desc()).all()
+    requete, etat_tri = appliquer_tri(db.query(AccesException), tri, sens, {
+        "niveau": AccesException.niveau,
+        "reference": AccesException.reference,
+        "acces": AccesException.acces,
+        "creation": (AccesException.created_at, "desc"),
+    }, defaut="creation")
+    exceptions, pagination = paginate(requete, page, normaliser_par_page(par_page))
     etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
     return templates.TemplateResponse("admin/acces.html", {
         "request": request, "params": params, "exceptions": exceptions, "etablissements": etabs,
+        "pagination": pagination, "tri": etat_tri,
         "current_user": require_auth(request, db), "active_nav": "acces",
     })
 
@@ -1434,11 +1553,16 @@ async def admin_parametres_contenu_save(
     contact_nom: str = Form(""), contact_adresse: str = Form(""),
     contact_tel: str = Form(""), contact_email: str = Form("")
 ):
-    import json
     contact = json.dumps({"nom": contact_nom, "adresse": contact_adresse,
                           "tel": contact_tel, "email": contact_email})
-    for cle, valeur in [("apropos_fr", apropos_fr), ("apropos_en", apropos_en),
-                        ("apropos_pt", apropos_pt), ("contact_json", contact)]:
+
+    # Le contenu est rendu avec |safe sur la page publique : il doit être
+    # filtré ici, à l'entrée. Le nettoyage côté navigateur ne protège de
+    # rien — il suffit d'envoyer ce POST à la main pour le contourner.
+    for cle, valeur in [("apropos_fr", html_riche.nettoyer(apropos_fr)),
+                        ("apropos_en", html_riche.nettoyer(apropos_en)),
+                        ("apropos_pt", html_riche.nettoyer(apropos_pt)),
+                        ("contact_json", contact)]:
         row = db.query(Parametre).filter(Parametre.cle == cle).first()
         if row: row.valeur = valeur
         else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))

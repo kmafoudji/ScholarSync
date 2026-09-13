@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Configuration initiale — {{ params.nom_outil }}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="{{ static_url('vendor/polices/plus-jakarta-sans.css') }}">
+  <link rel="stylesheet" href="{{ static_url('vendor/icones/tabler-icons.css') }}">
   <link rel="stylesheet" href="{{ static_url('css/main.css') }}">
   <style>:root{--primary:{{ params.couleur_principale }};--secondary:{{ params.couleur_secondaire }};--primary-light:color-mix(in srgb,{{ params.couleur_principale }} 12%,white);}body{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);}</style>
 </head>

@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/components/tableau.html" as t with context %}
 {% block title %}Utilisateurs{% endblock %}
 {% block page_title %}Utilisateurs{% endblock %}
 
@@ -13,8 +14,8 @@
 <div class="stat-cards">
   <div class="stat-card stat-card--accent">
     <div class="stat-card__label">Comptes</div>
-    <div class="stat-card__value">{{ utilisateurs|length }}</div>
-    <div class="stat-card__sub">{{ utilisateurs|selectattr('actif')|list|length }} actifs</div>
+    <div class="stat-card__value">{{ nb_comptes|format_number }}</div>
+    <div class="stat-card__sub">{{ nb_actifs|format_number }} actifs</div>
   </div>
   <div class="stat-card">
     <div class="stat-card__label">Super administrateurs</div>
@@ -23,9 +24,7 @@
   </div>
   <div class="stat-card">
     <div class="stat-card__label">Établissements couverts</div>
-    <div class="stat-card__value">
-      {{ utilisateurs|map(attribute='etablissement_code')|select|unique|list|length }}
-    </div>
+    <div class="stat-card__value">{{ nb_etabs_couverts|format_number }}</div>
     <div class="stat-card__sub">sur {{ etablissements|length }}</div>
   </div>
 </div>
@@ -36,6 +35,9 @@
     <h2>Comptes</h2>
     <form method="get" action="/admin/utilisateurs" data-no-busy
           style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      {% if tri %}<input type="hidden" name="tri" value="{{ tri.cle }}">
+      <input type="hidden" name="sens" value="{{ tri.sens }}">{% endif %}
+      <input type="hidden" name="par_page" value="{{ pagination.per_page }}">
       <label class="sr-only" for="recherche">Rechercher un compte</label>
       <input type="search" id="recherche" name="q" value="{{ q }}" class="form-control"
              placeholder="Nom ou email…" style="width:min(220px,45vw);">
@@ -54,15 +56,17 @@
   </div>
 
   {% if utilisateurs %}
+  {{ t.barre(pagination, 'comptes') }}
+  {{ t.pagination(pagination, 'haut') }}
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>Utilisateur</th>
-          <th>Rôle</th>
-          <th>Établissement</th>
-          <th>Dernière connexion</th>
-          <th>Statut</th>
+          {{ t.th('Utilisateur', 'nom', tri) }}
+          {{ t.th('Rôle', 'role', tri) }}
+          {{ t.th('Établissement', 'etablissement', tri) }}
+          {{ t.th('Dernière connexion', 'connexion', tri, 'desc') }}
+          {{ t.th_fixe('Statut') }}
           <th><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
@@ -128,6 +132,7 @@
       </tbody>
     </table>
   </div>
+  {{ t.pagination(pagination, 'bas') }}
   {% else %}
   <div class="state">
     <i class="ti ti-users state__icon" aria-hidden="true"></i>

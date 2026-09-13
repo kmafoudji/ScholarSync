@@ -233,5 +233,66 @@ curl -s http://127.0.0.1:8000/sante           # {"statut":"ok","base":"ok"}
 | `/sante` renvoie 503 `base: injoignable` | PostgreSQL non démarré, ou mot de passe désaccordé avec `.env` |
 | Le logo téléversé disparaît au redémarrage | Montage `uploads` erroné — vérifiez `./uploads:/app/app/static/img/uploads` |
 | « Le dossier des téléversements n'est pas accessible en écriture » | Le conteneur tourne sous l'UID 1000 : `mkdir -p uploads && sudo chown -R 1000:1000 uploads` |
-| Les graphiques du tableau de bord restent vides | Chart.js vient d'un CDN : vérifiez l'accès sortant du navigateur client |
+| Les graphiques du tableau de bord restent vides | Vérifiez la console du navigateur : `/static/vendor/chart.umd.js` doit répondre 200 |
+| Les icônes s'affichent en carrés vides | Une icône a été ajoutée sans régénérer la police — voir « Ressources servies par l'application » ci-dessous |
 | La synchronisation ne démarre jamais | Aucune source Zotero active — voir Administration → Comptes autorisés |
+
+
+---
+
+## Ressources servies par l'application
+
+La police de caractères, la police d'icônes et Chart.js sont **servies
+par l'application**, dans `backend/app/static/vendor/`. Elles venaient
+auparavant de Google Fonts et de deux CDN.
+
+Ce choix a trois raisons. Un réseau qui bloque ces domaines — cela
+arrive dans certaines administrations — affichait un catalogue sans
+icônes, sans graphiques et dans une police de repli, c'est-à-dire
+exactement le mélange de typographies que l'outil cherche à éviter.
+Ensuite, un catalogue national n'a pas à signaler chacune de ses
+consultations à un tiers. Enfin, ces fichiers ne bougent plus : servis
+depuis le même domaine, ils profitent du cache sans négociation DNS ni
+poignée de main TLS supplémentaire.
+
+Les fichiers sont versionnés dans le dépôt : **aucune étape de
+construction n'est nécessaire au déploiement**.
+
+### Régénérer la police d'icônes
+
+La police Tabler complète pèse 827 Ko pour environ 5 000 icônes ; celle
+qui est servie est réduite aux quelque quatre-vingt-dix icônes
+employées, soit 17 Ko. Après avoir introduit une icône nouvelle dans un
+gabarit :
+
+```bash
+npm install @tabler/icons-webfont@3.8.0
+pip install fonttools brotli
+python3 scripts/generer-icones.py
+```
+
+Le script relit les gabarits, le JavaScript et les feuilles de style,
+relève les icônes citées, et réécrit `tabler-icons.woff2` et
+`tabler-icons.css`. Une icône oubliée se voit immédiatement à l'écran
+sous la forme d'un carré vide — le défaut est visible, il ne se dégrade
+pas en silence.
+
+### Mettre à jour Chart.js ou la police de texte
+
+```bash
+npm install chart.js@4.4.0 @fontsource/plus-jakarta-sans
+cp node_modules/chart.js/dist/chart.umd.js backend/app/static/vendor/
+cp node_modules/@fontsource/plus-jakarta-sans/files/plus-jakarta-sans-latin{,-ext}-{300,400,500,600,700,800}-normal.woff2 \
+   backend/app/static/vendor/polices/
+```
+
+`plus-jakarta-sans.css` déclare les `@font-face` correspondants : si la
+liste des graisses change, il faut l'ajuster.
+
+### Licences
+
+| Ressource | Licence |
+|---|---|
+| Plus Jakarta Sans | SIL Open Font License 1.1 |
+| Tabler Icons | MIT |
+| Chart.js | MIT |

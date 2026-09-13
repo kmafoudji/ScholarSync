@@ -31,3 +31,8 @@ Thumbs.db
 
 # Sauvegardes produites par scripts/deployer.sh
 sauvegardes/
+
+# Paquets npm : ne servent qu'à régénérer les fichiers de
+# backend/app/static/vendor/, qui sont eux versionnés.
+node_modules/
+package-lock.json

@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/components/tableau.html" as t with context %}
 {% block title %}Établissements{% endblock %}
 {% block page_title %}Établissements{% endblock %}
 
@@ -10,11 +11,18 @@
 
 {% block content %}
 <div class="card" style="padding:0;">
+  {{ t.barre(pagination, 'établissements') }}
+  {{ t.pagination(pagination, 'haut') }}
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>Code</th><th>Nom</th><th>Pays</th><th>Ville</th><th>Statut</th><th>Actions</th>
+          {{ t.th('Code', 'code', tri) }}
+          {{ t.th('Nom', 'nom', tri) }}
+          {{ t.th('Pays', 'pays', tri) }}
+          {{ t.th('Ville', 'ville', tri) }}
+          {{ t.th('Statut', 'actif', tri, 'desc') }}
+          {{ t.th_fixe('Actions') }}
         </tr>
       </thead>
       <tbody>
@@ -50,6 +58,7 @@
       </tbody>
     </table>
   </div>
+  {{ t.pagination(pagination, 'bas') }}
 </div>
 
 <div class="modal-overlay" id="modalAjouter" style="display:none;">

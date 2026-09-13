@@ -5,10 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}{{ params.nom_outil }}{% endblock %}</title>
   <meta name="description" content="{% block description %}{{ params.slogan }}{% endblock %}">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="{{ static_url('vendor/polices/plus-jakarta-sans.css') }}">
+  <link rel="stylesheet" href="{{ static_url('vendor/icones/tabler-icons.css') }}">
   <link rel="stylesheet" href="{{ static_url('css/main.css') }}">
   <style>
     :root {
@@ -77,9 +75,6 @@
       </a>
       <a href="/etablissements" class="{{ 'active' if active_nav == 'etablissements' }}">
         <i class="ti ti-building-bank"></i> Établissements
-      </a>
-      <a href="/statistiques" class="{{ 'active' if active_nav == 'statistiques' }}">
-        <i class="ti ti-chart-bar"></i> Statistiques
       </a>
       <a href="/a-propos" class="{{ 'active' if active_nav == 'apropos' }}">
         <i class="ti ti-info-circle"></i> À propos

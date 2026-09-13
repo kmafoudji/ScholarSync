@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/components/tableau.html" as t with context %}
 {% block title %}Contrôle d'accès{% endblock %}
 {% block page_title %}Contrôle d'accès{% endblock %}
 
@@ -18,15 +19,17 @@
   <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
     <h2>Règles d'accès configurées</h2>
   </div>
+  {{ t.barre(pagination, 'règles') }}
+  {{ t.pagination(pagination, 'haut') }}
   <div class="table-wrap">
     <table>
       <thead>
         <tr>
-          <th>Niveau</th>
-          <th>Référence</th>
-          <th>Accès</th>
-          <th>Date</th>
-          <th>Action</th>
+          {{ t.th('Niveau', 'niveau', tri) }}
+          {{ t.th('Référence', 'reference', tri) }}
+          {{ t.th('Accès', 'acces', tri) }}
+          {{ t.th('Date', 'creation', tri, 'desc') }}
+          {{ t.th_fixe('Action') }}
         </tr>
       </thead>
       <tbody>
@@ -66,6 +69,7 @@
       </tbody>
     </table>
   </div>
+  {{ t.pagination(pagination, 'bas') }}
 </div>
 
 <div class="card card--lg">

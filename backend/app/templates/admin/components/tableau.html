@@ -1,0 +1,109 @@
+{#
+  Briques communes aux tableaux d'administration : en-têtes cliquables et
+  pagination. Les cinq tableaux les partagent, ce qui évite d'avoir cinq
+  paginations qui divergent au premier correctif.
+
+  Le tri et la pagination passent par de vrais liens : ils fonctionnent
+  sans JavaScript, s'ouvrent dans un nouvel onglet, et l'adresse décrit
+  entièrement l'état du tableau — donc se met en favori et se partage.
+#}
+
+{# ── En-tête de colonne triable ──────────────────────────────────
+   `sens0` est le sens du premier clic : une date part du plus récent,
+   un nom part de A. Cliquer à nouveau inverse.                      #}
+{% macro th(libelle, cle, tri, sens0='asc', classe='') %}
+  {% set actif = (tri and tri.cle == cle) %}
+  {% set cible = ('asc' if tri.sens == 'desc' else 'desc') if actif else sens0 %}
+  <th class="th-tri {{ classe }}"
+      aria-sort="{{ ('ascending' if tri.sens == 'asc' else 'descending') if actif else 'none' }}">
+    <a href="{{ url_maj(request, tri=cle, sens=cible, page=1) }}"
+       class="th-tri__lien {{ 'th-tri__lien--actif' if actif }}">
+      <span>{{ libelle }}</span>
+      {% if actif %}
+      <i class="ti ti-{{ 'arrow-narrow-up' if tri.sens == 'asc' else 'arrow-narrow-down' }}"
+         aria-hidden="true"></i>
+      <span class="sr-only">
+        (trié par ordre {{ 'croissant' if tri.sens == 'asc' else 'décroissant' }} —
+        activer pour inverser)
+      </span>
+      {% else %}
+      <i class="ti ti-arrows-sort th-tri__muet" aria-hidden="true"></i>
+      <span class="sr-only">(activer pour trier)</span>
+      {% endif %}
+    </a>
+  </th>
+{% endmacro %}
+
+{# ── En-tête non triable, pour aligner la typographie ───────────── #}
+{% macro th_fixe(libelle, classe='') %}
+  <th class="{{ classe }}">{{ libelle }}</th>
+{% endmacro %}
+
+{# ── Pagination ──────────────────────────────────────────────────
+   Rendue en haut et en bas : sur un tableau de cinquante lignes,
+   remonter chercher les numéros de page est une corvée inutile.   #}
+{% macro pagination(p, position='bas') %}
+  {% if p and p.pages > 1 %}
+  <nav class="pagination pagination--{{ position }}"
+       aria-label="Pagination {{ 'haut' if position == 'haut' else 'bas' }}">
+    {% if p.page > 1 %}
+    <a href="{{ url_maj(request, page=p.page - 1) }}" class="page-btn"
+       rel="prev" aria-label="Page précédente">
+      <i class="ti ti-chevron-left" aria-hidden="true"></i>
+      <span class="page-btn__mot">Précédent</span>
+    </a>
+    {% endif %}
+
+    {% for n in p.range %}
+      {% if n == '...' %}
+      <span class="page-btn page-btn--vide" aria-hidden="true">…</span>
+      {% else %}
+      <a href="{{ url_maj(request, page=n) }}"
+         class="page-btn {{ 'active' if n == p.page }}"
+         aria-label="Page {{ n }}"
+         {{ 'aria-current=page' if n == p.page }}>{{ n }}</a>
+      {% endif %}
+    {% endfor %}
+
+    {% if p.page < p.pages %}
+    <a href="{{ url_maj(request, page=p.page + 1) }}" class="page-btn"
+       rel="next" aria-label="Page suivante">
+      <span class="page-btn__mot">Suivant</span>
+      <i class="ti ti-chevron-right" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+  </nav>
+  {% endif %}
+{% endmacro %}
+
+{# ── Barre de position + choix du nombre de lignes ───────────────
+   Un <select> qui se soumet seul : le bouton « Appliquer » d'à côté
+   n'apporte rien, et son absence est signalée aux lecteurs d'écran
+   par aria-live sur le compteur.                                   #}
+{% macro barre(p, libelle='éléments') %}
+  <div class="tableau-barre">
+    <p class="tableau-barre__position" aria-live="polite">
+      {% if p.total %}
+      <strong>{{ p.debut|format_number }}–{{ p.fin|format_number }}</strong>
+      sur <strong>{{ p.total|format_number }}</strong> {{ libelle }}
+      {% else %}Aucun résultat{% endif %}
+    </p>
+    <form method="get" class="tableau-barre__par-page">
+      {# Les autres paramètres sont réinjectés pour ne pas être perdus
+         par la soumission du formulaire. #}
+      {% for cle, valeur in request.query_params.items() %}
+        {% if cle not in ('par_page', 'page') %}
+        <input type="hidden" name="{{ cle }}" value="{{ valeur }}">
+        {% endif %}
+      {% endfor %}
+      <label for="parPage-{{ libelle|replace(' ', '') }}">Afficher</label>
+      <select name="par_page" id="parPage-{{ libelle|replace(' ', '') }}"
+              class="form-control" data-soumettre-au-changement>
+        {% for n in p.options_par_page %}
+        <option value="{{ n }}" {{ 'selected' if p.per_page == n }}>{{ n }} / page</option>
+        {% endfor %}
+      </select>
+      <noscript><button type="submit" class="btn btn--outline btn--sm">OK</button></noscript>
+    </form>
+  </div>
+{% endmacro %}

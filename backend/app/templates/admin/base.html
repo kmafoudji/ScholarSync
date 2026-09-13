@@ -4,11 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Administration{% endblock %} — {{ params.nom_outil }}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+  <link rel="stylesheet" href="{{ static_url('vendor/polices/plus-jakarta-sans.css') }}">
+  <link rel="stylesheet" href="{{ static_url('vendor/icones/tabler-icons.css') }}">
   <link rel="stylesheet" href="{{ static_url('css/main.css') }}">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- Chart.js est servi par l'application, plus par un CDN : le tableau
+       de bord d'un catalogue national ne doit pas dépendre d'un domaine
+       tiers joignable ou non depuis le réseau de l'utilisateur. `defer`
+       parce qu'une bibliothèque de graphiques n'a pas à retarder le
+       rendu de l'interface ; les scripts différés s'exécutent avant
+       DOMContentLoaded, sur lequel le tableau de bord s'appuie. -->
+  <script defer src="{{ static_url('vendor/chart.umd.js') }}"></script>
   <style>
     :root {
       --primary: {{ params.couleur_principale }};
@@ -52,9 +57,6 @@
       <a href="/admin/sync" class="{{ 'active' if active_nav == 'sync' }}">
         <i class="ti ti-refresh" aria-hidden="true"></i> <span>Synchronisation</span>
         {% if sync_en_cours %}<span class="admin-nav__badge">En cours</span>{% endif %}
-      </a>
-      <a href="/admin/sync-logs" class="{{ 'active' if active_nav == 'sync-logs' }}">
-        <i class="ti ti-list"></i> Historique sync
       </a>
 
       <div class="admin-nav-section">Contenu</div>

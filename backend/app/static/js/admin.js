@@ -292,7 +292,20 @@
     });
   }
 
+  /* Un <select> de filtre ou de pagination soumet son formulaire dès
+     qu'il change : le bouton « OK » d'à côté ne servait qu'à rattraper
+     l'absence de script, il reste dans un <noscript>. */
+  function initSelectsAutoSoumis() {
+    document.querySelectorAll('[data-soumettre-au-changement]').forEach(function (select) {
+      select.addEventListener('change', function () {
+        var form = select.form || select.closest('form');
+        if (form) form.submit();
+      });
+    });
+  }
+
   function init() {
+    initSelectsAutoSoumis();
     initDialogues();
     initChampsConditionnels();
     initSidebar();

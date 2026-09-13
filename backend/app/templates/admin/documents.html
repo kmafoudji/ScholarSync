@@ -1,4 +1,5 @@
 {% extends "admin/base.html" %}
+{% import "admin/components/tableau.html" as t with context %}
 {% block title %}Documents{% endblock %}
 {% block page_title %}Documents synchronisés{% endblock %}
 
@@ -12,40 +13,15 @@
 
 {% block content %}
 <div class="card" style="padding:0;">
-{% macro pagination_admin(position) %}
-  {% if pagination.pages > 1 %}
-  <nav class="pagination pagination--{{ position }}" style="padding:.875rem 1.25rem;"
-       aria-label="Pagination{{ ' (haut)' if position == 'haut' else ' (bas)' }}">
-    {% if pagination.page > 1 %}
-    <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn"
-       aria-label="Page précédente" rel="prev">
-      <i class="ti ti-chevron-left" aria-hidden="true"></i>
-      <span class="page-btn__mot">Précédent</span>
-    </a>
-    {% endif %}
-    {% for p in pagination.range %}
-      {% if p == '...' %}
-      <span class="page-btn page-btn--vide" aria-hidden="true">…</span>
-      {% else %}
-      <a href="?{{ query_string }}&page={{ p }}"
-         class="page-btn {{ 'active' if p == pagination.page }}"
-         aria-label="Page {{ p }}"
-         {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
-      {% endif %}
-    {% endfor %}
-    {% if pagination.page < pagination.pages %}
-    <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn"
-       aria-label="Page suivante" rel="next">
-      <span class="page-btn__mot">Suivant</span>
-      <i class="ti ti-chevron-right" aria-hidden="true"></i>
-    </a>
-    {% endif %}
-  </nav>
-  {% endif %}
-{% endmacro %}
 
   <div class="doc-filtres">
     <form method="get" class="doc-filtres__form">
+      {# Filtrer ne doit pas réinitialiser le tri ni le nombre de lignes :
+         ces choix survivent à la soumission. #}
+      {% if tri %}<input type="hidden" name="tri" value="{{ tri.cle }}">
+      <input type="hidden" name="sens" value="{{ tri.sens }}">{% endif %}
+      <input type="hidden" name="par_page" value="{{ pagination.per_page }}">
+
       <label class="sr-only" for="rechDocs">Rechercher un document</label>
       <input type="search" id="rechDocs" name="q" value="{{ q }}" class="form-control"
              placeholder="Titre, auteur, numéro national…" style="min-width:220px;flex:1;">
@@ -74,13 +50,6 @@
       </select>
       {% endif %}
 
-      <label class="sr-only" for="parPageDocs">Documents par page</label>
-      <select name="par_page" id="parPageDocs" class="form-control" style="width:auto;">
-        {% for n in pagination.options_par_page %}
-        <option value="{{ n }}" {{ 'selected' if pagination.per_page == n }}>{{ n }} / page</option>
-        {% endfor %}
-      </select>
-
       <button type="submit" class="btn btn--outline btn--sm">
         <i class="ti ti-filter" aria-hidden="true"></i> Filtrer
       </button>
@@ -89,52 +58,49 @@
       {% endif %}
     </form>
 
-    <p class="doc-filtres__position">
-      {% if pagination.total %}
-      <strong>{{ pagination.debut|format_number }}–{{ pagination.fin|format_number }}</strong>
-      sur <strong>{{ pagination.total|format_number }}</strong>
-      {% else %}Aucun document{% endif %}
-    </p>
   </div>
 
-  {{ pagination_admin('haut') }}
+  {{ t.barre(pagination, 'documents') }}
+  {{ t.pagination(pagination, 'haut') }}
 
   <div class="table-wrap">
-    <table>
+    <table class="table--documents">
       <thead>
         <tr>
-          <th>Titre</th>
-          <th>Auteur</th>
-          <th>Établissement</th>
-          <th>Type</th>
-          <th>Statut</th>
-          <th>Année</th>
-          <th>Numéro national</th>
-          <th>Accès</th>
+          {{ t.th('Titre', 'titre', tri, 'asc', 'col-titre') }}
+          {{ t.th('Auteur', 'auteur', tri, 'asc', 'col-auteur') }}
+          {{ t.th('Établissement', 'etablissement', tri, 'asc', 'col-etab') }}
+          {{ t.th('Type', 'type', tri, 'asc', 'col-etroite') }}
+          {{ t.th('Statut', 'statut', tri, 'asc', 'col-etroite') }}
+          {{ t.th('Année', 'annee', tri, 'desc', 'col-etroite') }}
+          {{ t.th('Numéro national', 'numero', tri, 'asc', 'col-numero') }}
+          {{ t.th_fixe('Accès', 'col-etroite') }}
         </tr>
       </thead>
       <tbody>
         {% for doc in documents %}
         <tr>
-          <td style="max-width:280px;">
-            <a href="/document/{{ doc.id }}" target="_blank" style="color:var(--primary);font-weight:500;font-size:var(--fs-sm);text-decoration:none;line-height:1.3;display:block;">
-              {{ doc.titre|truncate(70) }}
-            </a>
+          <td class="col-titre">
+            {# Titre sur deux lignes au plus : au-delà, chaque ligne du
+               tableau devenait un pavé et l'œil ne pouvait plus balayer
+               la colonne. Le titre entier reste dans l'infobulle. #}
+            <a href="/document/{{ doc.id }}" target="_blank"
+               class="cellule-titre" title="{{ doc.titre }}">{{ doc.titre }}</a>
             {% if doc.domaine %}
-            <span style="font-size:var(--fs-2xs);color:var(--text-3);">{{ doc.domaine }}</span>
+            <span class="cellule-sous">{{ doc.domaine }}</span>
             {% endif %}
           </td>
-          <td style="font-size:var(--fs-sm);color:var(--text-2);white-space:nowrap;">{{ doc.auteur }}</td>
-          <td style="font-weight:600;font-size:var(--fs-sm);">
-            {{ doc.etablissement_code }}
+          <td class="col-auteur">{{ doc.auteur }}</td>
+          <td class="col-etab">
+            <span class="cellule-code">{{ doc.etablissement_code }}</span>
             {% if doc.sous_entite_nom %}
-            <div style="font-size:var(--fs-2xs);color:var(--text-3);font-weight:400;">{{ doc.sous_entite_nom|truncate(30) }}</div>
+            <span class="cellule-sous" title="{{ doc.sous_entite_nom }}">{{ doc.sous_entite_nom }}</span>
             {% endif %}
           </td>
           <td><span class="badge badge--{{ doc.type }}">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span></td>
           <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
-          <td style="font-size:var(--fs-sm);">{{ doc.annee }}</td>
-          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
+          <td class="col-etroite">{{ doc.annee }}</td>
+          <td class="col-numero">{{ doc.numero_national }}</td>
           <td>
             <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
               <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"
@@ -166,7 +132,7 @@
     </table>
   </div>
 
-  {{ pagination_admin('bas') }}
+  {{ t.pagination(pagination, 'bas') }}
   {% if pagination.pages > 1 %}
   <p class="pagination-resume">Page {{ pagination.page }} sur {{ pagination.pages }}</p>
   {% endif %}

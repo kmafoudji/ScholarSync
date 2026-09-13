@@ -46,7 +46,7 @@
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <h2>Dépôts par année</h2>
-      <button onclick="exportChart('chartAnnee')" class="btn btn--ghost btn--sm">
+      <button data-export-chart="chartAnnee" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
@@ -62,7 +62,7 @@
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <h2>Répartition par domaine</h2>
-      <button onclick="exportChart('chartDomaine')" class="btn btn--ghost btn--sm">
+      <button data-export-chart="chartDomaine" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
@@ -80,7 +80,7 @@
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <h2>Documents par établissement</h2>
-      <button onclick="exportChart('chartEtab')" class="btn btn--ghost btn--sm">
+      <button data-export-chart="chartEtab" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
@@ -96,7 +96,7 @@
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <h2>Thèses vs Mémoires</h2>
-      <button onclick="exportChart('chartType')" class="btn btn--ghost btn--sm">
+      <button data-export-chart="chartType" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>
     </div>
@@ -115,7 +115,7 @@
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
       <h2>Dernières synchronisations</h2>
-      <a href="/admin/sync-logs" class="btn btn--ghost btn--sm">Voir tout</a>
+      <a href="/admin/sync" class="btn btn--ghost btn--sm">Voir tout</a>
     </div>
     <div class="table-wrap">
       <table>
@@ -174,85 +174,187 @@
 {% endblock %}
 
 {% block extra_js %}
+{# Les données franchissent la frontière Python → JavaScript par un bloc
+   JSON, jamais par interpolation dans le script. Une apostrophe, un
+   guillemet ou un `</script>` dans un nom de domaine ne peut donc plus
+   casser la page, et il n'y a qu'un seul encodage : la version
+   précédente encodait côté serveur (json.dumps) puis à nouveau dans le
+   gabarit (|tojson), si bien que le script recevait une chaîne — .map
+   n'existait pas, l'erreur remontait, et aucun des quatre graphiques ne
+   se dessinait. #}
+<script type="application/json" id="donnees-graphiques">{{ donnees_graphiques|tojson }}</script>
+
 <script>
-  // Chart.js vient d'un CDN : sur un réseau restreint il peut ne jamais
-  // arriver. On le signale au lieu de laisser quatre cadres vides.
-  window.addEventListener('load', function () {
-    var dispo = typeof Chart !== 'undefined';
-    document.querySelectorAll('.chart-box__placeholder').forEach(function (ph) {
-      if (dispo) {
-        ph.remove();
-      } else {
-        ph.innerHTML =
-          '<i class="ti ti-chart-bar-off" style="font-size:28px;" aria-hidden="true"></i>' +
-          '<span>Graphique indisponible — bibliothèque non chargée</span>';
+(function () {
+  'use strict';
+
+  function lireDonnees() {
+    var bloc = document.getElementById('donnees-graphiques');
+    if (!bloc) return null;
+    try { return JSON.parse(bloc.textContent); }
+    catch (e) { return null; }
+  }
+
+  // Remplace le squelette d'attente par un message explicite. Quatre
+  // cadres vides ne disent rien ; « bibliothèque non chargée » se
+  // diagnostique.
+  function etatVide(id, icone, message) {
+    var ph = document.querySelector('.chart-box__placeholder[data-for="' + id + '"]');
+    var canvas = document.getElementById(id);
+    if (canvas) canvas.hidden = true;
+    if (!ph) return;
+    ph.innerHTML = '';
+    var i = document.createElement('i');
+    i.className = 'ti ti-' + icone;
+    i.setAttribute('aria-hidden', 'true');
+    var span = document.createElement('span');
+    span.textContent = message;
+    ph.appendChild(i);
+    ph.appendChild(span);
+  }
+
+  function retirerAttente(id) {
+    var ph = document.querySelector('.chart-box__placeholder[data-for="' + id + '"]');
+    if (ph) ph.remove();
+  }
+
+  // Un graphique qui échoue ne doit pas emporter les trois autres :
+  // chaque dessin est isolé.
+  function dessiner(id, vide, config) {
+    var canvas = document.getElementById(id);
+    if (!canvas) return;
+    if (vide) { etatVide(id, 'chart-bar-off', 'Aucune donnée à représenter'); return; }
+    try {
+      new Chart(canvas, config);
+      retirerAttente(id);
+    } catch (e) {
+      etatVide(id, 'alert-triangle', 'Graphique indisponible');
+      if (window.console) console.error('[dashboard] ' + id, e);
+    }
+  }
+
+  function demarrer() {
+    var ids = ['chartAnnee', 'chartDomaine', 'chartEtab', 'chartType'];
+
+    if (typeof Chart === 'undefined') {
+      ids.forEach(function (id) {
+        etatVide(id, 'chart-bar-off',
+                 'Graphique indisponible — bibliothèque non chargée');
+      });
+      return;
+    }
+
+    var d = lireDonnees();
+    if (!d) {
+      ids.forEach(function (id) {
+        etatVide(id, 'alert-triangle', 'Données du graphique illisibles');
+      });
+      return;
+    }
+
+    var annees   = d.annees || [];
+    var domaines = d.domaines || [];
+    var etabs    = d.etablissements || [];
+    var types    = d.types || { theses: 0, memoires: 0 };
+
+    var racine    = getComputedStyle(document.documentElement);
+    var primary   = (racine.getPropertyValue('--primary') || '').trim() || '#1a3a5c';
+    var secondary = (racine.getPropertyValue('--secondary') || '').trim() || '#8b1a2e';
+    var palette   = [primary, secondary, '#2d7d46', '#c45e1a',
+                     '#5c3a9c', '#1a7a8c', '#8c7a1a', '#4a1a8c'];
+
+    // Une seule police dans tout l'outil, graphiques compris.
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = '#5a5754';
+
+    dessiner('chartAnnee', annees.length === 0, {
+      type: 'bar',
+      data: {
+        labels: annees.map(function (a) { return a.annee; }),
+        datasets: [
+          { label: 'Thèses',   data: annees.map(function (a) { return a.theses; }),
+            backgroundColor: primary + 'cc',   borderRadius: 4 },
+          { label: 'Mémoires', data: annees.map(function (a) { return a.memoires; }),
+            backgroundColor: secondary + 'cc', borderRadius: 4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { x: { grid: { display: false } },
+                  y: { beginAtZero: true, ticks: { precision: 0 } } }
       }
     });
+
+    dessiner('chartDomaine', domaines.length === 0, {
+      type: 'doughnut',
+      data: {
+        labels: domaines.map(function (o) { return o.domaine || 'Non défini'; }),
+        datasets: [{ data: domaines.map(function (o) { return o.count; }),
+                     backgroundColor: palette, borderWidth: 0 }]
+      },
+      options: {
+        responsive: true, cutout: '60%',
+        plugins: { legend: { position: 'right',
+                             labels: { boxWidth: 10, font: { size: 11 } } } }
+      }
+    });
+
+    dessiner('chartEtab', etabs.length === 0, {
+      type: 'bar',
+      data: {
+        labels: etabs.map(function (o) { return o.code; }),
+        datasets: [{ label: 'Documents',
+                     data: etabs.map(function (o) { return o.count; }),
+                     backgroundColor: palette, borderRadius: 4 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { x: { grid: { display: false } },
+                  y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+
+    dessiner('chartType', (types.theses + types.memoires) === 0, {
+      type: 'doughnut',
+      data: {
+        labels: ['Thèses', 'Mémoires'],
+        datasets: [{ data: [types.theses, types.memoires],
+                     backgroundColor: [primary, secondary], borderWidth: 0 }]
+      },
+      options: { responsive: true, cutout: '65%',
+                 plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  // Chart.js est chargé en `defer` : les scripts différés s'exécutent
+  // avant DOMContentLoaded, donc l'événement garantit sa présence — ou
+  // son absence définitive si le CDN est injoignable.
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', demarrer);
+  } else {
+    demarrer();
+  }
+
+  // Export PNG : délégation plutôt que onclick dans le balisage, pour que
+  // le bouton reste inerte quand le graphique n'a pas pu être dessiné.
+  document.addEventListener('click', function (ev) {
+    var bouton = ev.target.closest('[data-export-chart]');
+    if (!bouton) return;
+    var canvas = document.getElementById(bouton.getAttribute('data-export-chart'));
+    if (!canvas || canvas.hidden) {
+      if (window.ScholarSync && window.ScholarSync.toast) {
+        window.ScholarSync.toast('Aucun graphique à exporter.', 'warning');
+      }
+      return;
+    }
+    var lien = document.createElement('a');
+    lien.download = bouton.getAttribute('data-export-chart') + '.png';
+    lien.href = canvas.toDataURL('image/png');
+    lien.click();
   });
-</script>
-<script>
-const primary = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#1a3a5c';
-const secondary = getComputedStyle(document.documentElement).getPropertyValue('--secondary').trim() || '#8b1a2e';
-const palette = [primary, secondary, '#2d7d46', '#c45e1a', '#5c3a9c', '#1a7a8c', '#8c7a1a', '#4a1a8c'];
-
-Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-Chart.defaults.font.size = 12;
-Chart.defaults.color = '#5a5754';
-
-// Données depuis le serveur
-const statsAnnees  = {{ stats_annees|tojson }};
-const statsDomaines= {{ stats_domaines|tojson }};
-const statsEtabs   = {{ stats_etabs|tojson }};
-
-// Graphique évolution par année
-new Chart(document.getElementById('chartAnnee'), {
-  type: 'bar',
-  data: {
-    labels: statsAnnees.map(d => d.annee),
-    datasets: [
-      { label: 'Thèses', data: statsAnnees.map(d => d.theses), backgroundColor: primary + 'cc', borderRadius: 4 },
-      { label: 'Mémoires', data: statsAnnees.map(d => d.memoires), backgroundColor: secondary + 'cc', borderRadius: 4 }
-    ]
-  },
-  options: { responsive: true, plugins: { legend: { position: 'bottom' } }, scales: { x: { grid: { display: false } } } }
-});
-
-// Graphique domaines
-new Chart(document.getElementById('chartDomaine'), {
-  type: 'doughnut',
-  data: {
-    labels: statsDomaines.map(d => d.domaine || 'Non défini'),
-    datasets: [{ data: statsDomaines.map(d => d.count), backgroundColor: palette, borderWidth: 0 }]
-  },
-  options: { responsive: true, plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '60%' }
-});
-
-// Graphique par établissement
-new Chart(document.getElementById('chartEtab'), {
-  type: 'bar',
-  data: {
-    labels: statsEtabs.map(d => d.code),
-    datasets: [{ label: 'Documents', data: statsEtabs.map(d => d.count), backgroundColor: palette, borderRadius: 4 }]
-  },
-  options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false } } } }
-});
-
-// Graphique thèses vs mémoires
-new Chart(document.getElementById('chartType'), {
-  type: 'doughnut',
-  data: {
-    labels: ['Thèses', 'Mémoires'],
-    datasets: [{ data: [{{ stats.nb_theses }}, {{ stats.nb_memoires }}], backgroundColor: [primary, secondary], borderWidth: 0 }]
-  },
-  options: { responsive: true, plugins: { legend: { position: 'bottom' } }, cutout: '65%' }
-});
-
-function exportChart(id) {
-  const canvas = document.getElementById(id);
-  const link = document.createElement('a');
-  link.download = id + '.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-}
+})();
 </script>
 {% endblock %}

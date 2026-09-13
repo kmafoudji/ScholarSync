@@ -9,30 +9,44 @@
       <i class="ti ti-file-text" style="color:var(--primary);"></i> Contenu de la page
     </h2>
     <div style="margin-bottom:1rem;">
-      <div style="display:flex;gap:.5rem;margin-bottom:.75rem;">
-        <button type="button" onclick="showTab('fr')" id="tab-fr" class="btn btn--primary btn--sm">FR</button>
-        <button type="button" onclick="showTab('en')" id="tab-en" class="btn btn--ghost btn--sm">EN</button>
-        <button type="button" onclick="showTab('pt')" id="tab-pt" class="btn btn--ghost btn--sm">PT</button>
+      <div class="editeur-onglets" role="tablist" aria-label="Langue du contenu">
+        {% for code, libelle in [('fr', 'Français'), ('en', 'English'), ('pt', 'Português')] %}
+        <button type="button" role="tab" id="tab-{{ code }}"
+                aria-controls="content-{{ code }}"
+                aria-selected="{{ 'true' if code == 'fr' else 'false' }}"
+                class="btn btn--sm {{ 'btn--primary' if code == 'fr' else 'btn--ghost' }}"
+                data-onglet="{{ code }}">{{ libelle }}</button>
+        {% endfor %}
       </div>
-      <div id="content-fr">
+
+      {% for code, libelle, valeur in [
+           ('fr', 'Contenu en français', params.apropos_fr),
+           ('en', 'Content in English',  params.apropos_en),
+           ('pt', 'Conteúdo em português', params.apropos_pt)] %}
+      <div id="content-{{ code }}" role="tabpanel" aria-labelledby="tab-{{ code }}"
+           {{ 'hidden' if code != 'fr' }}>
         <div class="form-group">
-          <label class="form-label" for="f-apropos_fr">Contenu en français</label>
-          <textarea id="f-apropos_fr" name="apropos_fr" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_fr }}</textarea>
-          <div class="form-hint">HTML accepté — titres, listes, paragraphes</div>
+          <label class="form-label" for="f-apropos_{{ code }}">{{ libelle }}</label>
+
+          {# Le <textarea> reste le champ envoyé : l'éditeur le masque et
+             le tient à jour. Sans JavaScript, il s'affiche tel quel et
+             la page reste modifiable en HTML — un outil d'administration
+             ne doit pas devenir inutilisable faute de script. #}
+          <div class="editeur" data-editeur-pour="f-apropos_{{ code }}">
+            <textarea id="f-apropos_{{ code }}" name="apropos_{{ code }}"
+                      class="form-control"
+                      data-editeur-libelle="{{ libelle }}"
+                      style="min-height:320px;font-family:ui-monospace,monospace;font-size:var(--fs-xs);border:none;border-radius:0;">{{ valeur }}</textarea>
+          </div>
+
+          <div class="form-hint">
+            Titres, listes, liens et citations. Le contenu est filtré à
+            l'enregistrement : les scripts, les styles en ligne et les
+            cadres externes sont retirés.
+          </div>
         </div>
       </div>
-      <div id="content-en" style="display:none;">
-        <div class="form-group">
-          <label class="form-label" for="f-apropos_en">Content in English</label>
-          <textarea id="f-apropos_en" name="apropos_en" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_en }}</textarea>
-        </div>
-      </div>
-      <div id="content-pt" style="display:none;">
-        <div class="form-group">
-          <label class="form-label" for="f-apropos_pt">Conteúdo em português</label>
-          <textarea id="f-apropos_pt" name="apropos_pt" class="form-control" style="min-height:300px;font-size:var(--fs-sm);">{{ params.apropos_pt }}</textarea>
-        </div>
-      </div>
+      {% endfor %}
     </div>
   </div>
 
@@ -78,12 +92,21 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ static_url('js/editeur.js') }}"></script>
 <script>
-function showTab(lang) {
-  ['fr','en','pt'].forEach(l => {
-    document.getElementById('content-'+l).style.display = l === lang ? 'block' : 'none';
-    document.getElementById('tab-'+l).className = l === lang ? 'btn btn--primary btn--sm' : 'btn btn--ghost btn--sm';
+  // Onglets de langue : de vrais boutons avec les rôles ARIA, et
+  // [hidden] plutôt que display:none, pour que la bascule reste
+  // annoncée aux lecteurs d'écran.
+  document.querySelectorAll('[data-onglet]').forEach(function (bouton) {
+    bouton.addEventListener('click', function () {
+      var choisi = bouton.dataset.onglet;
+      document.querySelectorAll('[data-onglet]').forEach(function (b) {
+        var actif = b.dataset.onglet === choisi;
+        b.className = 'btn btn--sm ' + (actif ? 'btn--primary' : 'btn--ghost');
+        b.setAttribute('aria-selected', actif ? 'true' : 'false');
+        document.getElementById('content-' + b.dataset.onglet).hidden = !actif;
+      });
+    });
   });
-}
 </script>
 {% endblock %}

@@ -1,4 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+/* La police est déclarée par static/vendor/polices/plus-jakarta-sans.css,
+   chargée avant cette feuille : plus aucun appel à un domaine tiers. */
 
 :root {
   --primary:   #1a3a5c;
@@ -2122,4 +2123,242 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   color: var(--text-2);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+}
+
+/* ── Tableaux d'administration : tri et pagination ───────────────
+   Les en-têtes triables sont des liens, pas des cellules cliquables :
+   la cible du clavier est explicite et la zone tactile couvre toute la
+   cellule grâce au padding négatif compensé. */
+
+.tableau-barre {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: .75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2, transparent);
+}
+.tableau-barre__position {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.tableau-barre__par-page {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin: 0;
+}
+.tableau-barre__par-page label {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+.tableau-barre__par-page .form-control {
+  width: auto;
+  font-size: var(--fs-xs);
+  padding: .3rem .5rem;
+}
+
+th.th-tri { padding: 0; }
+.th-tri__lien {
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+  /* Le lien reprend le gabarit de la cellule pour que la zone cliquable
+     soit l'en-tête entier, et non les seuls caractères du libellé. */
+  padding: .65rem .75rem;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.th-tri__lien:hover { background: var(--surface-2); color: var(--text); }
+.th-tri__lien:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.th-tri__lien--actif { color: var(--primary); }
+/* La double flèche n'apparaît qu'au survol : quatre colonnes qui
+   agitent toutes une icône ne désignent plus rien. */
+.th-tri__muet { opacity: 0; transition: opacity .12s ease; }
+.th-tri__lien:hover .th-tri__muet,
+.th-tri__lien:focus-visible .th-tri__muet { opacity: .45; }
+
+@media (max-width: 640px) {
+  .tableau-barre { justify-content: center; }
+}
+
+/* ── Éditeur de texte riche ──────────────────────────────────────
+   La surface de saisie ressemble à la page publique : ce qu'on écrit
+   ici doit se lire là-bas sans surprise. Une seule police, la même que
+   partout ailleurs. */
+
+.editeur {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md, 8px);
+  overflow: hidden;
+  background: var(--surface);
+}
+.editeur__barre {
+  display: flex;
+  align-items: center;
+  gap: .125rem;
+  flex-wrap: wrap;
+  padding: .375rem .5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.editeur__sep {
+  width: 1px;
+  height: 20px;
+  margin: 0 .3rem;
+  background: var(--border);
+}
+.editeur__outil {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 32px : assez large pour le doigt sans faire de la barre un bandeau. */
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-2);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 17px;
+  line-height: 1;
+}
+.editeur__outil:hover:not(:disabled) { background: var(--surface); color: var(--text); }
+.editeur__outil:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.editeur__outil.is-actif {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.editeur__outil:disabled { opacity: .35; cursor: not-allowed; }
+
+.editeur__surface {
+  min-height: 320px;
+  padding: 1.25rem 1.5rem;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.65;
+  color: var(--text);
+  overflow-y: auto;
+  max-height: 60vh;
+}
+.editeur__surface:focus { outline: none; }
+.editeur:focus-within { border-color: var(--primary); }
+
+.editeur__surface > :first-child { margin-top: 0; }
+.editeur__surface p { margin: 0 0 .85em; }
+.editeur__surface h2 { font-size: var(--fs-lg); margin: 1.4em 0 .5em; }
+.editeur__surface h3 { font-size: var(--fs-base); margin: 1.2em 0 .4em; }
+.editeur__surface ul,
+.editeur__surface ol { margin: 0 0 .85em; padding-left: 1.4em; }
+.editeur__surface li { margin-bottom: .3em; }
+.editeur__surface blockquote {
+  margin: 0 0 .85em;
+  padding-left: 1rem;
+  border-left: 3px solid var(--border);
+  color: var(--text-2);
+}
+.editeur__surface a { color: var(--primary); }
+.editeur__surface hr { border: none; border-top: 1px solid var(--border); margin: 1.5em 0; }
+.editeur__surface img { max-width: 100%; height: auto; }
+.editeur__surface table { width: 100%; border-collapse: collapse; margin-bottom: .85em; }
+.editeur__surface th,
+.editeur__surface td { border: 1px solid var(--border); padding: .4rem .6rem; text-align: left; }
+
+/* Un champ vide n'a aucune hauteur perceptible : l'indice fait comprendre
+   que la zone attend une saisie. */
+.editeur__surface:empty::before,
+.editeur__surface > p:only-child:empty::before {
+  content: attr(data-vide);
+  color: var(--text-3);
+}
+
+@media (max-width: 560px) {
+  .editeur__surface { padding: 1rem; min-height: 240px; }
+}
+
+/* ── Colonnes du tableau des documents ───────────────────────────
+   Répartition fixe : en laissant le navigateur décider, le titre
+   recevait la part congrue — cinq lignes par cellule — tandis qu'un
+   nom d'école doctorale un peu long faisait déborder le tableau et
+   poussait les dernières colonnes hors de l'écran. Avec une table à
+   disposition fixe, les proportions tiennent quel que soit le contenu,
+   et le texte trop long est coupé proprement plutôt que d'élargir sa
+   colonne. */
+
+.table--documents { table-layout: fixed; }
+.table--documents th,
+.table--documents td { overflow: hidden; }
+
+.table--documents .col-titre   { width: 26%; }
+.table--documents .col-auteur  { width: 12%; }
+.table--documents .col-etab    { width: 14%; }
+/* Le numéro national est l'identifiant officiel du dépôt : c'est la
+   seule colonne qui doit se lire en entier, jamais tronquée. */
+.table--documents .col-numero  { width: 18%; }
+/* Type, Statut, Année, Accès : quatre colonnes courtes qui se
+   partagent le reste. */
+.table--documents .col-etroite { width: 7.5%; white-space: nowrap; }
+
+td.col-auteur {
+  font-size: var(--fs-sm);
+  color: var(--text-2);
+}
+td.col-etroite { font-size: var(--fs-sm); }
+td.col-numero {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+/* Deux lignes au plus, coupées proprement : la hauteur de ligne reste
+   régulière et la colonne se balaye à l'œil. Le titre entier demeure
+   dans l'infobulle et sur la fiche du document. */
+.cellule-titre {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--primary);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+  line-height: 1.35;
+  text-decoration: none;
+}
+.cellule-titre:hover { text-decoration: underline; }
+
+.cellule-code { font-weight: 600; font-size: var(--fs-sm); }
+.cellule-sous {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--text-3);
+  font-weight: 400;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Sous cette largeur, la disposition fixe compresse trop : on rend la
+   main au navigateur et le tableau défile dans son conteneur. */
+@media (max-width: 900px) {
+  .table--documents { table-layout: auto; }
+  .table--documents .col-titre { min-width: 220px; }
 }
