@@ -1,6 +1,292 @@
 {% extends "admin/base.html" %}
-{% block title %}{{ page }}{% endblock %}
-{% block page_title %}{{ page|replace('_',' ')|title }}{% endblock %}
+{% block title %}Utilisateurs{% endblock %}
+{% block page_title %}Utilisateurs{% endblock %}
+
+{% block topbar_actions %}
+<button type="button" class="btn btn--primary btn--sm" data-dialog-open="dlgAjout">
+  <i class="ti ti-user-plus" aria-hidden="true"></i> Nouveau compte
+</button>
+{% endblock %}
+
 {% block content %}
-<div class="card"><p style="color:var(--text-2);padding:1rem;">Page en construction.</p></div>
+
+<div class="stat-cards">
+  <div class="stat-card stat-card--accent">
+    <div class="stat-card__label">Comptes</div>
+    <div class="stat-card__value">{{ utilisateurs|length }}</div>
+    <div class="stat-card__sub">{{ utilisateurs|selectattr('actif')|list|length }} actifs</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Super administrateurs</div>
+    <div class="stat-card__value">{{ nb_super_admins }}</div>
+    <div class="stat-card__sub">accès complet</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Établissements couverts</div>
+    <div class="stat-card__value">
+      {{ utilisateurs|map(attribute='etablissement_code')|select|unique|list|length }}
+    </div>
+    <div class="stat-card__sub">sur {{ etablissements|length }}</div>
+  </div>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="card-header"
+       style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+    <h3>Comptes</h3>
+    <form method="get" action="/admin/utilisateurs" data-no-busy
+          style="display:flex;gap:.5rem;flex-wrap:wrap;">
+      <label class="sr-only" for="recherche">Rechercher un compte</label>
+      <input type="search" id="recherche" name="q" value="{{ q }}" class="form-control"
+             placeholder="Nom ou email…" style="width:min(220px,45vw);">
+      <label class="sr-only" for="filtreRole">Filtrer par rôle</label>
+      <select name="role" id="filtreRole" class="form-control" style="width:auto;">
+        <option value="">Tous les rôles</option>
+        {% for cle, libelle in roles.items() %}
+        <option value="{{ cle }}" {{ 'selected' if role_filtre == cle }}>{{ libelle }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn--outline btn--sm">Filtrer</button>
+      {% if q or role_filtre %}
+      <a href="/admin/utilisateurs" class="btn btn--ghost btn--sm">Réinitialiser</a>
+      {% endif %}
+    </form>
+  </div>
+
+  {% if utilisateurs %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Utilisateur</th>
+          <th>Rôle</th>
+          <th>Établissement</th>
+          <th>Dernière connexion</th>
+          <th>Statut</th>
+          <th><span class="sr-only">Actions</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in utilisateurs %}
+        <tr{{ ' style=opacity:.6' if not u.actif }}>
+          <td>
+            <div style="font-weight:500;">
+              {{ (u.prenom ~ ' ' ~ u.nom)|trim or '—' }}
+              {% if u.id == current_user.id %}
+              <span class="badge" style="background:var(--surface-2);color:var(--text-2);">vous</span>
+              {% endif %}
+            </div>
+            <div style="color:var(--text-3);font-size:var(--fs-xs);">{{ u.email }}</div>
+          </td>
+          <td>
+            <span class="badge {{ 'badge--these' if u.role == 'super_admin' }}"
+                  title="{{ roles.get(u.role, u.role) }}">
+              {{ roles_courts.get(u.role, u.role) }}
+            </span>
+          </td>
+          <td>{{ u.etablissement_code or '—' }}</td>
+          <td style="color:var(--text-2);font-size:var(--fs-xs);">
+            {{ u.derniere_connexion|format_datetime if u.derniere_connexion else 'Jamais' }}
+          </td>
+          <td>
+            <span class="status status--{{ 'ok' if u.actif else 'err' }}">
+              {{ 'Actif' if u.actif else 'Désactivé' }}
+            </span>
+          </td>
+          <td style="text-align:right;white-space:nowrap;">
+            <button type="button" class="btn btn--ghost btn--sm"
+                    data-dialog-open="dlgEdit-{{ u.id }}"
+                    aria-label="Modifier le compte {{ u.email }}">
+              <i class="ti ti-pencil" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="btn btn--ghost btn--sm"
+                    data-dialog-open="dlgMdp-{{ u.id }}"
+                    aria-label="Réinitialiser le mot de passe de {{ u.email }}">
+              <i class="ti ti-key" aria-hidden="true"></i>
+            </button>
+            {% if u.id != current_user.id %}
+            <form method="post" action="/admin/utilisateurs/{{ u.id }}/toggle"
+                  style="display:inline;">
+              <button type="submit" class="btn btn--ghost btn--sm"
+                      aria-label="{{ 'Désactiver' if u.actif else 'Réactiver' }} le compte {{ u.email }}"
+                      data-confirm="{{ 'Désactiver' if u.actif else 'Réactiver' }} le compte {{ u.email }} ?">
+                <i class="ti ti-{{ 'lock' if u.actif else 'lock-open' }}" aria-hidden="true"></i>
+              </button>
+            </form>
+            <form method="post" action="/admin/utilisateurs/{{ u.id }}/supprimer"
+                  style="display:inline;">
+              <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);"
+                      aria-label="Supprimer le compte {{ u.email }}"
+                      data-confirm="Supprimer définitivement le compte {{ u.email }} ? Cette action est irréversible.">
+                <i class="ti ti-trash" aria-hidden="true"></i>
+              </button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="state">
+    <i class="ti ti-users state__icon" aria-hidden="true"></i>
+    <div class="state__title">Aucun compte ne correspond</div>
+    <p class="state__text">
+      {% if q or role_filtre %}
+        Aucun résultat pour cette recherche. Essayez d'élargir les critères.
+      {% else %}
+        Créez un premier compte pour déléguer l'administration.
+      {% endif %}
+    </p>
+    <div class="state__actions">
+      {% if q or role_filtre %}
+      <a href="/admin/utilisateurs" class="btn btn--outline">Voir tous les comptes</a>
+      {% else %}
+      <button type="button" class="btn btn--primary" data-dialog-open="dlgAjout">
+        <i class="ti ti-user-plus" aria-hidden="true"></i> Nouveau compte
+      </button>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Création ────────────────────────────────────────────────── #}
+<dialog id="dlgAjout" class="dialog">
+  <form method="post" action="/admin/utilisateurs/ajouter">
+    <div class="dialog__head">
+      <h3>Nouveau compte</h3>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <div class="form-group">
+        <label class="form-label" for="add-email">Adresse email</label>
+        <input type="email" id="add-email" name="email" class="form-control" required
+               autocomplete="off" placeholder="prenom.nom@universite.sn">
+      </div>
+      <div class="grid-2" style="margin-bottom:0;">
+        <div class="form-group">
+          <label class="form-label" for="add-prenom">Prénom</label>
+          <input type="text" id="add-prenom" name="prenom" class="form-control">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="add-nom">Nom</label>
+          <input type="text" id="add-nom" name="nom" class="form-control">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="add-role">Rôle</label>
+        <select name="role" id="add-role" class="form-control" required data-role-select>
+          {% for cle, libelle in roles.items() %}
+          <option value="{{ cle }}">{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" data-etab-group>
+        <label class="form-label" for="add-etab">Établissement de rattachement</label>
+        <select name="etablissement_code" id="add-etab" class="form-control">
+          <option value="">— Aucun —</option>
+          {% for e in etablissements %}
+          <option value="{{ e.code }}">{{ e.code }} — {{ e.nom }}</option>
+          {% endfor %}
+        </select>
+        <div class="form-hint">Obligatoire pour un administrateur d'établissement.</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="add-mdp">Mot de passe provisoire</label>
+        <input type="text" id="add-mdp" name="mot_de_passe" class="form-control" required
+               minlength="{{ longueur_mdp_min }}" autocomplete="off">
+        <div class="form-hint">
+          {{ longueur_mdp_min }} caractères minimum. Affiché en clair pour que vous
+          puissiez le transmettre — l'utilisateur devra le changer.
+        </div>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="submit" class="btn btn--primary">Créer le compte</button>
+    </div>
+  </form>
+</dialog>
+
+{# ── Modification et mot de passe, un dialogue par compte ─────── #}
+{% for u in utilisateurs %}
+<dialog id="dlgEdit-{{ u.id }}" class="dialog">
+  <form method="post" action="/admin/utilisateurs/{{ u.id }}/modifier">
+    <div class="dialog__head">
+      <h3>Modifier {{ u.email }}</h3>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <div class="grid-2" style="margin-bottom:0;">
+        <div class="form-group">
+          <label class="form-label" for="ed-prenom-{{ u.id }}">Prénom</label>
+          <input type="text" id="ed-prenom-{{ u.id }}" name="prenom"
+                 class="form-control" value="{{ u.prenom or '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ed-nom-{{ u.id }}">Nom</label>
+          <input type="text" id="ed-nom-{{ u.id }}" name="nom"
+                 class="form-control" value="{{ u.nom or '' }}">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ed-role-{{ u.id }}">Rôle</label>
+        <select name="role" id="ed-role-{{ u.id }}" class="form-control" data-role-select>
+          {% for cle, libelle in roles.items() %}
+          <option value="{{ cle }}" {{ 'selected' if u.role == cle }}>{{ libelle }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" data-etab-group>
+        <label class="form-label" for="ed-etab-{{ u.id }}">Établissement de rattachement</label>
+        <select name="etablissement_code" id="ed-etab-{{ u.id }}" class="form-control">
+          <option value="">— Aucun —</option>
+          {% for e in etablissements %}
+          <option value="{{ e.code }}" {{ 'selected' if u.etablissement_code == e.code }}>
+            {{ e.code }} — {{ e.nom }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="submit" class="btn btn--primary">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlgMdp-{{ u.id }}" class="dialog">
+  <form method="post" action="/admin/utilisateurs/{{ u.id }}/mot-de-passe">
+    <div class="dialog__head">
+      <h3>Nouveau mot de passe</h3>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <p class="form-hint" style="margin-bottom:1rem;">
+        Définit un nouveau mot de passe pour <strong>{{ u.email }}</strong>.
+        L'utilisateur devra s'en servir à sa prochaine connexion.
+      </p>
+      <div class="form-group">
+        <label class="form-label" for="mdp-{{ u.id }}">Mot de passe</label>
+        <input type="text" id="mdp-{{ u.id }}" name="mot_de_passe" class="form-control"
+               required minlength="{{ longueur_mdp_min }}" autocomplete="off">
+        <div class="form-hint">{{ longueur_mdp_min }} caractères minimum.</div>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="submit" class="btn btn--primary">Réinitialiser</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
 {% endblock %}

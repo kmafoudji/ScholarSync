@@ -225,7 +225,76 @@
     });
   }
 
+  /* ── Dialogues ────────────────────────────────────────────────── */
+
+  function initDialogues() {
+    document.querySelectorAll('[data-dialog-open]').forEach(function (bouton) {
+      bouton.addEventListener('click', function () {
+        var dlg = document.getElementById(bouton.getAttribute('data-dialog-open'));
+        if (!dlg) return;
+        if (typeof dlg.showModal === 'function') {
+          dlg.showModal();
+        } else {
+          dlg.setAttribute('open', '');   // très anciens navigateurs
+        }
+        var premier = dlg.querySelector(
+          'input:not([type=hidden]), select, textarea'
+        );
+        if (premier) premier.focus();
+      });
+    });
+
+    document.querySelectorAll('dialog').forEach(function (dlg) {
+      dlg.querySelectorAll('[data-dialog-close]').forEach(function (b) {
+        b.addEventListener('click', function () { dlg.close(); });
+      });
+
+      // Clic sur le fond : le <dialog> occupe tout l'écran, on distingue
+      // le fond du panneau en comparant la position du clic à sa boîte.
+      dlg.addEventListener('click', function (e) {
+        if (e.target !== dlg) return;
+        var r = dlg.getBoundingClientRect();
+        var dehors = e.clientX < r.left || e.clientX > r.right ||
+                     e.clientY < r.top || e.clientY > r.bottom;
+        if (dehors) dlg.close();
+      });
+
+      // Rendre la main aux boutons si l'utilisateur ferme après un envoi
+      dlg.addEventListener('close', function () {
+        dlg.querySelectorAll('form').forEach(function (f) {
+          delete f.dataset.submitted;
+        });
+        dlg.querySelectorAll('.btn.is-busy').forEach(function (b) {
+          if (SS.libererBouton) SS.libererBouton(b);
+        });
+      });
+    });
+  }
+
+  /* Le rattachement à un établissement n'a de sens que pour un
+     administrateur d'établissement : le champ se grise sinon. */
+  function initChampsConditionnels() {
+    document.querySelectorAll('[data-role-select]').forEach(function (select) {
+      var groupe = select.closest('form').querySelector('[data-etab-group]');
+      if (!groupe) return;
+      var champ = groupe.querySelector('select');
+
+      function appliquer() {
+        var requis = select.value === 'admin_etablissement';
+        groupe.style.opacity = requis ? '1' : '.55';
+        if (champ) {
+          champ.required = requis;
+          if (select.value === 'super_admin') champ.value = '';
+        }
+      }
+      select.addEventListener('change', appliquer);
+      appliquer();
+    });
+  }
+
   function init() {
+    initDialogues();
+    initChampsConditionnels();
     initSidebar();
     initTableaux();
     initConfirmations();

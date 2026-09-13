@@ -706,13 +706,228 @@ async def admin_sync_logs(request: Request, db: Session = Depends(get_db)):
         "current_user": require_auth(request, db), "active_nav": "sync-logs",
     })
 
+# Libellé long pour les listes déroulantes, libellé court pour les
+# étiquettes de tableau où la place manque.
+ROLES = {
+    "super_admin": "Super administrateur",
+    "admin_etablissement": "Administrateur d\u2019\u00e9tablissement",
+    "lecteur": "Lecteur",
+}
+
+ROLES_COURTS = {
+    "super_admin": "Super admin",
+    "admin_etablissement": "Admin \u00e9tablissement",
+    "lecteur": "Lecteur",
+}
+
+LONGUEUR_MDP_MIN = 10
+
+
+def _compte_super_admins_actifs(db: Session, sauf_id=None) -> int:
+    q = db.query(Utilisateur).filter(
+        Utilisateur.role == "super_admin", Utilisateur.actif == True  # noqa: E712
+    )
+    if sauf_id is not None:
+        q = q.filter(Utilisateur.id != sauf_id)
+    return q.count()
+
+
+@app.post("/admin/utilisateurs/ajouter")
+async def admin_utilisateurs_ajouter(
+    request: Request, db: Session = Depends(get_db),
+    email: str = Form(...), prenom: str = Form(""), nom: str = Form(""),
+    role: str = Form(...), etablissement_code: str = Form(""),
+    mot_de_passe: str = Form(...),
+):
+    require_super_admin(request, db)
+    email = email.strip().lower()
+
+    if role not in ROLES:
+        return redirect_flash("/admin/utilisateurs", "Rôle inconnu.", "danger")
+    if len(mot_de_passe) < LONGUEUR_MDP_MIN:
+        return redirect_flash(
+            "/admin/utilisateurs",
+            f"Le mot de passe doit faire au moins {LONGUEUR_MDP_MIN} caractères.",
+            "danger",
+        )
+    if db.query(Utilisateur).filter(Utilisateur.email == email).first():
+        return redirect_flash(
+            "/admin/utilisateurs", f"Un compte existe déjà pour {email}.", "warning"
+        )
+    if role == "admin_etablissement" and not etablissement_code:
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Un administrateur d\u2019établissement doit être rattaché à un établissement.",
+            "danger",
+        )
+
+    db.add(Utilisateur(
+        email=email,
+        mot_de_passe_hash=hash_password(mot_de_passe),
+        prenom=prenom.strip() or None,
+        nom=nom.strip() or None,
+        role=role,
+        etablissement_code=etablissement_code or None,
+        actif=True,
+    ))
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash("/admin/utilisateurs", "Création impossible.", "danger")
+    return redirect_flash("/admin/utilisateurs", f"Compte créé pour {email}.", "success")
+
+
+@app.post("/admin/utilisateurs/{user_id}/modifier")
+async def admin_utilisateurs_modifier(
+    user_id: str, request: Request, db: Session = Depends(get_db),
+    prenom: str = Form(""), nom: str = Form(""),
+    role: str = Form(...), etablissement_code: str = Form(""),
+):
+    courant = require_super_admin(request, db)
+    user = db.query(Utilisateur).filter(Utilisateur.id == user_id).first()
+    if not user:
+        return redirect_flash("/admin/utilisateurs", "Compte introuvable.", "danger")
+    if role not in ROLES:
+        return redirect_flash("/admin/utilisateurs", "Rôle inconnu.", "danger")
+
+    # Ne jamais laisser disparaître le dernier super administrateur :
+    # plus personne ne pourrait alors administrer la plateforme.
+    if (user.role == "super_admin" and role != "super_admin"
+            and _compte_super_admins_actifs(db, sauf_id=user.id) == 0):
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Impossible : ce compte est le dernier super administrateur actif.",
+            "danger",
+        )
+    if role == "admin_etablissement" and not etablissement_code:
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Un administrateur d\u2019établissement doit être rattaché à un établissement.",
+            "danger",
+        )
+
+    user.prenom = prenom.strip() or None
+    user.nom = nom.strip() or None
+    user.role = role
+    user.etablissement_code = etablissement_code or None
+    db.commit()
+
+    suffixe = " (vos droits changeront à la prochaine connexion)" if user.id == courant.id else ""
+    return redirect_flash(
+        "/admin/utilisateurs", f"Compte {user.email} mis à jour{suffixe}.", "success"
+    )
+
+
+@app.post("/admin/utilisateurs/{user_id}/toggle")
+async def admin_utilisateurs_toggle(
+    user_id: str, request: Request, db: Session = Depends(get_db)
+):
+    courant = require_super_admin(request, db)
+    user = db.query(Utilisateur).filter(Utilisateur.id == user_id).first()
+    if not user:
+        return redirect_flash("/admin/utilisateurs", "Compte introuvable.", "danger")
+    if user.id == courant.id:
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Vous ne pouvez pas désactiver votre propre compte.",
+            "warning",
+        )
+    if (user.actif and user.role == "super_admin"
+            and _compte_super_admins_actifs(db, sauf_id=user.id) == 0):
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Impossible : ce compte est le dernier super administrateur actif.",
+            "danger",
+        )
+
+    user.actif = not user.actif
+    db.commit()
+    etat = "réactivé" if user.actif else "désactivé"
+    return redirect_flash("/admin/utilisateurs", f"Compte {user.email} {etat}.", "success")
+
+
+@app.post("/admin/utilisateurs/{user_id}/mot-de-passe")
+async def admin_utilisateurs_mot_de_passe(
+    user_id: str, request: Request, db: Session = Depends(get_db),
+    mot_de_passe: str = Form(...),
+):
+    require_super_admin(request, db)
+    user = db.query(Utilisateur).filter(Utilisateur.id == user_id).first()
+    if not user:
+        return redirect_flash("/admin/utilisateurs", "Compte introuvable.", "danger")
+    if len(mot_de_passe) < LONGUEUR_MDP_MIN:
+        return redirect_flash(
+            "/admin/utilisateurs",
+            f"Le mot de passe doit faire au moins {LONGUEUR_MDP_MIN} caractères.",
+            "danger",
+        )
+
+    user.mot_de_passe_hash = hash_password(mot_de_passe)
+    db.commit()
+    return redirect_flash(
+        "/admin/utilisateurs",
+        f"Mot de passe de {user.email} réinitialisé. Transmettez-le par un canal sûr.",
+        "success",
+    )
+
+
+@app.post("/admin/utilisateurs/{user_id}/supprimer")
+async def admin_utilisateurs_supprimer(
+    user_id: str, request: Request, db: Session = Depends(get_db)
+):
+    courant = require_super_admin(request, db)
+    user = db.query(Utilisateur).filter(Utilisateur.id == user_id).first()
+    if not user:
+        return redirect_flash("/admin/utilisateurs", "Compte introuvable.", "danger")
+    if user.id == courant.id:
+        return redirect_flash(
+            "/admin/utilisateurs", "Vous ne pouvez pas supprimer votre propre compte.", "warning"
+        )
+    if (user.role == "super_admin"
+            and _compte_super_admins_actifs(db, sauf_id=user.id) == 0):
+        return redirect_flash(
+            "/admin/utilisateurs",
+            "Impossible : ce compte est le dernier super administrateur actif.",
+            "danger",
+        )
+
+    email = user.email
+    db.delete(user)
+    db.commit()
+    return redirect_flash("/admin/utilisateurs", f"Compte {email} supprimé.", "success")
+
+
 @app.get("/admin/utilisateurs", response_class=HTMLResponse)
-async def admin_utilisateurs(request: Request, db: Session = Depends(get_db)):
+async def admin_utilisateurs(
+    request: Request, db: Session = Depends(get_db), q: str = "", role: str = ""
+):
+    require_super_admin(request, db)
     params = get_params_with_defaults(db)
-    users = db.query(Utilisateur).order_by(Utilisateur.created_at.desc()).all()
-    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+
+    requete = db.query(Utilisateur)
+    if q:
+        motif = f"%{q.strip()}%"
+        requete = requete.filter(
+            (Utilisateur.email.ilike(motif))
+            | (Utilisateur.nom.ilike(motif))
+            | (Utilisateur.prenom.ilike(motif))
+        )
+    if role in ROLES:
+        requete = requete.filter(Utilisateur.role == role)
+
+    users = requete.order_by(Utilisateur.created_at.desc()).all()
+    etabs = (
+        db.query(Etablissement)
+        .filter(Etablissement.actif == True)  # noqa: E712
+        .order_by(Etablissement.code)
+        .all()
+    )
     return templates.TemplateResponse("admin/utilisateurs.html", {
         "request": request, "params": params, "utilisateurs": users, "etablissements": etabs,
+        "roles": ROLES, "roles_courts": ROLES_COURTS, "q": q, "role_filtre": role,
+        "nb_super_admins": _compte_super_admins_actifs(db),
+        "longueur_mdp_min": LONGUEUR_MDP_MIN,
         "current_user": require_auth(request, db), "active_nav": "utilisateurs",
     })
 

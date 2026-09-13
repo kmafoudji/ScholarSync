@@ -1295,3 +1295,65 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
 
 /* Titre de section dans une carte */
 .card h3 { font-size: var(--fs-md); }
+
+/* ══ DIALOGUES ═══════════════════════════════════════════════════
+   Élément <dialog> natif : gestion du focus, de la touche Échap et de
+   l'inertie de l'arrière-plan assurée par le navigateur. */
+.dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  padding: 0;
+  width: min(560px, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  box-shadow: var(--shadow-lg);
+  background: var(--surface);
+  color: var(--text);
+}
+.dialog::backdrop { background: rgba(16, 18, 22, .45); }
+
+.dialog__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.dialog__head h3 { font-size: var(--fs-md); overflow-wrap: anywhere; }
+.dialog__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-3);
+  font-size: 20px;
+  line-height: 1;
+  padding: 2px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+.dialog__close:hover { color: var(--text); background: var(--surface-2); }
+
+.dialog__body { padding: 1.5rem; overflow-y: auto; }
+.dialog__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: .75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 480px) {
+  .dialog { width: calc(100vw - 1rem); }
+  .dialog__body, .dialog__head, .dialog__foot { padding-inline: 1rem; }
+  .dialog__foot .btn { flex: 1; }
+}
+
+/* Étiquette par défaut : sans modificateur, .badge n'avait ni fond ni
+   contraste et se confondait avec le texte courant du tableau. */
+.badge:not([class*="badge--"]) {
+  background: var(--surface-2);
+  color: var(--text-2);
+}
