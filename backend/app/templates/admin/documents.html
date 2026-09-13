@@ -66,7 +66,22 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-3);">Aucun document — lancez une synchronisation Zotero</td></tr>
+        <tr>
+          <td colspan="8" style="padding:0;">
+            <div class="state">
+              <i class="ti ti-files-off state__icon" aria-hidden="true"></i>
+              <div class="state__title">Aucun document</div>
+              <p class="state__text">
+                Les documents arrivent par synchronisation depuis Zotero.
+                Vérifiez qu'un compte est configuré et actif.
+              </p>
+              <div class="state__actions">
+                <a href="/admin/sync" class="btn btn--primary">Aller à la synchronisation</a>
+                <a href="/admin/zotero" class="btn btn--ghost">Comptes Zotero</a>
+              </div>
+            </div>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>

@@ -69,9 +69,14 @@
   {% endif %}
 
 {% else %}
-  <div style="text-align:center;padding:3rem 1rem;color:var(--text-3);">
-    <i class="ti ti-search-off" style="font-size:3rem;display:block;margin-bottom:1rem;"></i>
-    <p style="font-size:var(--fs-base);font-weight:500;color:var(--text-2);">Aucun document trouvé</p>
-    <p style="font-size:var(--fs-sm);margin-top:.5rem;">Essayez avec d'autres mots-clés ou modifiez les filtres</p>
+  <div class="state">
+    <i class="ti ti-search-off state__icon" aria-hidden="true"></i>
+    <div class="state__title">Aucun document trouvé</div>
+    <p class="state__text">
+      Essayez d'autres mots-clés, ou retirez un filtre pour élargir la recherche.
+    </p>
+    <div class="state__actions">
+      <a href="/recherche" class="btn btn--outline">Réinitialiser la recherche</a>
+    </div>
   </div>
 {% endif %}

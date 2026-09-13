@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import Optional
 import json, os, math, logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.database import get_db, engine, SessionLocal
 from app.core.config import settings
@@ -67,6 +67,48 @@ app.add_middleware(AdminAuthMiddleware)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
+# Une sync sans progression depuis ce délai est considérée abandonnée
+# (processus tué, conteneur redémarré) : sans cela un SyncLog resterait
+# « en_cours » indéfiniment et le bandeau ne disparaîtrait jamais.
+SYNC_DELAI_ABANDON = timedelta(minutes=30)
+
+
+def sync_log_actif(db: Session) -> Optional[SyncLog]:
+    """
+    Synchronisation réellement en cours, d'après la base.
+
+    L'ensemble en mémoire de app.core.tasks ne connaît que le processus
+    courant : derrière plusieurs workers uvicorn, le worker qui répond
+    n'est pas forcément celui qui synchronise. La base est le seul état
+    partagé entre eux.
+    """
+    log = (
+        db.query(SyncLog)
+        .filter(SyncLog.statut == "en_cours")
+        .order_by(SyncLog.debut.desc())
+        .first()
+    )
+    if log is None:
+        return None
+
+    repere = log.fin or log.debut
+    if repere and datetime.now(repere.tzinfo) - repere > SYNC_DELAI_ABANDON:
+        return None
+    return log
+
+
+def _sync_en_cours() -> bool:
+    if any(k.startswith("sync") for k in tasks.running_keys()):
+        return True
+    db = SessionLocal()
+    try:
+        return sync_log_actif(db) is not None
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
 # ─── Templates ────────────────────────────────────────────────────
 def flash_context(request: Request) -> dict:
     """Injecte la notification et l'état de sync dans TOUS les templates."""
@@ -74,7 +116,10 @@ def flash_context(request: Request) -> dict:
     return {
         "flash_message": flash["message"] if flash else None,
         "flash_type": flash["type"] if flash else None,
-        "sync_en_cours": any(k.startswith("sync") for k in tasks.running_keys()),
+        # Une seule requête, et seulement sur les pages d'administration
+        "sync_en_cours": (
+            _sync_en_cours() if request.url.path.startswith("/admin") else False
+        ),
     }
 
 
@@ -114,7 +159,36 @@ def truncate(value, length=80):
 templates.env.filters["format_number"] = format_number
 templates.env.filters["format_datetime"] = format_datetime
 templates.env.filters["fromjson"] = fromjson
+LIBELLES_STATUT = {
+    "succes": "Succès",
+    "erreur": "Erreur",
+    "en_cours": "En cours",
+}
+
+
+def libelle_statut(valeur):
+    """« en_cours » s'affichait tel quel, tiret bas compris."""
+    if not valeur:
+        return "—"
+    return LIBELLES_STATUT.get(valeur, str(valeur).replace("_", " ").capitalize())
+
+
+def duree_lisible(secondes):
+    """3600 s se lisait « 3600s » : on veut « 1 h 0 min »."""
+    try:
+        secondes = int(secondes)
+    except (TypeError, ValueError):
+        return "—"
+    if secondes < 60:
+        return f"{secondes} s"
+    if secondes < 3600:
+        return f"{secondes // 60} min {secondes % 60} s"
+    return f"{secondes // 3600} h {(secondes % 3600) // 60} min"
+
+
 templates.env.filters["truncate"] = truncate
+templates.env.filters["libelle_statut"] = libelle_statut
+templates.env.filters["duree_lisible"] = duree_lisible
 templates.env.globals["now"] = datetime.now
 
 # ─── Helpers ──────────────────────────────────────────────────────
@@ -445,6 +519,40 @@ async def admin_zotero_ajouter(
         )
     return redirect_flash("/admin/zotero", f"Compte Zotero ajouté pour {etab.code}.", "success")
 
+@app.post("/admin/zotero/{source_id}/modifier")
+async def admin_zotero_modifier(
+    source_id: int, request: Request, db: Session = Depends(get_db),
+    zotero_type: str = Form(...), zotero_id: str = Form(...),
+    label: str = Form(""), api_key: str = Form(""),
+):
+    """La clé API laissée vide signifie « ne pas changer » : elle n'est
+    jamais réaffichée au formulaire."""
+    require_super_admin(request, db)
+    src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
+    if not src:
+        return redirect_flash("/admin/zotero", "Source introuvable.", "danger")
+    if zotero_type not in ("user", "group"):
+        return redirect_flash("/admin/zotero", "Type de compte Zotero inconnu.", "danger")
+    if not zotero_id.strip():
+        return redirect_flash("/admin/zotero", "L'identifiant Zotero est obligatoire.", "danger")
+
+    ancien_id = src.zotero_id
+    src.zotero_type = zotero_type
+    src.zotero_id = zotero_id.strip()
+    src.label = label.strip() or None
+    if api_key.strip():
+        src.api_key = api_key.strip()
+
+    # Changer de bibliothèque source invalide le curseur de version :
+    # sans cette remise à zéro, la sync suivante ne verrait aucun document.
+    if ancien_id != src.zotero_id:
+        src.zotero_version = 0
+
+    db.commit()
+    libelle = src.etablissement.code if src.etablissement else f"source {src.id}"
+    return redirect_flash("/admin/zotero", f"Compte Zotero de {libelle} mis à jour.", "success")
+
+
 @app.post("/admin/zotero/{source_id}/toggle")
 async def admin_zotero_toggle(source_id: int, db: Session = Depends(get_db)):
     src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
@@ -509,13 +617,9 @@ async def admin_sync_lancer(db: Session = Depends(get_db)):
 @app.get("/admin/sync/etat")
 async def admin_sync_etat(db: Session = Depends(get_db)):
     """Avancement de la synchronisation, interrogé par le client toutes les 2 s."""
-    en_cours = any(k.startswith("sync") for k in tasks.running_keys())
-
-    log = (
-        db.query(SyncLog)
-        .filter(SyncLog.statut == "en_cours")
-        .order_by(SyncLog.debut.desc())
-        .first()
+    log = sync_log_actif(db)
+    en_cours = log is not None or any(
+        k.startswith("sync") for k in tasks.running_keys()
     )
     if log is None:
         log = db.query(SyncLog).order_by(SyncLog.debut.desc()).first()

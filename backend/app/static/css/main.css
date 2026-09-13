@@ -1357,3 +1357,13 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   background: var(--surface-2);
   color: var(--text-2);
 }
+
+/* Le badge « En cours » de la navigation débordait de la barre latérale.
+   Le libellé cède la place au badge plutôt que de le pousser dehors. */
+.admin-nav a { min-width: 0; }
+.admin-nav a > span:not(.admin-nav__badge) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.admin-nav__badge { flex-shrink: 0; margin-left: auto; }

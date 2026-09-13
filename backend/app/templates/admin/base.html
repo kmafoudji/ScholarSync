@@ -50,7 +50,7 @@
         <i class="ti ti-plug"></i> Comptes autorisés
       </a>
       <a href="/admin/sync" class="{{ 'active' if active_nav == 'sync' }}">
-        <i class="ti ti-refresh"></i> Synchronisation
+        <i class="ti ti-refresh" aria-hidden="true"></i> <span>Synchronisation</span>
         {% if sync_en_cours %}<span class="admin-nav__badge">En cours</span>{% endif %}
       </a>
       <a href="/admin/sync-logs" class="{{ 'active' if active_nav == 'sync-logs' }}">

@@ -118,7 +118,7 @@
       </div>
     </div>
     <div style="display:flex;gap:.75rem;justify-content:flex-end;margin-top:.5rem;">
-      <button type="button" onclick="testerSMTP()" class="btn btn--outline">
+      <button type="button" data-test-url="/admin/parametres/smtp/tester" class="btn btn--outline">
         <i class="ti ti-plug-connected"></i> Tester la connexion
       </button>
       <button type="submit" class="btn btn--primary">
@@ -128,19 +128,7 @@
   </div>
 </form>
 
-<div id="smtpResult" style="display:none;margin-top:.75rem;"></div>
-{% block extra_js %}
-<script>
-async function testerSMTP() {
-  document.getElementById('smtpResult').style.display = 'none';
-  const res = await fetch('/admin/parametres/smtp/tester', { method: 'POST' });
-  const data = await res.json();
-  const el = document.getElementById('smtpResult');
-  el.style.display = 'block';
-  el.innerHTML = `<div class="alert alert--${data.ok ? 'success' : 'danger'}">
-    <i class="ti ti-${data.ok ? 'check' : 'alert-circle'}"></i> ${data.message}
-  </div>`;
-}
-</script>
-{% endblock %}
+{# Le test SMTP passe par le mécanisme partagé d'admin.js : bouton en
+   état occupé, notification, et message clair si le serveur ne répond
+   pas — l'ancienne version laissait la promesse échouer en silence. #}
 {% endblock %}

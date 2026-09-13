@@ -101,23 +101,28 @@
           </td>
           <td>
             <div style="display:flex;gap:.375rem;">
-              <button onclick="testerConnexion({{ source.id }})"
-                      class="btn btn--ghost btn--sm" title="Tester la connexion">
-                <i class="ti ti-plug-connected"></i>
+              <button type="button" class="btn btn--ghost btn--sm"
+                      data-test-url="/admin/zotero/{{ source.id }}/tester"
+                      title="Tester la connexion"
+                      aria-label="Tester la connexion Zotero de {{ source.etablissement.code }}">
+                <i class="ti ti-plug-connected" aria-hidden="true"></i>
               </button>
               <form method="post" action="/admin/sync/lancer/{{ source.id }}" style="display:inline;">
                 <button type="submit" class="btn btn--ghost btn--sm" title="Sync maintenant">
                   <i class="ti ti-refresh"></i>
                 </button>
               </form>
-              <button onclick="ouvrirEdition({{ source.id }}, '{{ source.zotero_type }}', '{{ source.zotero_id }}', '{{ source.label or '' }}')"
-                      class="btn btn--ghost btn--sm" title="Modifier">
-                <i class="ti ti-edit"></i>
+              <button type="button" class="btn btn--ghost btn--sm"
+                      data-dialog-open="dlgZotero-{{ source.id }}" title="Modifier"
+                      aria-label="Modifier le compte Zotero de {{ source.etablissement.code }}">
+                <i class="ti ti-edit" aria-hidden="true"></i>
               </button>
-              <form method="post" action="/admin/zotero/{{ source.id }}/supprimer"
-                    onsubmit="return confirm('Supprimer ce compte Zotero ?')">
-                <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);" title="Supprimer">
-                  <i class="ti ti-trash"></i>
+              <form method="post" action="/admin/zotero/{{ source.id }}/supprimer">
+                <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);"
+                        title="Supprimer"
+                        aria-label="Supprimer le compte Zotero de {{ source.etablissement.code }}"
+                        data-confirm="Supprimer le compte Zotero de {{ source.etablissement.code }} ? Les documents déjà importés sont conservés.">
+                  <i class="ti ti-trash" aria-hidden="true"></i>
                 </button>
               </form>
             </div>
@@ -194,8 +199,8 @@
       </div>
       <div class="modal__footer">
         <button type="button" onclick="closeModal('modalAjouter')" class="btn btn--ghost">Annuler</button>
-        <button type="button" onclick="testerConnexionFormulaire()" class="btn btn--outline">
-          <i class="ti ti-plug-connected"></i> Tester
+        <button type="button" id="btnTesterNouveau" class="btn btn--outline">
+          <i class="ti ti-plug-connected" aria-hidden="true"></i> Tester la connexion
         </button>
         <button type="submit" class="btn btn--primary">
           <i class="ti ti-check"></i> Enregistrer
@@ -205,9 +210,54 @@
   </div>
 </div>
 
-<!-- RÉSULTAT TEST CONNEXION -->
-<div id="testResult" style="display:none;position:fixed;bottom:1.5rem;right:1.5rem;z-index:1000;max-width:320px;">
-</div>
+{# ── Édition d'un compte Zotero ──────────────────────────────── #}
+{% for source in sources %}
+<dialog id="dlgZotero-{{ source.id }}" class="dialog">
+  <form method="post" action="/admin/zotero/{{ source.id }}/modifier">
+    <div class="dialog__head">
+      <h3>Compte Zotero — {{ source.etablissement.code }}</h3>
+      <button type="button" class="dialog__close" data-dialog-close aria-label="Fermer">
+        <i class="ti ti-x" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="dialog__body">
+      <div class="form-group">
+        <label class="form-label" for="zt-type-{{ source.id }}">Type de compte</label>
+        <select name="zotero_type" id="zt-type-{{ source.id }}" class="form-control">
+          <option value="group" {{ 'selected' if source.zotero_type == 'group' }}>Groupe</option>
+          <option value="user" {{ 'selected' if source.zotero_type == 'user' }}>Utilisateur</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="zt-id-{{ source.id }}">Identifiant Zotero</label>
+        <input type="text" id="zt-id-{{ source.id }}" name="zotero_id" class="form-control"
+               value="{{ source.zotero_id }}" required>
+        <div class="form-hint">
+          Changer d'identifiant réinitialise le curseur de synchronisation :
+          la bibliothèque sera réimportée intégralement.
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="zt-label-{{ source.id }}">Label</label>
+        <input type="text" id="zt-label-{{ source.id }}" name="label" class="form-control"
+               value="{{ source.label or '' }}" placeholder="ex. BU centrale">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="zt-key-{{ source.id }}">Nouvelle clé API</label>
+        <input type="password" id="zt-key-{{ source.id }}" name="api_key" class="form-control"
+               placeholder="Laisser vide pour conserver la clé actuelle" autocomplete="off">
+        <div class="form-hint">La clé enregistrée n'est jamais réaffichée.</div>
+      </div>
+    </div>
+    <div class="dialog__foot">
+      <button type="button" class="btn btn--ghost" data-dialog-close>Annuler</button>
+      <button type="button" class="btn btn--outline"
+              data-test-url="/admin/zotero/{{ source.id }}/tester">Tester</button>
+      <button type="submit" class="btn btn--primary">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+{% endfor %}
 {% endblock %}
 
 {% block extra_js %}
@@ -222,36 +272,20 @@ document.querySelectorAll('input[name="zotero_type"]').forEach(radio => {
   });
 });
 
-async function testerConnexion(sourceId) {
-  showTestResult('loading', 'Test en cours…');
-  const res = await fetch(`/admin/zotero/${sourceId}/tester`, { method: 'POST' });
-  const data = await res.json();
-  showTestResult(data.ok ? 'success' : 'error', data.message);
-}
+// Les boutons [data-test-url] sont pris en charge par admin.js (état
+// occupé, notification, gestion de l'échec réseau). Seul le test du
+// formulaire de création a besoin d'envoyer les champs non enregistrés.
+document.getElementById('btnTesterNouveau').addEventListener('click', function () {
+  var bouton = this;
+  var form = document.querySelector('#modalAjouter form');
+  var SS = window.ScholarSync;
+  SS.occuper(bouton);
 
-async function testerConnexionFormulaire() {
-  const form = document.querySelector('#modalAjouter form');
-  const fd = new FormData(form);
-  showTestResult('loading', 'Test en cours…');
-  const res = await fetch('/admin/zotero/tester-nouveau', { method: 'POST', body: fd });
-  const data = await res.json();
-  showTestResult(data.ok ? 'success' : 'error', data.message);
-}
-
-function showTestResult(type, msg) {
-  const el = document.getElementById('testResult');
-  const icons = { loading: 'ti-loader-2', success: 'ti-circle-check', error: 'ti-circle-x' };
-  const colors = { loading: 'var(--warning-bg)', success: 'var(--success-bg)', error: 'var(--danger-bg)' };
-  const textColors = { loading: 'var(--warning)', success: 'var(--success)', error: 'var(--danger)' };
-  el.style.display = 'block';
-  el.innerHTML = `<div class="alert" style="background:${colors[type]};color:${textColors[type]};box-shadow:var(--shadow);">
-    <i class="ti ${icons[type]}${type === 'loading' ? ' ti-spin' : ''}"></i> ${msg}
-  </div>`;
-  if (type !== 'loading') setTimeout(() => el.style.display = 'none', 4000);
-}
-
-function ouvrirEdition(source) {
-  console.log('Édition:', source);
-}
+  fetch('/admin/zotero/tester-nouveau', { method: 'POST', body: new FormData(form) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { SS.toast(d.message, d.ok ? 'success' : 'danger'); })
+    .catch(function () { SS.toast('Test impossible : serveur injoignable.', 'danger'); })
+    .then(function () { SS.libererBouton(bouton); });
+});
 </script>
 {% endblock %}

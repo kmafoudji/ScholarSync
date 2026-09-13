@@ -134,7 +134,7 @@
             <td style="color:var(--text-2);font-size:var(--fs-xs);">{{ log.debut|format_datetime }}</td>
             <td>
               <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
-                {{ log.statut|capitalize }}
+                {{ log.statut|libelle_statut }}
               </span>
             </td>
             <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>

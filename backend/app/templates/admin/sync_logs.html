@@ -28,14 +28,14 @@
           <td style="font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ log.debut|format_datetime }}</td>
           <td style="font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ log.fin|format_datetime if log.fin else '—' }}</td>
           <td style="font-size:var(--fs-xs);">
-            {% if log.fin %}{{ ((log.fin - log.debut).total_seconds()|int) }}s{% else %}—{% endif %}
+            {% if log.fin %}{{ (log.fin - log.debut).total_seconds()|duree_lisible }}{% else %}—{% endif %}
           </td>
           <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>
           <td style="color:var(--warning);">{{ log.documents_modifies }}</td>
           <td style="color:var(--danger);">{{ log.documents_erreur }}</td>
           <td>
             <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
-              {{ log.statut|capitalize }}
+              {{ log.statut|libelle_statut }}
             </span>
           </td>
           <td style="font-size:var(--fs-xs);color:var(--text-3);max-width:200px;">
@@ -43,7 +43,21 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="10" style="text-align:center;padding:2rem;color:var(--text-3);">Aucune synchronisation encore</td></tr>
+        <tr>
+          <td colspan="10" style="padding:0;">
+            <div class="state">
+              <i class="ti ti-history-off state__icon" aria-hidden="true"></i>
+              <div class="state__title">Aucune synchronisation enregistrée</div>
+              <p class="state__text">
+                L'historique se remplit à chaque synchronisation, manuelle
+                ou automatique.
+              </p>
+              <div class="state__actions">
+                <a href="/admin/sync" class="btn btn--primary">Lancer une synchronisation</a>
+              </div>
+            </div>
+          </td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
