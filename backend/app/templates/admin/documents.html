@@ -55,7 +55,7 @@
           <td><span class="badge badge--{{ doc.type }}">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span></td>
           <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
           <td style="font-size:var(--fs-sm);">{{ doc.annee }}</td>
-          <td style="font-family:monospace;font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
+          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-xs);color:var(--text-2);white-space:nowrap;">{{ doc.numero_national }}</td>
           <td>
             <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
               <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"

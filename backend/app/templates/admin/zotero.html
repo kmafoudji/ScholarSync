@@ -82,11 +82,11 @@
             <div style="font-size:var(--fs-xs);color:var(--text-2);">{{ source.etablissement.nom_court or source.etablissement.nom }}</div>
           </td>
           <td>
-            <span style="font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;font-family:monospace;">
+            <span style="font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;font-variant-numeric:tabular-nums;letter-spacing:.05em;">
               {{ source.zotero_type }}
             </span>
           </td>
-          <td style="font-family:monospace;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
           <td style="font-size:var(--fs-xs);color:var(--text-2);">
             {{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}
           </td>

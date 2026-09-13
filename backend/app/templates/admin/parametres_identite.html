@@ -119,7 +119,7 @@
                    oninput="updatePreview()">
             <input type="text" id="colorPrimaryHex" value="{{ params.couleur_principale }}"
                    aria-label="Couleur principale en hexadécimal"
-                   class="form-control" style="font-family:monospace;flex:1;"
+                   class="form-control" style="font-variant-numeric:tabular-nums;letter-spacing:.05em;flex:1;"
                    oninput="document.getElementById('colorPrimary').value=this.value;updatePreview()">
           </div>
         </div>
@@ -132,7 +132,7 @@
                    oninput="updatePreview()">
             <input type="text" id="colorSecondaryHex" value="{{ params.couleur_secondaire }}"
                    aria-label="Couleur secondaire en hexadécimal"
-                   class="form-control" style="font-family:monospace;flex:1;"
+                   class="form-control" style="font-variant-numeric:tabular-nums;letter-spacing:.05em;flex:1;"
                    oninput="document.getElementById('colorSecondary').value=this.value;updatePreview()">
           </div>
         </div>
@@ -179,7 +179,7 @@
 
   <!-- APERÇU EN TEMPS RÉEL -->
   <div style="position:sticky;top:calc(56px + 1.5rem);">
-    <div style="font-size:var(--fs-xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:.625rem;">
+    <div style="font-size:var(--fs-xs);font-weight:600;color:var(--text-2);margin-bottom:.625rem;">
       Aperçu en direct
     </div>
     <div id="livePreview" style="border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;font-size:var(--fs-2xs);">
@@ -256,7 +256,7 @@ function updatePreview() {
     </div>
     <div style="background:#f7f6f3;padding:10px 14px;display:grid;grid-template-columns:70px 1fr;gap:8px;">
       <div>
-        <div style="font-size:var(--fs-2xs);font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;">Établissements</div>
+        <div style="font-size:var(--fs-2xs);font-weight:600;color:var(--text-2);margin-bottom:5px;">Établissements</div>
         ${['UCAD','UGB','UADB'].map(e=>`<div style="font-size:var(--fs-2xs);padding:2px 4px;border-radius:3px;margin-bottom:2px;display:flex;align-items:center;gap:3px;">
           <span style="width:4px;height:4px;border-radius:50%;background:${s};flex-shrink:0;display:inline-block;"></span>${e}
         </div>`).join('')}

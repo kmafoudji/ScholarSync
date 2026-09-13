@@ -67,8 +67,8 @@
         {% for source in sources %}
         <tr>
           <td style="font-weight:600;">{{ source.etablissement.code }}</td>
-          <td><span style="font-family:monospace;font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;">{{ source.zotero_type }}</span></td>
-          <td style="font-family:monospace;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
+          <td><span style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-xs);background:var(--bg);padding:2px 8px;border-radius:4px;">{{ source.zotero_type }}</span></td>
+          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-sm);color:var(--text-2);">{{ source.zotero_id }}</td>
           <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}</td>
           <td><span class="status status--{{ 'ok' if source.actif else 'err' }}">{{ 'Actif' if source.actif else 'Inactif' }}</span></td>
           <td>

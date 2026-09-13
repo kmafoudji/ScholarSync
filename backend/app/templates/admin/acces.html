@@ -40,7 +40,7 @@
               {% else %}Document{% endif %}
             </span>
           </td>
-          <td style="font-family:monospace;font-size:var(--fs-sm);">{{ ex.reference }}</td>
+          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-sm);">{{ ex.reference }}</td>
           <td>
             <span class="badge badge--{{ 'soutenu' if ex.acces == 'public' else 'restreint' }}">
               {{ 'Public' if ex.acces == 'public' else 'Restreint' }}
