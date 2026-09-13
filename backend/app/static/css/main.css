@@ -96,8 +96,23 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* ── Typography ── */
-h1,h2,h3,h4 { font-weight: 600; line-height: var(--lh-tight); color: var(--text); }
+/* ── Typographie ──────────────────────────────────────────────────
+   Deux polices, une règle :
+
+     Fraunces (serif)  = ce qui NOMME — titre de page, titre de
+                         document, chiffre à l'échelle d'affichage.
+     Plus Jakarta Sans = ce qui SERT — navigation, libellés, contrôles,
+                         tableaux, corps de texte.
+
+   La règle était appliquée de façon inégale : h1 était serif sur le site
+   public et sans dans l'administration, et deux grands chiffres de la
+   page d'accueil s'affichaient dans deux polices différentes. D'où
+   l'impression de polices qui changent d'une page à l'autre. */
+
+h1, h2, h3, h4 { font-weight: 600; line-height: var(--lh-tight); color: var(--text); }
+
+/* Le titre de page nomme la page : serif partout, public comme admin. */
+h1, .serif { font-family: var(--font-serif); }
 h1 { font-size: var(--fs-2xl); }
 h2 { font-size: var(--fs-xl); }
 h3 { font-size: var(--fs-lg); }
@@ -314,55 +329,7 @@ h4 { font-size: var(--fs-md); }
 }
 .search-btn:hover { opacity: .9; }
 
-.search-filters {
-  display: flex; gap: 6px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
-.filter-chip {
-  background: rgba(255,255,255,.12);
-  border: 1px solid rgba(255,255,255,.2);
-  border-radius: 20px;
-  padding: 4px 14px;
-  font-size: var(--fs-xs);
-  color: rgba(255,255,255,.8);
-  cursor: pointer;
-  transition: all .15s;
-  font-family: var(--font-sans);
-}
-.filter-chip:hover, .filter-chip.active {
-  background: rgba(255,255,255,.25);
-  color: #fff;
-}
-
-/* ── ENTRIES (Thèses / Mémoires) ── */
-.entries {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-  max-width: 700px;
-  margin: 2.5rem auto 0;
-}
-.entry-card {
-  background: rgba(255,255,255,.08);
-  border: 1px solid rgba(255,255,255,.15);
-  border-radius: var(--radius-lg);
-  padding: 1.5rem;
-  text-decoration: none;
-  text-align: center;
-  transition: all .2s;
-  cursor: pointer;
-}
-.entry-card:hover {
-  background: rgba(255,255,255,.15);
-  border-color: rgba(255,255,255,.3);
-  transform: translateY(-2px);
-}
-.entry-card__icon { font-size: 2rem; color: rgba(255,255,255,.6); margin-bottom: .75rem; }
-.entry-card__count { font-size: 2rem; font-weight: 700; color: #fff; line-height: 1; }
-.entry-card__label { font-size: var(--fs-xs); color: rgba(255,255,255,.65); margin-top: 4px; }
-
-/* ── STATS BAR ── */
+/* ── BANDEAU DE CHIFFRES ── */
 .stats-bar {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -375,11 +342,16 @@ h4 { font-size: var(--fs-md); }
   border-right: 1px solid var(--border);
 }
 .stat-item:last-child { border-right: none; }
+/* Chiffre à l'échelle d'affichage : serif, comme l'année d'une notice.
+   Ces deux nombres se côtoient sur l'accueil — les afficher dans deux
+   polices différentes était l'écart le plus visible. */
 .stat-num {
-  font-size: 1.625rem;
-  font-weight: 700;
+  font-family: var(--font-serif);
+  font-size: var(--fs-xl);
+  font-weight: 600;
   color: var(--primary);
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 .stat-label { font-size: var(--fs-xs); color: var(--text-2); margin-top: 4px; }
 
@@ -974,7 +946,8 @@ textarea.form-control { resize: vertical; min-height: 100px; }
 .admin-topbar h1 {
   min-width: 0;
   overflow-wrap: anywhere;
-  font-size: var(--fs-md);
+  font-family: var(--font-serif);
+  font-size: var(--fs-lg);
   font-weight: 600;
   color: var(--text);
 }
@@ -1010,7 +983,14 @@ textarea.form-control { resize: vertical; min-height: 100px; }
   padding: 1.125rem 1.25rem;
 }
 .stat-card__label { font-size: var(--fs-xs); color: var(--text-2); margin-bottom: .375rem; }
-.stat-card__value { font-size: 1.75rem; font-weight: 700; color: var(--primary); line-height: 1; }
+.stat-card__value {
+  font-family: var(--font-serif);
+  font-size: var(--fs-2xl);
+  font-weight: 600;
+  color: var(--primary);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
 .stat-card__sub { font-size: var(--fs-xs); color: var(--text-3); margin-top: .25rem; }
 .stat-card--accent { border-left: 3px solid var(--secondary); }
 
@@ -1110,7 +1090,6 @@ tr:hover td { background: var(--bg); }
 @media (max-width: 1024px) {
   :root { --sidebar-w: 216px; }
   .catalogue { grid-template-columns: 232px minmax(0, 1fr); }
-  .entries { grid-template-columns: repeat(2, 1fr); }
   .stat-cards { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 }
 
@@ -1155,7 +1134,6 @@ tr:hover td { background: var(--bg); }
   .hero h1 { font-size: var(--fs-2xl); }
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
   .stats-bar .stat-item:nth-child(2) { border-right: none; }
-  .entries { grid-template-columns: repeat(2, 1fr); }
 
   /* Sidebar admin en tiroir */
   .admin-sidebar {
@@ -1175,7 +1153,6 @@ tr:hover td { background: var(--bg); }
 }
 
 @media (max-width: 560px) {
-  .entries { grid-template-columns: 1fr; }
   .stat-cards { grid-template-columns: 1fr 1fr; }
   .doc-card__meta { gap: .5rem .75rem; }
 }
@@ -1635,15 +1612,6 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   font-weight: 400;
 }
 .filtre-actif .ti { font-size: 13px; opacity: .7; }
-
-/* Les pastilles du bandeau sont devenues des liens (pour fonctionner sans
-   JavaScript) : il faut leur retirer la décoration héritée. */
-.filter-chip {
-  text-decoration: none;
-  display: inline-flex;
-  align-items: center;
-}
-.filter-chip:hover { text-decoration: none; }
 
 /* ── FACETTES REPLIABLES SUR PETIT ÉCRAN ────────────────────────
    En colonne unique, la liste des critères repoussait le premier

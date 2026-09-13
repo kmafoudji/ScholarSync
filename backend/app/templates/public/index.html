@@ -19,31 +19,7 @@
     </button>
   </form>
 
-  <div class="search-filters">
-    <a href="/recherche" class="filter-chip {{ 'active' if not nb_filtres_actifs }}">Tous</a>
-    <a href="{{ url_facette(current_filters, 'type', 'these', sort) }}"
-       class="filter-chip {{ 'active' if facette_active(current_filters, 'type', 'these') }}">Thèses</a>
-    <a href="{{ url_facette(current_filters, 'type', 'memoire', sort) }}"
-       class="filter-chip {{ 'active' if facette_active(current_filters, 'type', 'memoire') }}">Mémoires</a>
-    {% for a in facettes.annees[:4] %}
-    <a href="{{ url_facette(current_filters, 'annee', a.valeur, sort) }}"
-       class="filter-chip {{ 'active' if facette_active(current_filters, 'annee', a.valeur) }}">{{ a.valeur }}</a>
-    {% endfor %}
-  </div>
 
-  <!-- ENTRÉES THÈSES / MÉMOIRES -->
-  <div class="entries">
-    <a href="/theses" class="entry-card">
-      <div class="entry-card__icon"><i class="ti ti-certificate"></i></div>
-      <div class="entry-card__count">{{ stats.nb_theses|default(0)|format_number }}</div>
-      <div class="entry-card__label">Thèses de doctorat</div>
-    </a>
-    <a href="/memoires" class="entry-card">
-      <div class="entry-card__icon"><i class="ti ti-books"></i></div>
-      <div class="entry-card__count">{{ stats.nb_memoires|default(0)|format_number }}</div>
-      <div class="entry-card__label">Mémoires de master</div>
-    </a>
-  </div>
 </section>
 
 <!-- STATS BAR -->
