@@ -6,7 +6,7 @@
   <title>Connexion — {{ params.nom_outil }}</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
-  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="{{ static_url('css/main.css') }}">
   <style>
     :root { --primary: {{ params.couleur_principale }}; --secondary: {{ params.couleur_secondaire }}; --primary-light: color-mix(in srgb, {{ params.couleur_principale }} 12%, white); }
     body { min-height:100vh; display:flex; background:var(--bg); }

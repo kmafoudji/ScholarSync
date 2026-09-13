@@ -231,6 +231,34 @@ def facette_active(filtres: dict, cle: str, valeur) -> bool:
     return str(valeur) in [str(v) for v in actuelles]
 
 
+# ─── Versionnage des fichiers statiques ───────────────────────────
+# Sans marqueur de version, le navigateur garde la feuille de style
+# précédente après un déploiement : le gabarit est à jour, le CSS non, et
+# la page s'affiche à moitié cassée sans qu'aucune erreur ne le signale.
+# Le marqueur est calculé une fois au démarrage, à partir de la taille et
+# de la date du fichier — une reconstruction d'image change forcément la
+# date, donc le marqueur.
+_versions_statiques: dict = {}
+
+
+def static_url(chemin: str) -> str:
+    """Adresse d'un fichier statique, suffixée d'un marqueur de version."""
+    if chemin not in _versions_statiques:
+        marqueur = ""
+        try:
+            st = os.stat(os.path.join("app/static", chemin))
+            marqueur = f"{int(st.st_mtime):x}{st.st_size:x}"[-10:]
+        except OSError:
+            # Fichier absent : on sert l'adresse nue plutôt que d'échouer
+            logging.getLogger("scholarsync").warning(
+                "Fichier statique introuvable : %s", chemin
+            )
+        _versions_statiques[chemin] = marqueur
+    marqueur = _versions_statiques[chemin]
+    return f"/static/{chemin}?v={marqueur}" if marqueur else f"/static/{chemin}"
+
+
+templates.env.globals["static_url"] = static_url
 templates.env.globals["url_facette"] = url_facette
 templates.env.globals["facette_active"] = facette_active
 templates.env.filters["libelle_statut"] = libelle_statut

@@ -229,6 +229,7 @@ curl -s http://127.0.0.1:8000/sante           # {"statut":"ok","base":"ok"}
 | `SECRET_KEY manquant dans .env` au démarrage | `.env` absent ou vide — lancez `./scripts/generer-secrets.sh` |
 | **502 Bad Gateway** et conteneur `Restarting` | Voir les journaux : le plus souvent `password authentication failed`, c'est-à-dire `.env` désaccordé avec le volume PostgreSQL |
 | Les changements de code ne prennent pas effet | `docker compose up -d` ne reconstruit pas une image existante — utilisez `up -d --build` |
+| La page s'affiche à moitié cassée après un déploiement | Ancienne feuille de style en cache navigateur. Les adresses statiques portent un marqueur de version depuis la mise à jour ; si le symptôme persiste, vérifier que le reverse proxy ne réécrit pas la chaîne de requête sur `/static/` |
 | `/sante` renvoie 503 `base: injoignable` | PostgreSQL non démarré, ou mot de passe désaccordé avec `.env` |
 | Le logo téléversé disparaît au redémarrage | Montage `uploads` erroné — vérifiez `./uploads:/app/app/static/img/uploads` |
 | « Le dossier des téléversements n'est pas accessible en écriture » | Le conteneur tourne sous l'UID 1000 : `mkdir -p uploads && sudo chown -R 1000:1000 uploads` |

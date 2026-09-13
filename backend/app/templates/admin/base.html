@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
-  <link rel="stylesheet" href="/static/css/main.css">
+  <link rel="stylesheet" href="{{ static_url('css/main.css') }}">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
     :root {
@@ -137,8 +137,8 @@
 </script>
 {% endif %}
 
-<script src="/static/js/main.js"></script>
-<script src="/static/js/admin.js"></script>
+<script src="{{ static_url('js/main.js') }}"></script>
+<script src="{{ static_url('js/admin.js') }}"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
