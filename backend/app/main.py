@@ -10,6 +10,10 @@ from datetime import datetime
 
 from app.core.database import get_db, engine
 from app.core.config import settings
+from app.core.auth import (
+    hash_password, verify_password, create_token, decode_token,
+    get_current_user, require_auth, require_super_admin
+)
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -19,6 +23,28 @@ from app.models import (
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="ScholarSync", docs_url="/api/docs")
+
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import RedirectResponse as StarletteRedirect
+
+class AdminAuthMiddleware(BaseHTTPMiddleware):
+    PUBLIC_ADMIN_PATHS = {
+        "/admin/connexion", "/admin/setup",
+        "/admin/mot-de-passe-oublie", "/admin/reset-password",
+        "/admin/deconnexion",
+    }
+    async def dispatch(self, request, call_next):
+        path = request.url.path
+        if path.startswith("/admin") and path not in self.PUBLIC_ADMIN_PATHS:
+            token = request.cookies.get("scholarsync_session")
+            if not token:
+                return StarletteRedirect(f"/admin/connexion?next={path}")
+            payload = decode_token(token)
+            if not payload:
+                return StarletteRedirect("/admin/connexion")
+        return await call_next(request)
+
+app.add_middleware(AdminAuthMiddleware)
 
 # Fichiers statiques
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -333,7 +359,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
         "stats_domaines": json.dumps(stats_domaines),
         "stats_etabs": json.dumps(stats_etabs),
         "derniers_logs": derniers_logs, "docs_recents": docs_recents,
-        "current_user": get_current_user_mock(),
+        "current_user": require_auth(request, db),
         "active_nav": "dashboard", "sync_en_cours": False,
     })
 
@@ -355,7 +381,7 @@ async def admin_zotero(request: Request, db: Session = Depends(get_db)):
         "request": request, "params": params, "sources": sources,
         "etablissements_sans_source": etabs_sans_source,
         "sync_intervalle": sync_intervalle,
-        "current_user": get_current_user_mock(), "active_nav": "zotero",
+        "current_user": require_auth(request, db), "active_nav": "zotero",
     })
 
 @app.post("/admin/zotero/ajouter")
@@ -418,7 +444,7 @@ async def admin_parametres_identite(request: Request, db: Session = Depends(get_
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("admin/parametres_identite.html", {
         "request": request, "params": params,
-        "current_user": get_current_user_mock(), "active_nav": "identite",
+        "current_user": require_auth(request, db), "active_nav": "identite",
     })
 
 @app.post("/admin/parametres/identite")
@@ -479,7 +505,7 @@ async def admin_documents(
     return templates.TemplateResponse("admin/documents.html", {
         "request": request, "params": params, "documents": docs,
         "pagination": pagination, "q": q,
-        "current_user": get_current_user_mock(), "active_nav": "documents",
+        "current_user": require_auth(request, db), "active_nav": "documents",
     })
 
 @app.get("/api/stats")
@@ -492,7 +518,7 @@ async def admin_etablissements(request: Request, db: Session = Depends(get_db)):
     etabs = db.query(Etablissement).order_by(Etablissement.nom).all()
     return templates.TemplateResponse("admin/etablissements.html", {
         "request": request, "params": params, "etablissements": etabs,
-        "current_user": get_current_user_mock(), "active_nav": "etablissements",
+        "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
 @app.post("/admin/etablissements/ajouter")
@@ -527,7 +553,7 @@ async def admin_sync(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("admin/sync.html", {
         "request": request, "params": params, "logs": logs, "sources": sources,
         "sync_intervalle": sync_intervalle,
-        "current_user": get_current_user_mock(), "active_nav": "sync",
+        "current_user": require_auth(request, db), "active_nav": "sync",
     })
 
 @app.get("/admin/sync-logs", response_class=HTMLResponse)
@@ -539,7 +565,7 @@ async def admin_sync_logs(request: Request, db: Session = Depends(get_db)):
         log.etablissement_code = src.etablissement.code if src else "—"
     return templates.TemplateResponse("admin/sync_logs.html", {
         "request": request, "params": params, "logs": logs,
-        "current_user": get_current_user_mock(), "active_nav": "sync-logs",
+        "current_user": require_auth(request, db), "active_nav": "sync-logs",
     })
 
 @app.get("/admin/utilisateurs", response_class=HTMLResponse)
@@ -549,7 +575,7 @@ async def admin_utilisateurs(request: Request, db: Session = Depends(get_db)):
     etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
     return templates.TemplateResponse("admin/utilisateurs.html", {
         "request": request, "params": params, "utilisateurs": users, "etablissements": etabs,
-        "current_user": get_current_user_mock(), "active_nav": "utilisateurs",
+        "current_user": require_auth(request, db), "active_nav": "utilisateurs",
     })
 
 @app.get("/admin/acces", response_class=HTMLResponse)
@@ -559,7 +585,7 @@ async def admin_acces(request: Request, db: Session = Depends(get_db)):
     etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
     return templates.TemplateResponse("admin/acces.html", {
         "request": request, "params": params, "exceptions": exceptions, "etablissements": etabs,
-        "current_user": get_current_user_mock(), "active_nav": "acces",
+        "current_user": require_auth(request, db), "active_nav": "acces",
     })
 
 @app.get("/admin/exports", response_class=HTMLResponse)
@@ -568,7 +594,7 @@ async def admin_exports(request: Request, db: Session = Depends(get_db)):
     etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
     return templates.TemplateResponse("admin/exports.html", {
         "request": request, "params": params, "etablissements": etabs,
-        "current_user": get_current_user_mock(), "active_nav": "exports",
+        "current_user": require_auth(request, db), "active_nav": "exports",
     })
 
 @app.get("/admin/parametres/contenu", response_class=HTMLResponse)
@@ -576,7 +602,7 @@ async def admin_parametres_contenu(request: Request, db: Session = Depends(get_d
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("admin/parametres_contenu.html", {
         "request": request, "params": params,
-        "current_user": get_current_user_mock(), "active_nav": "contenu",
+        "current_user": require_auth(request, db), "active_nav": "contenu",
     })
 
 @app.post("/admin/parametres/contenu")
@@ -602,7 +628,7 @@ async def admin_parametres_partenaires(request: Request, db: Session = Depends(g
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("admin/parametres_partenaires.html", {
         "request": request, "params": params,
-        "current_user": get_current_user_mock(), "active_nav": "partenaires",
+        "current_user": require_auth(request, db), "active_nav": "partenaires",
     })
 
 @app.get("/admin/parametres/general", response_class=HTMLResponse)
@@ -610,7 +636,7 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("admin/parametres_general.html", {
         "request": request, "params": params,
-        "current_user": get_current_user_mock(), "active_nav": "general",
+        "current_user": require_auth(request, db), "active_nav": "general",
     })
 
 @app.post("/admin/documents/{doc_id}/toggle-acces")
@@ -780,3 +806,150 @@ async def admin_parametres_general_save(
         else: db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
     return RedirectResponse("/admin/parametres/general", status_code=303)
+
+
+# ─── AUTH ─────────────────────────────────────────────────────────
+
+@app.get("/admin/connexion", response_class=HTMLResponse)
+async def admin_connexion_get(
+    request: Request, db: Session = Depends(get_db),
+    next: str = "/admin", erreur: str = None, message: str = None
+):
+    user = get_current_user(request, db)
+    if user:
+        return RedirectResponse("/admin", status_code=302)
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/connexion.html", {
+        "request": request, "params": params,
+        "erreur": erreur, "message": message, "next": next, "email_prefill": None,
+    })
+
+@app.post("/admin/connexion")
+async def admin_connexion_post(
+    request: Request, db: Session = Depends(get_db),
+    email: str = Form(...), password: str = Form(...),
+    next: str = Form("/admin"), remember: str = Form(None)
+):
+    params = get_params_with_defaults(db)
+    user = db.query(Utilisateur).filter(
+        Utilisateur.email == email.lower().strip(),
+        Utilisateur.actif == True
+    ).first()
+
+    if not user or not verify_password(password, user.mot_de_passe_hash):
+        return templates.TemplateResponse("admin/connexion.html", {
+            "request": request, "params": params,
+            "erreur": "Email ou mot de passe incorrect",
+            "next": next, "email_prefill": email, "message": None,
+        })
+
+    user.derniere_connexion = datetime.now()
+    db.commit()
+
+    expires = 60 * 24 * 30 if remember else settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    token = create_token({"sub": user.email, "role": user.role}, expires_minutes=expires)
+
+    redirect_url = next if next.startswith("/admin") else "/admin"
+    response = RedirectResponse(redirect_url, status_code=303)
+    response.set_cookie(
+        key="scholarsync_session",
+        value=token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=expires * 60
+    )
+    return response
+
+@app.get("/admin/deconnexion")
+async def admin_deconnexion():
+    response = RedirectResponse("/admin/connexion", status_code=302)
+    response.delete_cookie("scholarsync_session")
+    return response
+
+@app.get("/admin/mot-de-passe-oublie", response_class=HTMLResponse)
+async def admin_mdp_oublie_get(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/mot_de_passe_oublie.html", {
+        "request": request, "params": params, "message": None, "erreur": None,
+    })
+
+@app.post("/admin/mot-de-passe-oublie")
+async def admin_mdp_oublie_post(
+    request: Request, db: Session = Depends(get_db), email: str = Form(...)
+):
+    params = get_params_with_defaults(db)
+    user = db.query(Utilisateur).filter(Utilisateur.email == email.lower().strip()).first()
+    message = "Si cet email existe, un lien de réinitialisation a été envoyé."
+    if user:
+        token = create_token({"sub": user.email, "type": "reset"}, expires_minutes=60)
+        reset_url = f"{request.base_url}admin/reset-password?token={token}"
+        print(f"[RESET] Lien pour {email}: {reset_url}")
+    return templates.TemplateResponse("admin/mot_de_passe_oublie.html", {
+        "request": request, "params": params, "message": message, "erreur": None,
+    })
+
+@app.get("/admin/reset-password", response_class=HTMLResponse)
+async def admin_reset_get(request: Request, db: Session = Depends(get_db), token: str = ""):
+    params = get_params_with_defaults(db)
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "reset":
+        return templates.TemplateResponse("admin/reset_password.html", {
+            "request": request, "params": params,
+            "erreur": "Lien invalide ou expiré.", "token": "",
+        })
+    return templates.TemplateResponse("admin/reset_password.html", {
+        "request": request, "params": params, "erreur": None, "token": token,
+    })
+
+@app.post("/admin/reset-password")
+async def admin_reset_post(
+    request: Request, db: Session = Depends(get_db),
+    token: str = Form(...), password: str = Form(...), password2: str = Form(...)
+):
+    params = get_params_with_defaults(db)
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "reset":
+        return templates.TemplateResponse("admin/reset_password.html", {
+            "request": request, "params": params,
+            "erreur": "Lien invalide ou expiré.", "token": "",
+        })
+    if password != password2:
+        return templates.TemplateResponse("admin/reset_password.html", {
+            "request": request, "params": params,
+            "erreur": "Les mots de passe ne correspondent pas.", "token": token,
+        })
+    user = db.query(Utilisateur).filter(Utilisateur.email == payload.get("sub")).first()
+    if user:
+        user.mot_de_passe_hash = hash_password(password)
+        db.commit()
+    return RedirectResponse("/admin/connexion?message=Mot+de+passe+modifié", status_code=303)
+
+# ─── CRÉATION DU PREMIER ADMIN (si aucun utilisateur) ─────────────
+
+@app.get("/admin/setup", response_class=HTMLResponse)
+async def admin_setup_get(request: Request, db: Session = Depends(get_db)):
+    if db.query(Utilisateur).count() > 0:
+        return RedirectResponse("/admin/connexion", status_code=302)
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("admin/setup.html", {
+        "request": request, "params": params, "erreur": None,
+    })
+
+@app.post("/admin/setup")
+async def admin_setup_post(
+    request: Request, db: Session = Depends(get_db),
+    email: str = Form(...), password: str = Form(...),
+    nom: str = Form(""), prenom: str = Form("")
+):
+    if db.query(Utilisateur).count() > 0:
+        return RedirectResponse("/admin/connexion", status_code=302)
+    user = Utilisateur(
+        email=email.lower().strip(),
+        mot_de_passe_hash=hash_password(password),
+        nom=nom, prenom=prenom,
+        role="super_admin", actif=True
+    )
+    db.add(user)
+    db.commit()
+    return RedirectResponse("/admin/connexion?message=Compte+créé", status_code=303)
