@@ -1,0 +1,10 @@
+{# Fragment renvoyé au script de facettes : facettes + résultats, soit
+   exactement ce qui change quand un filtre est posé. Les comptes de
+   facettes évoluant avec les filtres, les deux doivent être renvoyés
+   ensemble. #}
+<aside class="facettes" id="facettes">
+  {% include "public/components/facettes.html" %}
+</aside>
+<main class="results" id="resultats">
+  {% include "public/components/results.html" %}
+</main>

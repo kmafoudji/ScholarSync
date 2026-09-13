@@ -20,11 +20,14 @@
   </form>
 
   <div class="search-filters">
-    <span class="filter-chip active" data-filter="tous">Tous</span>
-    <span class="filter-chip" data-filter="these">Thèses</span>
-    <span class="filter-chip" data-filter="memoire">Mémoires</span>
-    {% for annee in annees_recentes %}
-    <span class="filter-chip" data-filter="{{ annee }}">{{ annee }}</span>
+    <a href="/recherche" class="filter-chip {{ 'active' if not nb_filtres_actifs }}">Tous</a>
+    <a href="{{ url_facette(current_filters, 'type', 'these', sort) }}"
+       class="filter-chip {{ 'active' if facette_active(current_filters, 'type', 'these') }}">Thèses</a>
+    <a href="{{ url_facette(current_filters, 'type', 'memoire', sort) }}"
+       class="filter-chip {{ 'active' if facette_active(current_filters, 'type', 'memoire') }}">Mémoires</a>
+    {% for a in facettes.annees[:4] %}
+    <a href="{{ url_facette(current_filters, 'annee', a.valeur, sort) }}"
+       class="filter-chip {{ 'active' if facette_active(current_filters, 'annee', a.valeur) }}">{{ a.valeur }}</a>
     {% endfor %}
   </div>
 
@@ -64,29 +67,9 @@
 </div>
 
 <!-- CATALOGUE PRINCIPAL -->
-<div class="catalogue">
-  <!-- SIDEBAR FACETTES -->
-  <aside class="facettes">
-    {% include "public/components/facettes.html" %}
-  </aside>
-
-  <!-- RÉSULTATS -->
-  <main class="results">
-    {% include "public/components/results.html" %}
-  </main>
+<div class="catalogue" id="catalogue" data-url="/recherche">
+  {% include "public/components/fragment_resultats.html" %}
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-document.querySelectorAll('.filter-chip').forEach(chip => {
-  chip.addEventListener('click', () => {
-    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    const filter = chip.dataset.filter;
-    window.location.href = filter === 'tous' ? '/recherche' :
-      isNaN(filter) ? `/recherche?type=${filter}` : `/recherche?annee=${filter}`;
-  });
-});
-</script>
-{% endblock %}
+

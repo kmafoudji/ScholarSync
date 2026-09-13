@@ -3,12 +3,32 @@
     <strong>{{ pagination.total|format_number }}</strong> document{{ 's' if pagination.total != 1 }}
     {% if current_filters.q %} — "<em>{{ current_filters.q }}</em>"{% endif %}
   </span>
-  <select class="sort-select" onchange="applySort(this.value)">
-    <option value="recent" {{ 'selected' if sort == 'recent' }}>Plus récents</option>
-    <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Plus anciens</option>
+  <label class="sr-only" for="tri">Trier les résultats</label>
+  <select class="sort-select" id="tri" name="sort">
+    <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
+    <option value="annee"  {{ 'selected' if sort == 'annee' }}>Année décroissante</option>
+    <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Année croissante</option>
     <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
   </select>
 </div>
+
+{% if nb_filtres_actifs %}
+<div class="filtres-actifs">
+  {% for cle, libelle in [('etablissement','Établissement'), ('sous_entite','Entité'),
+                          ('type','Type'), ('statut','Statut'),
+                          ('domaine','Domaine'), ('annee','Année'), ('langue','Langue')] %}
+    {% for v in (current_filters.get(cle) or []) %}
+    <a href="{{ url_facette(current_filters, cle, v, sort) }}" class="filtre-actif"
+       aria-label="Retirer le filtre {{ libelle }} : {{ v }}">
+      <span class="filtre-actif__cle">{{ libelle }}</span>
+      {{ {'these':'Thèse','memoire':'Mémoire','soutenu':'Soutenu',
+          'en_preparation':'En préparation'}.get(v, v) }}
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </a>
+    {% endfor %}
+  {% endfor %}
+</div>
+{% endif %}
 
 {% if documents %}
   {% for doc in documents %}

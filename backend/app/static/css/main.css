@@ -38,17 +38,22 @@
   --radius:    10px;
   --radius-lg: 16px;
 
-  /* Échelle typographique — 13px est le plancher absolu de l'interface.
-     En dessous, les libellés deviennent illisibles sur écran dense. */
-  --fs-2xs:  0.8125rem;  /* 13px — badges, méta, libellés de colonnes */
-  --fs-xs:   0.875rem;   /* 14px — texte secondaire */
-  --fs-sm:   0.9375rem;  /* 15px — tableaux, boutons, navigation */
-  --fs-base: 1rem;       /* 16px — corps de texte */
-  --fs-md:   1.0625rem;  /* 17px — chapeaux, intertitres */
-  --fs-lg:   1.25rem;    /* 20px */
-  --fs-xl:   1.5rem;     /* 24px */
-  --fs-2xl:  1.875rem;   /* 30px */
-  --fs-3xl:  2.25rem;    /* 36px */
+  /* Échelle typographique.
+     Première version : plancher à 13 px. Mesuré en production, 28 des 65
+     éléments textuels tombaient à ce plancher et 19 au cran au-dessus :
+     le minimum était devenu la taille par défaut, et l'ensemble se lisait
+     petit. L'échelle est remontée d'un cran, et --fs-2xs est réservé aux
+     seules étiquettes en capitales (badges, en-têtes de colonnes), jamais
+     à du texte courant. */
+  --fs-2xs:  0.875rem;   /* 14px — badges et étiquettes en capitales */
+  --fs-xs:   0.9375rem;  /* 15px — méta, texte secondaire */
+  --fs-sm:   1rem;       /* 16px — tableaux, boutons, navigation */
+  --fs-base: 1.0625rem;  /* 17px — corps de texte */
+  --fs-md:   1.1875rem;  /* 19px — intertitres */
+  --fs-lg:   1.375rem;   /* 22px */
+  --fs-xl:   1.625rem;   /* 26px */
+  --fs-2xl:  2rem;       /* 32px */
+  --fs-3xl:  2.5rem;     /* 40px */
 
   /* Hauteurs de ligne */
   --lh-tight: 1.3;
@@ -101,7 +106,10 @@ h4 { font-size: var(--fs-md); }
 /* ── PUBLIC HEADER ── */
 .site-header {
   background: var(--primary);
-  height: var(--header-h);
+  /* min-height, pas height : le contenu peut passer à la ligne et
+     l'en-tête doit grandir avec lui. Avec une hauteur fixe il débordait
+     par-dessus la bannière. */
+  min-height: var(--header-h);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -385,58 +393,149 @@ h4 { font-size: var(--fs-md); }
 .facettes::-webkit-scrollbar-track { background: transparent; }
 .facettes::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
 
-.facette-group { margin-bottom: 1.5rem; }
+/* ── FACETTES ──────────────────────────────────────────────────
+   Les options sont des liens (navigation clavier, nouvel onglet, et
+   fonctionnement sans JavaScript). La case à cocher dessinée indique
+   que plusieurs valeurs peuvent être retenues à la fois — la pastille
+   ronde précédente suggérait un choix unique. */
+
+.facettes__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.25rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--border);
+}
+.facettes__titre {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--text);
+}
+.facettes__reset {
+  font-size: var(--fs-xs);
+  color: var(--secondary);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+.facettes__reset:hover { text-decoration: underline; }
+.facettes__vide {
+  font-size: var(--fs-xs);
+  color: var(--text-3);
+  line-height: var(--lh-base);
+}
+
+.facette-group {
+  border: none;
+  padding: 0;
+  margin: 0 0 1.75rem;
+}
 .facette-title {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  color: var(--text-3);
+  color: var(--text-2);
   text-transform: uppercase;
-  letter-spacing: .07em;
-  padding: 0 .375rem;
+  letter-spacing: .06em;
+  padding: 0;
   margin-bottom: .5rem;
 }
+
 .facette-item {
-  display: flex; align-items: center;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding: .3125rem .5rem;
+  gap: .625rem;
+  padding: .4375rem .5rem;
   border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all .12s;
-  margin-bottom: 2px;
+  text-decoration: none;
+  color: inherit;
+  transition: background .12s;
+  margin-bottom: 1px;
 }
-.facette-item:hover { background: var(--bg); }
+.facette-item:hover { background: var(--surface-2); }
 .facette-item.active { background: var(--primary-light); }
+
 .facette-item__label {
   font-size: var(--fs-xs);
   color: var(--text);
-  display: flex; align-items: center; gap: 6px;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
-.facette-item.active .facette-item__label { color: var(--primary); font-weight: 600; }
-.facette-item__dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--secondary);
+.facette-item.active .facette-item__label {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* Case à cocher : plusieurs valeurs peuvent coexister */
+.facette-item__box {
+  width: 16px;
+  height: 16px;
   flex-shrink: 0;
+  border: 1.5px solid var(--border-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  color: #fff;
+  transition: background .12s, border-color .12s;
 }
-.facette-item.active .facette-item__dot { background: var(--primary); }
+.facette-item.active .facette-item__box {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
 .facette-count {
   font-size: var(--fs-2xs);
-  color: var(--text-3);
-  background: var(--bg);
+  color: var(--text-2);
+  background: var(--surface-2);
   border-radius: 10px;
-  padding: 1px 7px;
+  padding: 1px 8px;
   font-weight: 500;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 .facette-item.active .facette-count {
-  background: rgba(26,58,92,.12);
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
   color: var(--primary);
 }
-.facette-more {
-  font-size: var(--fs-xs);
-  color: var(--primary);
-  padding: .25rem .5rem;
-  cursor: pointer;
-  font-weight: 500;
+
+/* Pendant un filtrage : le contenu s'estompe sans disparaître, pour que
+   la page ne saute pas et que l'on garde ses repères. */
+.catalogue.is-loading { position: relative; }
+.catalogue.is-loading .results,
+.catalogue.is-loading .facettes {
+  opacity: .45;
+  pointer-events: none;
+  transition: opacity .12s;
+}
+.catalogue.is-loading::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg,
+    transparent, var(--primary), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: bandeau-chargement 1s ease-in-out infinite;
+  border-radius: 2px;
+}
+@keyframes bandeau-chargement {
+  0%   { background-position: -40% 0; }
+  100% { background-position: 140% 0; }
 }
 
 /* ── RESULTS ── */
@@ -486,10 +585,10 @@ h4 { font-size: var(--fs-md); }
   margin-bottom: .625rem;
 }
 .doc-card__title {
-  font-size: var(--fs-sm);
+  font-size: var(--fs-md);
   font-weight: 600;
   color: var(--text);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 .doc-card:hover .doc-card__title { color: var(--primary); }
 .doc-card__badges { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
@@ -915,6 +1014,32 @@ tr:hover td { background: var(--bg); }
   }
 }
 
+/* La navigation publique cesse de tenir sur une ligne bien avant 768 px :
+   cinq entrées, le sélecteur de langue et le bouton Admin. Le menu
+   déroulant prend donc le relais dès 1040 px. */
+@media (max-width: 1040px) {
+  .site-nav {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    background: var(--primary);
+    padding: .5rem 1rem 1rem;
+    box-shadow: var(--shadow-lg);
+    display: none;
+    z-index: 120;
+  }
+  .site-nav.open { display: flex; }
+  .site-nav a { padding: .75rem .25rem; width: 100%; }
+  .site-header { position: relative; }
+  .site-header__inner { flex-wrap: nowrap; }
+  .menu-toggle { display: inline-flex !important; }
+  .lang-switcher { margin-left: auto; }
+}
+
 @media (max-width: 768px) {
   .hero h1 { font-size: var(--fs-2xl); }
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
@@ -933,25 +1058,7 @@ tr:hover td { background: var(--bg); }
   .admin-content { padding: 1.25rem 1rem; }
   .menu-toggle { display: inline-flex !important; }
 
-  /* La navigation publique bascule en menu déroulant : elle ne
-     disparaît plus (auparavant `display:none` sans remplacement). */
-  .site-nav {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0;
-    background: var(--primary);
-    padding: .5rem 1rem 1rem;
-    box-shadow: var(--shadow-lg);
-    display: none;
-  }
-  .site-nav.open { display: flex; }
-  .site-nav a { padding: .75rem .25rem; width: 100%; }
-  .site-header { position: relative; }
-
+  .btn-admin span { display: none; }   /* l'icône suffit sur mobile */
   .form-row { grid-template-columns: 1fr; }
   .admin-topbar__actions { gap: .5rem; }
 }
@@ -1389,3 +1496,40 @@ img, svg, video, canvas, iframe, table { max-width: 100%; }
   min-width: 0;
 }
 .admin-nav__badge { flex-shrink: 0; margin-left: auto; }
+
+/* Rappel des filtres posés : sans lui, un utilisateur arrivant sur une
+   URL partagée ne voit pas pourquoi la liste est réduite. */
+.filtres-actifs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.filtre-actif {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  padding: .3125rem .625rem;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 999px;
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  text-decoration: none;
+  line-height: 1.3;
+}
+.filtre-actif:hover { background: color-mix(in srgb, var(--primary) 22%, white); }
+.filtre-actif__cle {
+  color: var(--text-2);
+  font-weight: 400;
+}
+.filtre-actif .ti { font-size: 13px; opacity: .7; }
+
+/* Les pastilles du bandeau sont devenues des liens (pour fonctionner sans
+   JavaScript) : il faut leur retirer la décoration héritée. */
+.filter-chip {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+.filter-chip:hover { text-decoration: none; }

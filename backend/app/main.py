@@ -1,10 +1,10 @@
-from fastapi import FastAPI, Request, Depends, HTTPException, Form, UploadFile, File
+from fastapi import FastAPI, Request, Depends, HTTPException, Form, UploadFile, File, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
-from typing import Optional
+from typing import Optional, List
 import json, os, math, logging
 from datetime import datetime, timedelta
 
@@ -191,6 +191,48 @@ def duree_lisible(secondes):
 
 
 templates.env.filters["truncate"] = truncate
+def url_facette(filtres: dict, cle: str, valeur, sort: str = "recent") -> str:
+    """
+    Adresse de la page avec cette valeur de facette basculée.
+
+    Les facettes sont des liens, pas des éléments pilotés par script : la
+    navigation au clavier, l'ouverture dans un nouvel onglet et le
+    fonctionnement sans JavaScript en découlent gratuitement. Le script
+    ne fait qu'intercepter le clic pour éviter le rechargement.
+    """
+    copie = {k: (list(v) if isinstance(v, list) else v) for k, v in filtres.items()}
+    valeur = str(valeur)
+
+    actuelles = copie.get(cle) or []
+    if isinstance(actuelles, str):
+        actuelles = [actuelles]
+    actuelles = [str(v) for v in actuelles]
+
+    if valeur in actuelles:
+        actuelles = [v for v in actuelles if v != valeur]
+    else:
+        actuelles = actuelles + [valeur]
+
+    if actuelles:
+        copie[cle] = actuelles
+    else:
+        copie.pop(cle, None)
+
+    # Changer de filtre remet à la première page : rester page 4 d'un
+    # résultat qui n'en compte plus qu'une afficherait une liste vide.
+    qs = construire_query_string(copie, sort)
+    return f"/recherche?{qs}" if qs else "/recherche"
+
+
+def facette_active(filtres: dict, cle: str, valeur) -> bool:
+    actuelles = filtres.get(cle) or []
+    if isinstance(actuelles, str):
+        actuelles = [actuelles]
+    return str(valeur) in [str(v) for v in actuelles]
+
+
+templates.env.globals["url_facette"] = url_facette
+templates.env.globals["facette_active"] = facette_active
 templates.env.filters["libelle_statut"] = libelle_statut
 templates.env.filters["duree_lisible"] = duree_lisible
 templates.env.globals["now"] = datetime.now
@@ -240,46 +282,115 @@ def get_stats(db: Session, etablissement_code: str = None) -> dict:
         "nouveaux_7j": 0,
     }
 
-def get_facettes(db: Session, filters: dict = {}) -> dict:
-    q = db.query(Document)
-    for key in ["type", "statut", "langue", "annee"]:
-        if filters.get(key):
-            q = q.filter(getattr(Document, key) == filters[key])
-    if filters.get("etablissement"):
-        q = q.filter(Document.etablissement_code == filters["etablissement"])
-    if filters.get("domaine"):
-        q = q.filter(Document.domaine == filters["domaine"])
+def construire_query_string(filtres: dict, sort: str = "recent") -> str:
+    """Chaîne de requête conservant les valeurs multiples et l'encodage."""
+    from urllib.parse import urlencode
+    paires = []
+    for cle, valeur in filtres.items():
+        if cle == "q":
+            if valeur:
+                paires.append(("q", valeur))
+        else:
+            for v in (valeur if isinstance(valeur, list) else [valeur]):
+                paires.append((cle, str(v)))
+    if sort and sort != "recent":
+        paires.append(("sort", sort))
+    return urlencode(paires)
 
-    etabs = db.query(Document.etablissement_code, func.count().label("count"))\
-              .group_by(Document.etablissement_code).all()
-    types = {r[0]: r[1] for r in db.query(Document.type, func.count()).group_by(Document.type).all()}
-    statuts = {r[0]: r[1] for r in db.query(Document.statut, func.count()).group_by(Document.statut).all()}
-    domaines = db.query(Document.domaine, func.count().label("count"))\
-                 .filter(Document.domaine.isnot(None))\
-                 .group_by(Document.domaine).order_by(func.count().desc()).all()
-    annees = db.query(Document.annee, func.count().label("count"))\
-               .group_by(Document.annee).order_by(Document.annee.desc()).all()
-    langues = db.query(Document.langue, func.count().label("count"))\
-                .filter(Document.langue.isnot(None))\
-                .group_by(Document.langue).order_by(func.count().desc()).all()
 
-    sous_entites = []
-    if filters.get("etablissement"):
-        sous_entites = db.query(Document.sous_entite_nom, func.count().label("count"))\
-                         .filter(Document.etablissement_code == filters["etablissement"])\
-                         .filter(Document.sous_entite_nom.isnot(None))\
-                         .group_by(Document.sous_entite_nom)\
-                         .order_by(func.count().desc()).all()
+# Facettes à choix multiple : les valeurs arrivent sous forme de listes.
+CHAMPS_FACETTES = {
+    "type": Document.type,
+    "statut": Document.statut,
+    "langue": Document.langue,
+    "annee": Document.annee,
+    "etablissement": Document.etablissement_code,
+    "domaine": Document.domaine,
+    "sous_entite": Document.sous_entite_nom,
+}
 
-    return {
-        "etablissements": [{"code": r[0], "count": r[1]} for r in etabs],
-        "types": types,
-        "statuts": statuts,
-        "domaines": [{"nom": r[0], "count": r[1]} for r in domaines],
-        "annees": [{"valeur": r[0], "count": r[1]} for r in annees],
-        "langues": [{"nom": r[0], "count": r[1]} for r in langues],
-        "sous_entites": [{"nom": r[0], "count": r[1]} for r in sous_entites],
+
+def _valeurs(filtres: dict, cle: str) -> list:
+    """Normalise en liste : une facette accepte plusieurs valeurs."""
+    v = filtres.get(cle)
+    if not v:
+        return []
+    return [v] if isinstance(v, str) else list(v)
+
+
+def appliquer_filtres(query, filtres: dict, sauf: str = None):
+    """
+    Applique les filtres à une requête.
+
+    `sauf` exclut une facette : pour compter les options d'une facette, il
+    faut appliquer tous les AUTRES filtres mais pas le sien, sinon
+    sélectionner « Thèse » ramènerait le compte de « Mémoire » à zéro et
+    l'utilisateur ne pourrait plus élargir sa recherche.
+    """
+    for cle, colonne in CHAMPS_FACETTES.items():
+        if cle == sauf:
+            continue
+        valeurs = _valeurs(filtres, cle)
+        if not valeurs:
+            continue
+        if cle == "annee":
+            valeurs = [int(v) for v in valeurs if str(v).isdigit()]
+            if not valeurs:
+                continue
+        query = query.filter(colonne.in_(valeurs))
+
+    texte = filtres.get("q")
+    if texte:
+        motif = f"%{texte}%"
+        query = query.filter(
+            Document.titre.ilike(motif)
+            | Document.auteur.ilike(motif)
+            | Document.numero_national.ilike(motif)
+            | Document.resume.ilike(motif)
+        )
+    return query
+
+
+def _compter(db: Session, colonne, filtres: dict, cle: str, trier_par_compte=True):
+    q = appliquer_filtres(db.query(colonne, func.count().label("n")), filtres, sauf=cle)
+    q = q.filter(colonne.isnot(None)).group_by(colonne)
+    q = q.order_by(func.count().desc()) if trier_par_compte else q.order_by(colonne.desc())
+    return [{"valeur": r[0], "count": r[1]} for r in q.all()]
+
+
+def get_facettes(db: Session, filtres: dict = None) -> dict:
+    """
+    Comptes de facettes contextuels.
+
+    La version précédente construisait une requête filtrée puis ne s'en
+    servait jamais : chaque compte était global. Sélectionner un
+    établissement laissait les autres facettes afficher les totaux de tout
+    le catalogue, ce qui rendait les nombres faux dès qu'un filtre était
+    posé.
+    """
+    filtres = filtres or {}
+
+    facettes = {
+        "etablissements": _compter(db, Document.etablissement_code, filtres, "etablissement"),
+        "types":          _compter(db, Document.type, filtres, "type"),
+        "statuts":        _compter(db, Document.statut, filtres, "statut"),
+        "domaines":       _compter(db, Document.domaine, filtres, "domaine"),
+        "langues":        _compter(db, Document.langue, filtres, "langue"),
+        "annees":         _compter(db, Document.annee, filtres, "annee", trier_par_compte=False),
+        "sous_entites":   [],
     }
+
+    # Les sous-entités n'ont de sens qu'une fois un établissement choisi :
+    # sinon la liste mélangerait les facultés de tous les établissements.
+    if _valeurs(filtres, "etablissement"):
+        facettes["sous_entites"] = _compter(
+            db, Document.sous_entite_nom, filtres, "sous_entite"
+        )
+
+    # Total après application de tous les filtres, pour l'entrée « Tous ».
+    facettes["total"] = appliquer_filtres(db.query(Document), filtres).count()
+    return facettes
+
 
 def paginate(query, page: int, per_page: int = 20):
     total = query.count()
@@ -353,57 +464,69 @@ async def index(request: Request, db: Session = Depends(get_db)):
 @app.get("/recherche", response_class=HTMLResponse)
 async def recherche(
     request: Request, db: Session = Depends(get_db),
-    q: str = "", type: str = "", statut: str = "", etablissement: str = "",
-    domaine: str = "", annee: str = "", langue: str = "", sous_entite: str = "",
-    sort: str = "recent", page: int = 1
+    q: str = "",
+    # Query(...) en liste : chaque facette accepte plusieurs valeurs
+    # (?type=these&type=memoire), ce que la version précédente ne
+    # permettait pas — un clic remplaçait la sélection au lieu de s'y
+    # ajouter.
+    type: List[str] = Query(default=[]),
+    statut: List[str] = Query(default=[]),
+    etablissement: List[str] = Query(default=[]),
+    domaine: List[str] = Query(default=[]),
+    annee: List[str] = Query(default=[]),
+    langue: List[str] = Query(default=[]),
+    sous_entite: List[str] = Query(default=[]),
+    sort: str = "recent", page: int = 1,
 ):
     params = get_params_with_defaults(db)
-    filters = {k: v for k, v in {
-        "q": q, "type": type, "statut": statut, "etablissement": etablissement,
-        "domaine": domaine, "annee": annee, "langue": langue, "sous_entite": sous_entite,
+    filtres = {k: v for k, v in {
+        "q": q.strip(), "type": type, "statut": statut,
+        "etablissement": etablissement, "domaine": domaine,
+        "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
 
-    query = db.query(Document)
-    if q:
-        query = query.filter(
-            Document.titre.ilike(f"%{q}%") |
-            Document.auteur.ilike(f"%{q}%") |
-            Document.numero_national.ilike(f"%{q}%") |
-            Document.resume.ilike(f"%{q}%")
-        )
-    if type:  query = query.filter(Document.type == type)
-    if statut: query = query.filter(Document.statut == statut)
-    if etablissement: query = query.filter(Document.etablissement_code == etablissement)
-    if domaine: query = query.filter(Document.domaine == domaine)
-    if annee: query = query.filter(Document.annee == int(annee))
-    if langue: query = query.filter(Document.langue == langue)
-    if sous_entite: query = query.filter(Document.sous_entite_nom == sous_entite)
+    query = appliquer_filtres(db.query(Document), filtres)
 
-    if sort == "ancien": query = query.order_by(Document.annee.asc())
-    elif sort == "titre": query = query.order_by(Document.titre.asc())
-    else: query = query.order_by(Document.created_at.desc())
+    if sort == "ancien":
+        query = query.order_by(Document.annee.asc(), Document.titre.asc())
+    elif sort == "titre":
+        query = query.order_by(Document.titre.asc())
+    elif sort == "annee":
+        query = query.order_by(Document.annee.desc(), Document.titre.asc())
+    else:
+        query = query.order_by(Document.created_at.desc())
 
     docs, pagination = paginate(query, page)
-    facettes = get_facettes(db, filters)
-    stats = get_stats(db)
+    facettes = get_facettes(db, filtres)
 
-    qs_parts = [f"{k}={v}" for k, v in filters.items() if k != "page"] + [f"sort={sort}"]
-    query_string = "&".join(qs_parts)
-
-    return templates.TemplateResponse("public/index.html", {
-        "request": request, "params": params, "stats": stats,
+    contexte = {
+        "request": request, "params": params, "stats": get_stats(db),
         "facettes": facettes, "documents": docs, "pagination": pagination,
-        "current_filters": filters, "sort": sort, "query_string": query_string,
+        "current_filters": filtres, "sort": sort,
+        "query_string": construire_query_string(filtres, sort),
+        "nb_filtres_actifs": sum(
+            len(v) for k, v in filtres.items() if k != "q"
+        ) + (1 if filtres.get("q") else 0),
         "annees_recentes": [], "active_nav": "accueil", "lang": "fr",
-    })
+    }
+
+    # Requête émise par le script de facettes : on ne renvoie que les
+    # fragments qui changent, pas la page entière.
+    if request.headers.get("X-Requested-With") == "facettes":
+        return templates.TemplateResponse(
+            "public/components/fragment_resultats.html", contexte
+        )
+
+    return templates.TemplateResponse("public/index.html", contexte)
+
 
 @app.get("/theses", response_class=HTMLResponse)
 async def theses(request: Request, db: Session = Depends(get_db), page: int = 1):
-    return RedirectResponse(f"/recherche?type=these&page={page}")
+    return RedirectResponse(f"/recherche?type=these&page={page}", status_code=302)
 
 @app.get("/memoires", response_class=HTMLResponse)
 async def memoires(request: Request, db: Session = Depends(get_db), page: int = 1):
-    return RedirectResponse(f"/recherche?type=memoire&page={page}")
+    return RedirectResponse(f"/recherche?type=memoire&page={page}", status_code=302)
 
 @app.get("/document/{doc_id}", response_class=HTMLResponse)
 async def detail_document(doc_id: str, request: Request, db: Session = Depends(get_db)):

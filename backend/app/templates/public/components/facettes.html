@@ -1,106 +1,68 @@
-<!-- Facette Établissements -->
-<div class="facette-group">
-  <div class="facette-title">Établissements</div>
-  <div class="facette-item {{ 'active' if not current_filters.etablissement }}"
-       onclick="applyFilter('etablissement', '')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> Tous
-    </span>
-    <span class="facette-count">{{ stats.total|default(0) }}</span>
-  </div>
-  {% for etab in facettes.etablissements %}
-  <div class="facette-item {{ 'active' if current_filters.etablissement == etab.code }}"
-       onclick="applyFilter('etablissement', '{{ etab.code }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ etab.code }}
-    </span>
-    <span class="facette-count">{{ etab.count }}</span>
-  </div>
-  {% endfor %}
+{#
+  Facettes à choix multiple.
 
-  <!-- Sous-facettes dynamiques si établissement sélectionné -->
-  {% if current_filters.etablissement and facettes.sous_entites %}
-  <div style="margin-left:.75rem;margin-top:.375rem;border-left:2px solid var(--primary-light);padding-left:.5rem;">
-    {% for se in facettes.sous_entites %}
-    <div class="facette-item {{ 'active' if current_filters.sous_entite == se.nom }}"
-         onclick="applyFilter('sous_entite', '{{ se.nom|urlencode }}')">
-      <span class="facette-item__label" style="font-size:var(--fs-xs);">{{ se.nom }}</span>
-      <span class="facette-count">{{ se.count }}</span>
-    </div>
+  Chaque option est un lien vers l'état filtré correspondant : navigation
+  au clavier, ouverture dans un nouvel onglet et fonctionnement sans
+  JavaScript en découlent. Le script intercepte le clic pour rafraîchir
+  sans recharger la page.
+
+  Les groupes vides ne sont plus rendus : la version précédente affichait
+  le titre « Domaine » suivi de rien dès qu'aucun document n'avait de
+  domaine renseigné.
+#}
+
+{% macro groupe(titre, cle, options, libelles=None) %}
+  {% if options %}
+  <fieldset class="facette-group">
+    <legend class="facette-title">{{ titre }}</legend>
+    {% for o in options %}
+      {% set actif = facette_active(current_filters, cle, o.valeur) %}
+      <a href="{{ url_facette(current_filters, cle, o.valeur, sort) }}"
+         class="facette-item {{ 'active' if actif }}"
+         data-facette="{{ cle }}"
+         aria-pressed="{{ 'true' if actif else 'false' }}"
+         role="button">
+        <span class="facette-item__label">
+          <span class="facette-item__box" aria-hidden="true">
+            {% if actif %}<i class="ti ti-check"></i>{% endif %}
+          </span>
+          {{ (libelles.get(o.valeur, o.valeur) if libelles else o.valeur) }}
+        </span>
+        <span class="facette-count">{{ o.count }}</span>
+      </a>
     {% endfor %}
-  </div>
+  </fieldset>
+  {% endif %}
+{% endmacro %}
+
+<div class="facettes__head">
+  <h2 class="facettes__titre">Affiner</h2>
+  {% if nb_filtres_actifs %}
+  <a href="/recherche" class="facettes__reset">
+    <i class="ti ti-x" aria-hidden="true"></i>
+    Tout effacer ({{ nb_filtres_actifs }})
+  </a>
   {% endif %}
 </div>
 
-<!-- Facette Type -->
-<div class="facette-group">
-  <div class="facette-title">Type</div>
-  {% for item in [('these','Thèse de doctorat'), ('memoire','Mémoire de master')] %}
-  <div class="facette-item {{ 'active' if current_filters.type == item[0] }}"
-       onclick="applyFilter('type', '{{ item[0] }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ item[1] }}
-    </span>
-    <span class="facette-count">{{ facettes.types[item[0]]|default(0) }}</span>
-  </div>
-  {% endfor %}
-</div>
+{{ groupe('Établissement', 'etablissement', facettes.etablissements) }}
 
-<!-- Facette Statut -->
-<div class="facette-group">
-  <div class="facette-title">Statut</div>
-  {% for item in [('soutenu','Soutenu'), ('en_preparation','En préparation')] %}
-  <div class="facette-item {{ 'active' if current_filters.statut == item[0] }}"
-       onclick="applyFilter('statut', '{{ item[0] }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ item[1] }}
-    </span>
-    <span class="facette-count">{{ facettes.statuts[item[0]]|default(0) }}</span>
-  </div>
-  {% endfor %}
-</div>
+{% if facettes.sous_entites %}
+  {{ groupe('École doctorale / Faculté', 'sous_entite', facettes.sous_entites) }}
+{% endif %}
 
-<!-- Facette Domaine -->
-<div class="facette-group">
-  <div class="facette-title">Domaine</div>
-  {% for domaine in facettes.domaines %}
-  <div class="facette-item {{ 'active' if current_filters.domaine == domaine.nom }}"
-       onclick="applyFilter('domaine', '{{ domaine.nom|urlencode }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ domaine.nom }}
-    </span>
-    <span class="facette-count">{{ domaine.count }}</span>
-  </div>
-  {% endfor %}
-</div>
+{{ groupe('Type', 'type', facettes.types,
+          {'these': 'Thèse de doctorat', 'memoire': 'Mémoire de master'}) }}
 
-<!-- Facette Année -->
-<div class="facette-group">
-  <div class="facette-title">Année</div>
-  {% for annee in facettes.annees[:8] %}
-  <div class="facette-item {{ 'active' if current_filters.annee == annee.valeur|string }}"
-       onclick="applyFilter('annee', '{{ annee.valeur }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ annee.valeur }}
-    </span>
-    <span class="facette-count">{{ annee.count }}</span>
-  </div>
-  {% endfor %}
-  {% if facettes.annees|length > 8 %}
-  <div class="facette-more" onclick="toggleMoreYears()">+ Voir plus</div>
-  {% endif %}
-</div>
+{{ groupe('Statut', 'statut', facettes.statuts,
+          {'soutenu': 'Soutenu', 'en_preparation': 'En préparation'}) }}
 
-<!-- Facette Langue -->
-<div class="facette-group">
-  <div class="facette-title">Langue</div>
-  {% for langue in facettes.langues %}
-  <div class="facette-item {{ 'active' if current_filters.langue == langue.nom }}"
-       onclick="applyFilter('langue', '{{ langue.nom }}')">
-    <span class="facette-item__label">
-      <span class="facette-item__dot"></span> {{ langue.nom }}
-    </span>
-    <span class="facette-count">{{ langue.count }}</span>
-  </div>
-  {% endfor %}
-</div>
+{{ groupe('Domaine', 'domaine', facettes.domaines) }}
+{{ groupe('Année', 'annee', facettes.annees) }}
+{{ groupe('Langue', 'langue', facettes.langues) }}
+
+{% if not facettes.etablissements and not facettes.types %}
+<p class="facettes__vide">
+  Aucun critère disponible : le catalogue ne contient encore aucun document.
+</p>
+{% endif %}
