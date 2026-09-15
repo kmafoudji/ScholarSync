@@ -77,7 +77,9 @@
     });
 
     var surface = document.createElement('div');
-    surface.className = 'editeur__surface';
+    // La même classe que la page publique : ce qu'on voit en écrivant
+    // est ce que verra le lecteur.
+    surface.className = 'editeur__surface contenu-riche';
     surface.contentEditable = 'true';
     surface.setAttribute('role', 'textbox');
     surface.setAttribute('aria-multiline', 'true');

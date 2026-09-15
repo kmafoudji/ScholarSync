@@ -13,7 +13,10 @@
   {% set contact = params.contact_json|fromjson %}
 
   {% if params.apropos_fr %}
-  <div class="card card--lg" style="margin-bottom:1.5rem;line-height:1.8;color:var(--text-2);">
+  {# Le contenu vient de l'éditeur d'administration : il porte la même
+     classe que la surface de saisie, faute de quoi les listes perdaient
+     leur retrait et les paragraphes leur espacement à la publication. #}
+  <div class="card card--lg contenu-riche" style="margin-bottom:1.5rem;">
     {{ params.apropos_fr|safe }}
   </div>
   {% else %}
