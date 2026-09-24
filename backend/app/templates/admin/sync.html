@@ -4,11 +4,13 @@
 {% block page_title %}Synchronisation Zotero{% endblock %}
 
 {% block topbar_actions %}
+{% if super_admin %}
 <form method="post" action="/admin/sync/lancer">
   <button type="submit" class="btn btn--primary btn--sm">
     <i class="ti ti-refresh"></i> Lancer une sync globale
   </button>
 </form>
+{% endif %}
 {% endblock %}
 
 {% block content %}
@@ -42,7 +44,8 @@
 
 <div class="card" style="padding:0;margin-bottom:1rem;">
   <div class="card-header" style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
-    <h2>Sources Zotero</h2>
+    <h2>{{ 'Sources Zotero' if super_admin else 'Ma source Zotero' }}</h2>
+    {% if super_admin %}
     <div style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;">
       <span style="font-size:var(--fs-sm);color:var(--text-2);">Intervalle :</span>
       <form method="post" action="/admin/parametres/sync-intervalle" style="display:flex;gap:.5rem;">
@@ -52,6 +55,11 @@
         <button type="submit" class="btn btn--outline btn--sm">Modifier</button>
       </form>
     </div>
+    {% else %}
+    <span style="font-size:var(--fs-sm);color:var(--text-2);">
+      Synchronisation automatique toutes les {{ sync_intervalle }} minutes
+    </span>
+    {% endif %}
   </div>
   <div class="table-wrap">
     <table>
@@ -74,16 +82,23 @@
           <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ source.derniere_sync|format_datetime if source.derniere_sync else '—' }}</td>
           <td><span class="status status--{{ 'ok' if source.actif else 'err' }}">{{ 'Actif' if source.actif else 'Inactif' }}</span></td>
           <td>
+            {% if current_user.role != 'lecteur' %}
             <form method="post" action="/admin/sync/lancer/{{ source.id }}" style="display:inline;">
-              <button type="submit" class="btn btn--ghost btn--sm">
-                <i class="ti ti-refresh"></i> Sync
+              <button type="submit" class="btn btn--{{ 'ghost' if super_admin else 'primary' }} btn--sm">
+                <i class="ti ti-refresh"></i> {{ 'Sync' if super_admin else 'Synchroniser' }}
               </button>
             </form>
+            {% endif %}
           </td>
         </tr>
         {% else %}
         <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-3);">
+          {% if super_admin %}
           Aucune source — <a href="/admin/zotero" style="color:var(--primary);">Ajouter un compte Zotero</a>
+          {% else %}
+          Aucune source Zotero n'est encore reliée à votre établissement :
+          contactez le super administrateur.
+          {% endif %}
         </td></tr>
         {% endfor %}
       </tbody>

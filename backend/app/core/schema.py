@@ -30,6 +30,19 @@ COLONNES = [
     ("sync_logs", "documents_traites", "INTEGER DEFAULT 0"),
 ]
 
+# Corrections de données et de contraintes, idempotentes.
+#
+# Rôles : le schéma SQL initial n'autorisait que 'super_admin' et
+# 'gestionnaire_bu', alors que l'application crée des comptes
+# 'admin_etablissement' et 'lecteur'. Sur une base initialisée par ce
+# fichier, créer un compte d'établissement échouait (« Création
+# impossible »). On retire l'ancienne contrainte et on renomme l'ancien
+# rôle ; la liste des rôles valides est contrôlée par l'application.
+RATTRAPAGES = [
+    "ALTER TABLE utilisateurs DROP CONSTRAINT IF EXISTS utilisateurs_role_check",
+    "UPDATE utilisateurs SET role = 'admin_etablissement' WHERE role = 'gestionnaire_bu'",
+]
+
 # État partagé, lu par la sonde /sante
 etat = {"pret": False, "erreur": None}
 
@@ -47,6 +60,14 @@ def ensure_schema(engine) -> None:
                 logger.warning(
                     "Colonne %s.%s non appliquée", table, colonne, exc_info=True
                 )
+    # Une transaction par correction : l'échec de l'une ne doit pas
+    # annuler les autres.
+    for requete in RATTRAPAGES:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(requete))
+        except SQLAlchemyError:
+            logger.warning("Rattrapage non appliqué : %s", requete, exc_info=True)
 
 
 def initialiser(engine, base, tentatives: int = 10, delai: float = 3.0) -> bool:

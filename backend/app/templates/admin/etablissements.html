@@ -116,8 +116,12 @@
 
   <div class="form-group">
     <label class="form-label" for="{{ 'e' ~ e.id if e else 'a' }}-logo">Logo</label>
-    <div class="logo-champ">
-      <div class="logo-champ__apercu">
+    <div class="logo-champ" data-logo-champ
+         data-min-court="{{ profil_logo.min_cote_court }}"
+         data-min-long="{{ profil_logo.min_cote_long }}"
+         data-ratio-max="{{ profil_logo.ratio_max }}"
+         data-max-mo="{{ max_logo_mo }}">
+      <div class="logo-champ__apercu" data-logo-apercu>
         {% if e and e.logo_url %}
         <img src="{{ e.logo_url }}" alt="Logo actuel de {{ e.code }}">
         {% else %}
@@ -127,9 +131,11 @@
       <div class="logo-champ__corps">
         <input id="{{ 'e' ~ e.id if e else 'a' }}-logo" type="file" name="logo"
                class="form-control" accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        <div class="logo-televersement__retour" data-logo-retour aria-live="polite"></div>
         <div class="form-hint">
-          PNG, JPEG, WebP ou SVG — {{ max_logo_mo }} Mo au plus.
-          Un fond transparent s'intègre mieux aux listes.
+          PNG, JPEG, WebP ou SVG — {{ max_logo_mo }} Mo au plus, au moins
+          {{ profil_logo.min_cote_court }} × {{ profil_logo.min_cote_court }} px,
+          forme plutôt carrée. Un fond transparent s'intègre mieux aux listes.
         </div>
         {% if e and e.logo_url %}
         <label class="logo-champ__retirer">
@@ -197,4 +203,8 @@
   </form>
 </dialog>
 {% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ static_url('js/logo.js') }}"></script>
 {% endblock %}

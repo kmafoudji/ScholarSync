@@ -20,6 +20,8 @@ from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as
 from app.core import schema as schema_bd
 from app.core import html_riche
 from app.core import citations
+from app.core import logos
+from app.core import permissions
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -39,20 +41,65 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import RedirectResponse as StarletteRedirect
 
 class AdminAuthMiddleware(BaseHTTPMiddleware):
-    PUBLIC_ADMIN_PATHS = {
-        "/admin/connexion", "/admin/setup",
-        "/admin/mot-de-passe-oublie", "/admin/reset-password",
-        "/admin/deconnexion",
-    }
+    """Contrôle d'accès de toute l'administration, en un seul endroit.
+
+    Jusqu'ici le middleware vérifiait seulement qu'un jeton était signé ;
+    le rôle n'était contrôlé que dans 7 routes sur 60. Un compte
+    d'établissement pouvait donc changer l'identité du site, lancer la
+    synchronisation des autres universités ou supprimer leur source
+    Zotero. Un compte désactivé gardait aussi l'accès aux routes POST
+    tant que son jeton n'avait pas expiré.
+
+    Désormais, à chaque requête /admin : le compte est relu en base (actif,
+    rôle à jour), puis la page est confrontée à la liste blanche de
+    app/core/permissions.py. L'utilisateur est posé sur request.state
+    pour que les routes limitent les données à son établissement.
+    """
     async def dispatch(self, request, call_next):
         path = request.url.path
-        if path.startswith("/admin") and path not in self.PUBLIC_ADMIN_PATHS:
-            token = request.cookies.get("scholarsync_session")
-            if not token:
-                return StarletteRedirect(f"/admin/connexion?next={path}")
-            payload = decode_token(token)
-            if not payload:
-                return StarletteRedirect("/admin/connexion")
+        if not path.startswith("/admin") or path in permissions.ROUTES_PUBLIQUES:
+            return await call_next(request)
+
+        token = request.cookies.get("scholarsync_session")
+        payload = decode_token(token) if token else None
+        # Un jeton de réinitialisation de mot de passe est signé avec la
+        # même clé : il ne doit pas valoir session.
+        if not payload or payload.get("type") == "reset":
+            return StarletteRedirect(f"/admin/connexion?next={path}")
+
+        db = SessionLocal()
+        try:
+            utilisateur = db.query(Utilisateur).filter(
+                Utilisateur.email == payload.get("sub"),
+                Utilisateur.actif == True,  # noqa: E712
+            ).first()
+            if utilisateur is not None:
+                db.expunge(utilisateur)
+        except Exception:
+            # Base injoignable : la route affichera l'état dégradé.
+            logging.getLogger("scholarsync").warning(
+                "Contrôle d'accès : base injoignable", exc_info=True
+            )
+            utilisateur = None
+        finally:
+            db.close()
+
+        if utilisateur is None:
+            reponse = StarletteRedirect("/admin/connexion")
+            reponse.delete_cookie("scholarsync_session")
+            return reponse
+
+        if not permissions.autorise(utilisateur, request.method, path):
+            if path.startswith("/admin/sync/etat"):
+                return JSONResponse({"detail": "Accès refusé"}, status_code=403)
+            message = (
+                "Votre compte est en consultation seule."
+                if permissions.role_de(utilisateur) == permissions.LECTEUR
+                else "Cette page est réservée au super administrateur."
+            )
+            return redirect_flash("/admin", message, "warning")
+
+        request.state.utilisateur = utilisateur
         return await call_next(request)
 
 class FlashMiddleware(BaseHTTPMiddleware):
@@ -80,7 +127,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 SYNC_DELAI_ABANDON = timedelta(minutes=30)
 
 
-def sync_log_actif(db: Session) -> Optional[SyncLog]:
+def sync_log_actif(db: Session, utilisateur=None) -> Optional[SyncLog]:
     """
     Synchronisation réellement en cours, d'après la base.
 
@@ -89,12 +136,10 @@ def sync_log_actif(db: Session) -> Optional[SyncLog]:
     n'est pas forcément celui qui synchronise. La base est le seul état
     partagé entre eux.
     """
-    log = (
-        db.query(SyncLog)
-        .filter(SyncLog.statut == "en_cours")
-        .order_by(SyncLog.debut.desc())
-        .first()
-    )
+    requete = db.query(SyncLog).filter(SyncLog.statut == "en_cours")
+    if utilisateur is not None:
+        requete = filtrer_logs(db, requete, utilisateur)
+    log = requete.order_by(SyncLog.debut.desc()).first()
     if log is None:
         return None
 
@@ -914,35 +959,77 @@ async def statistiques_page():
 
 # ─── ROUTES ADMIN ─────────────────────────────────────────────────
 
+def utilisateur_courant(request: Request, db: Session):
+    """Compte connecté, déjà relu par AdminAuthMiddleware."""
+    return getattr(request.state, "utilisateur", None) or require_auth(request, db)
+
+
+def filtrer_documents(requete, utilisateur):
+    """Limite une requête sur Document au périmètre de l'utilisateur."""
+    code = permissions.perimetre(utilisateur)
+    return requete if code is None else requete.filter(Document.etablissement_code == code)
+
+
+def sources_visibles(db: Session, utilisateur):
+    requete = db.query(ZoteroSource)
+    code = permissions.perimetre(utilisateur)
+    if code is not None:
+        requete = requete.join(Etablissement).filter(Etablissement.code == code)
+    return requete
+
+
+def filtrer_logs(db: Session, requete, utilisateur):
+    """Limite une requête sur SyncLog aux sources du périmètre."""
+    if permissions.perimetre(utilisateur) is None:
+        return requete
+    ids = [s.id for s in sources_visibles(db, utilisateur).all()]
+    return requete.filter(SyncLog.zotero_source_id.in_(ids or [-1]))
+
+
+
 def get_current_user_mock():
     return {"role": "super_admin", "email": "admin@scholarsync.local", "nom": "Admin"}
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
     params = get_params_with_defaults(db)
-    stats = get_stats(db)
+    stats = get_stats(db, code)
+    docs = lambda: filtrer_documents(db.query(Document), utilisateur)  # noqa: E731
     stats_annees = [
         {"annee": r[0],
-         "theses": db.query(Document).filter(Document.annee == r[0], Document.type == "these").count(),
-         "memoires": db.query(Document).filter(Document.annee == r[0], Document.type == "memoire").count()}
-        for r in db.query(Document.annee).distinct().order_by(Document.annee).all()
+         "theses": docs().filter(Document.annee == r[0], Document.type == "these").count(),
+         "memoires": docs().filter(Document.annee == r[0], Document.type == "memoire").count()}
+        for r in filtrer_documents(db.query(Document.annee), utilisateur)
+                   .distinct().order_by(Document.annee).all()
     ]
     stats_domaines = [
         {"domaine": r[0] or "Non défini", "count": r[1]}
-        for r in db.query(Document.domaine, func.count().label("count"))
+        for r in filtrer_documents(
+                    db.query(Document.domaine, func.count().label("count")), utilisateur)
                    .group_by(Document.domaine).order_by(func.count().desc()).limit(8).all()
     ]
     stats_etabs = [
         {"code": r[0], "count": r[1]}
-        for r in db.query(Document.etablissement_code, func.count().label("count"))
+        for r in filtrer_documents(
+                    db.query(Document.etablissement_code, func.count().label("count")),
+                    utilisateur)
                    .group_by(Document.etablissement_code)
                    .order_by(func.count().desc()).all()
     ]
-    derniers_logs = db.query(SyncLog).order_by(SyncLog.debut.desc()).limit(5).all()
+    derniers_logs = (
+        filtrer_logs(db, db.query(SyncLog), utilisateur)
+        .order_by(SyncLog.debut.desc()).limit(5).all()
+    )
     for log in derniers_logs:
         src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
         log.etablissement_code = src.etablissement.code if src else "—"
-    docs_recents = db.query(Document).order_by(Document.created_at.desc()).limit(6).all()
+    docs_recents = docs().order_by(Document.created_at.desc()).limit(6).all()
+    mon_etablissement = (
+        db.query(Etablissement).filter(Etablissement.code == code).first()
+        if code else None
+    )
 
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request, "params": params, "stats": stats,
@@ -962,7 +1049,8 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
             },
         },
         "derniers_logs": derniers_logs, "docs_recents": docs_recents,
-        "current_user": require_auth(request, db),
+        "mon_etablissement": mon_etablissement,
+        "current_user": utilisateur,
         "active_nav": "dashboard",
     })
 
@@ -1114,14 +1202,25 @@ async def admin_sync_lancer(db: Session = Depends(get_db)):
     )
 
 @app.get("/admin/sync/etat")
-async def admin_sync_etat(db: Session = Depends(get_db)):
-    """Avancement de la synchronisation, interrogé par le client toutes les 2 s."""
-    log = sync_log_actif(db)
-    en_cours = log is not None or any(
-        k.startswith("sync") for k in tasks.running_keys()
-    )
+async def admin_sync_etat(request: Request, db: Session = Depends(get_db)):
+    """Avancement de la synchronisation, interrogé par le client toutes les 2 s.
+
+    Limité au périmètre de l'utilisateur : un établissement voit sa
+    propre synchronisation, pas celle des autres.
+    """
+    utilisateur = utilisateur_courant(request, db)
+    log = sync_log_actif(db, utilisateur)
+    if permissions.perimetre(utilisateur) is None:
+        cles = {k for k in tasks.running_keys() if k.startswith("sync")}
+    else:
+        cles = {"sync"} | {f"sync:{s.id}" for s in sources_visibles(db, utilisateur)}
+        cles &= set(tasks.running_keys())
+    en_cours = log is not None or bool(cles)
     if log is None:
-        log = db.query(SyncLog).order_by(SyncLog.debut.desc()).first()
+        log = (
+            filtrer_logs(db, db.query(SyncLog), utilisateur)
+            .order_by(SyncLog.debut.desc()).first()
+        )
 
     if log is None:
         return JSONResponse({"en_cours": en_cours, "log": None})
@@ -1153,25 +1252,9 @@ async def admin_sync_etat(db: Session = Depends(get_db)):
     })
 
 
-# Le type MIME décide de l'extension. L'ancienne version reprenait
-# l'extension du nom de fichier envoyé par le client : celle-ci pouvait
-# contenir « / » et « .. » (écriture hors du dossier prévu), ou valoir
-# « html » — un fichier alors servi depuis la même origine que
-# l'application, donc du script exécuté dans la session d'un visiteur.
-EXTENSIONS_LOGO = {
-    "image/png": "png",
-    "image/jpeg": "jpg",
-    "image/svg+xml": "svg",
-    "image/webp": "webp",
-}
-
-# Signatures de fichier : le type MIME est déclaré par le client, il ne
-# prouve rien. On vérifie que le contenu correspond vraiment.
-SIGNATURES_LOGO = {
-    "png":  [b"\x89PNG\r\n\x1a\n"],
-    "jpg":  [b"\xff\xd8\xff"],
-    "webp": [b"RIFF"],
-}
+# Formats de fichier que peut produire enregistrer_logo : sert à purger
+# le logo précédent quand le format change.
+EXTENSIONS_LOGO = ("png", "jpg", "webp", "svg")
 
 
 # Le nom de base du fichier vient du code d'établissement, donc d'une
@@ -1181,55 +1264,41 @@ SIGNATURES_LOGO = {
 MOTIF_BASE_LOGO = re.compile(r"^[A-Za-z0-9_-]{1,40}$")
 
 
-async def enregistrer_logo(logo: UploadFile, base: str = "logo") -> dict:
-    """Valide puis enregistre un logo. Renvoie {"url": …} ou {"erreur": …}.
+async def enregistrer_logo(logo: UploadFile, base: str = "logo",
+                           profil: str = "outil") -> dict:
+    """Contrôle puis enregistre un logo.
+
+    Renvoie {"url": …, "avertissements": [...]} ou {"erreur": …}.
 
     `base` nomme le fichier sans son extension : « logo » pour l'outil,
-    « etab-UCAD » pour un établissement. Les deux usages partagent le
-    même contrôle — format, taille, signature, script dans un SVG — pour
-    qu'une vérification ajoutée ici profite aux deux.
+    « etab-UCAD » pour un établissement. `profil` fixe les exigences de
+    qualité (voir app/core/logos.py) : un logo d'en-tête et une vignette
+    d'établissement n'ont pas les mêmes proportions.
     """
     if not MOTIF_BASE_LOGO.match(base):
         return {"erreur": "Nom de fichier refusé."}
-    extension = EXTENSIONS_LOGO.get((logo.content_type or "").lower())
-    if not extension:
-        acceptes = ", ".join(sorted({e.upper() for e in EXTENSIONS_LOGO.values()}))
-        return {"erreur": f"Format non accepté. Formats possibles : {acceptes}."}
 
-    contenu = await logo.read()
-
-    taille_max = settings.MAX_LOGO_SIZE_MB * 1024 * 1024
-    if len(contenu) > taille_max:
-        return {"erreur": (
-            f"Le fichier pèse {len(contenu) / 1024 / 1024:.1f} Mo, "
-            f"au-delà de la limite de {settings.MAX_LOGO_SIZE_MB} Mo."
-        )}
-    if not contenu:
-        return {"erreur": "Le fichier est vide."}
-
-    signatures = SIGNATURES_LOGO.get(extension)
-    if signatures and not any(contenu.startswith(sig) for sig in signatures):
-        return {"erreur": (
-            "Le contenu du fichier ne correspond pas à un "
-            f"{extension.upper()}. Vérifiez le fichier envoyé."
-        )}
-    if extension == "svg":
-        # Un SVG est du XML exécutable par le navigateur : il est servi
-        # depuis l'origine de l'application, donc un <script> à
-        # l'intérieur s'exécuterait dans la session d'un visiteur.
-        debut = contenu[:4096].lower()
-        if b"<script" in debut or b"javascript:" in debut or b"onload=" in debut:
-            return {"erreur": "Ce SVG contient du script : il a été refusé."}
+    # Lecture bornée : on ne charge pas en mémoire un fichier de 2 Go
+    # pour constater ensuite qu'il dépasse 2 Mo.
+    limite = settings.MAX_LOGO_SIZE_MB * 1024 * 1024
+    contenu = await logo.read(limite + 1)
+    try:
+        valide = logos.controler_logo(
+            contenu, logo.content_type, profil=profil,
+            taille_max_mo=settings.MAX_LOGO_SIZE_MB,
+        )
+    except logos.LogoRefuse as refus:
+        return {"erreur": str(refus)}
 
     dossier = f"app/{settings.UPLOAD_DIR}"
-    chemin = f"{dossier}/{base}.{extension}"
+    chemin = f"{dossier}/{base}.{valide.extension}"
     try:
         os.makedirs(dossier, exist_ok=True)
         with open(chemin, "wb") as f:
-            f.write(contenu)
+            f.write(valide.contenu)
         # Purger les logos d'un autre format, sinon l'ancien fichier
         # resterait servi à côté du nouveau.
-        for autre in set(EXTENSIONS_LOGO.values()) - {extension}:
+        for autre in set(EXTENSIONS_LOGO) - {valide.extension}:
             try:
                 os.remove(f"{dossier}/{base}.{autre}")
             except FileNotFoundError:
@@ -1249,8 +1318,19 @@ async def enregistrer_logo(logo: UploadFile, base: str = "logo") -> dict:
 
     # Paramètre anti-cache : sans lui le navigateur garde l'ancien logo,
     # l'URL étant identique d'un téléversement à l'autre.
-    return {"url": (f"/static/img/uploads/{base}.{extension}"
-                    f"?v={int(datetime.now().timestamp())}")}
+    return {
+        "url": (f"/static/img/uploads/{base}.{valide.extension}"
+                f"?v={int(datetime.now().timestamp())}"),
+        "avertissements": valide.avertissements,
+    }
+
+
+def message_logo(prefixe: str, resultat: dict) -> tuple:
+    """Message flash après un téléversement réussi, avertissements compris."""
+    notes = resultat.get("avertissements") or []
+    if notes:
+        return f"{prefixe} " + " ".join(notes), "warning"
+    return prefixe, "success"
 
 
 @app.get("/admin/parametres/identite", response_class=HTMLResponse)
@@ -1258,6 +1338,7 @@ async def admin_parametres_identite(request: Request, db: Session = Depends(get_
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("admin/parametres_identite.html", {
         "request": request, "params": params,
+        "profil_logo": logos.PROFILS["outil"],
         "current_user": require_auth(request, db), "active_nav": "identite",
     })
 
@@ -1277,12 +1358,14 @@ async def admin_parametres_identite_save(
         "bande_decorative": bande_decorative, "icones_filigrane": icones_filigrane,
     }
     if logo and logo.filename:
-        resultat = await enregistrer_logo(logo)
+        resultat = await enregistrer_logo(logo, profil="outil")
         if resultat.get("erreur"):
             return redirect_flash(
-                "/admin/parametres/identite", resultat["erreur"], "danger"
+                "/admin/parametres/identite", f"Logo refusé : {resultat['erreur']}", "danger"
             )
         updates["logo_url"] = resultat["url"]
+    else:
+        resultat = {}
 
     for cle, valeur in updates.items():
         row = db.query(Parametre).filter(Parametre.cle == cle).first()
@@ -1291,9 +1374,8 @@ async def admin_parametres_identite_save(
         else:
             db.add(Parametre(cle=cle, valeur=valeur, type="text"))
     db.commit()
-    return redirect_flash(
-        "/admin/parametres/identite", "Identité visuelle enregistrée.", "success"
-    )
+    message, niveau = message_logo("Identité visuelle enregistrée.", resultat)
+    return redirect_flash("/admin/parametres/identite", message, niveau)
 
 @app.post("/admin/parametres/sync-intervalle")
 async def admin_sync_intervalle(minutes: int = Form(60), db: Session = Depends(get_db)):
@@ -1316,10 +1398,10 @@ async def admin_documents(
     type: str = "", statut: str = "", etablissement: str = "",
     tri: str = "", sens: str = "",
 ):
-    utilisateur = require_auth(request, db)
+    utilisateur = utilisateur_courant(request, db)
     params = get_params_with_defaults(db)
 
-    query = db.query(Document)
+    query = filtrer_documents(db.query(Document), utilisateur)
     if q:
         motif = f"%{q.strip()}%"
         query = query.filter(
@@ -1333,13 +1415,6 @@ async def admin_documents(
         query = query.filter(Document.statut == statut)
     if etablissement:
         query = query.filter(Document.etablissement_code == etablissement)
-
-    # Un administrateur d'établissement ne voit que son propre fonds :
-    # la route ne le vérifiait pas et exposait tout le catalogue.
-    if utilisateur.role != "super_admin" and utilisateur.etablissement_code:
-        query = query.filter(
-            Document.etablissement_code == utilisateur.etablissement_code
-        )
 
     query, etat_tri = appliquer_tri(query, tri, sens, {
         "titre": Document.titre,
@@ -1360,7 +1435,10 @@ async def admin_documents(
         "pagination": pagination, "tri": etat_tri, "q": q,
         "filtre_type": type, "filtre_statut": statut,
         "filtre_etablissement": etablissement,
-        "etablissements": db.query(Etablissement).order_by(Etablissement.code).all(),
+        "etablissements": (
+            db.query(Etablissement).order_by(Etablissement.code).all()
+            if permissions.est_super_admin(utilisateur) else []
+        ),
         "current_user": utilisateur, "active_nav": "documents",
     })
 
@@ -1385,6 +1463,7 @@ async def admin_etablissements(
     return templates.TemplateResponse("admin/etablissements.html", {
         "request": request, "params": params, "etablissements": etabs,
         "pagination": pagination, "tri": etat_tri,
+        "profil_logo": logos.PROFILS["etablissement"],
         "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
@@ -1422,7 +1501,7 @@ async def admin_etablissements_ajouter(
     # geste, plutôt que de retrouver un établissement à moitié saisi.
     logo_url = None
     if logo is not None and logo.filename:
-        resultat = await enregistrer_logo(logo, base=f"etab-{code}")
+        resultat = await enregistrer_logo(logo, base=f"etab-{code}", profil="etablissement")
         if "erreur" in resultat:
             return redirect_flash(
                 "/admin/etablissements",
@@ -1443,9 +1522,53 @@ async def admin_etablissements_ajouter(
         return redirect_flash(
             "/admin/etablissements", "Enregistrement impossible.", "danger"
         )
-    return redirect_flash(
-        "/admin/etablissements", f"Établissement {code} ajouté.", "success"
+    message, niveau = message_logo(
+        f"Établissement {code} ajouté.", resultat if logo_url else {}
     )
+    return redirect_flash("/admin/etablissements", message, niveau)
+
+
+async def _mettre_a_jour_etablissement(
+    db: Session, etab: Etablissement, retour: str,
+    nom: str, nom_court: str, pays: str, ville: str, url_site: str,
+    logo: Optional[UploadFile], retirer_logo: Optional[str],
+):
+    """Enregistre la fiche d'un établissement — partagé entre la page
+    des établissements (super admin) et « Mon établissement »."""
+    if not nom.strip():
+        return redirect_flash(retour, "Le nom est obligatoire.", "danger")
+    url_site = url_site.strip()
+    if url_site and not re.match(r"^https?://[^\s/$.?#].[^\s]*$", url_site, re.I):
+        return redirect_flash(
+            retour, "Le site web doit être une adresse complète (https://…).", "danger"
+        )
+
+    resultat = {}
+    if logo is not None and logo.filename:
+        resultat = await enregistrer_logo(
+            logo, base=f"etab-{etab.code}", profil="etablissement"
+        )
+        if "erreur" in resultat:
+            return redirect_flash(
+                retour, f"Logo refusé : {resultat['erreur']} Rien n'a été modifié.",
+                "danger",
+            )
+        etab.logo_url = resultat["url"]
+    elif retirer_logo:
+        etab.logo_url = None
+
+    etab.nom = nom.strip()
+    etab.nom_court = nom_court.strip() or None
+    etab.pays = pays.strip() or etab.pays
+    etab.ville = ville.strip() or None
+    etab.url_site = url_site or None
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash(retour, "Enregistrement impossible.", "danger")
+    message, niveau = message_logo(f"Établissement {etab.code} mis à jour.", resultat)
+    return redirect_flash(retour, message, niveau)
 
 
 @app.post("/admin/etablissements/{etab_id}/modifier")
@@ -1463,38 +1586,56 @@ async def admin_etablissements_modifier(
         return redirect_flash(
             "/admin/etablissements", "Établissement introuvable.", "danger"
         )
-    if not nom.strip():
-        return redirect_flash(
-            "/admin/etablissements", "Le nom est obligatoire.", "danger"
-        )
-
-    if logo is not None and logo.filename:
-        resultat = await enregistrer_logo(logo, base=f"etab-{etab.code}")
-        if "erreur" in resultat:
-            return redirect_flash(
-                "/admin/etablissements",
-                f"Logo refusé : {resultat['erreur']} Rien n'a été modifié.",
-                "danger",
-            )
-        etab.logo_url = resultat["url"]
-    elif retirer_logo:
-        etab.logo_url = None
-
-    etab.nom = nom.strip()
-    etab.nom_court = nom_court.strip() or None
-    etab.pays = pays
-    etab.ville = ville.strip() or None
-    etab.url_site = url_site.strip() or None
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        return redirect_flash(
-            "/admin/etablissements", "Enregistrement impossible.", "danger"
-        )
-    return redirect_flash(
-        "/admin/etablissements", f"Établissement {etab.code} mis à jour.", "success"
+    return await _mettre_a_jour_etablissement(
+        db, etab, "/admin/etablissements",
+        nom, nom_court, pays, ville, url_site, logo, retirer_logo,
     )
+
+
+@app.get("/admin/mon-etablissement", response_class=HTMLResponse)
+async def admin_mon_etablissement(request: Request, db: Session = Depends(get_db)):
+    """Fiche de l'établissement du compte connecté : nom, site, logo.
+
+    Chaque université tient sa propre fiche, sans passer par le super
+    administrateur. Le code reste figé (il identifie ses documents).
+    """
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    if code is None:
+        # Le super admin gère tous les établissements depuis leur page.
+        return RedirectResponse("/admin/etablissements", status_code=303)
+    etab = db.query(Etablissement).filter(Etablissement.code == code).first()
+    source = sources_visibles(db, utilisateur).first()
+    return templates.TemplateResponse("admin/mon_etablissement.html", {
+        "request": request, "params": get_params_with_defaults(db),
+        "etab": etab, "source": source,
+        "nb_documents": filtrer_documents(db.query(Document), utilisateur).count(),
+        "peut_modifier": permissions.peut_modifier(utilisateur),
+        "profil_logo": logos.PROFILS["etablissement"],
+        "max_logo_mo": settings.MAX_LOGO_SIZE_MB,
+        "current_user": utilisateur, "active_nav": "mon_etablissement",
+    })
+
+
+@app.post("/admin/mon-etablissement")
+async def admin_mon_etablissement_save(
+    request: Request, db: Session = Depends(get_db),
+    nom: str = Form(...), nom_court: str = Form(""),
+    pays: str = Form(""), ville: str = Form(""), url_site: str = Form(""),
+    logo: UploadFile = File(None), retirer_logo: str = Form(None),
+):
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    etab = db.query(Etablissement).filter(Etablissement.code == code).first() if code else None
+    if etab is None:
+        return redirect_flash(
+            "/admin", "Aucun établissement n'est rattaché à votre compte.", "danger"
+        )
+    return await _mettre_a_jour_etablissement(
+        db, etab, "/admin/mon-etablissement",
+        nom, nom_court, pays, ville, url_site, logo, retirer_logo,
+    )
+
 
 @app.post("/admin/etablissements/{etab_id}/toggle")
 async def admin_etablissements_toggle(etab_id: int, db: Session = Depends(get_db)):
@@ -1511,12 +1652,14 @@ async def admin_sync(
     request: Request, db: Session = Depends(get_db),
     page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
 ):
+    utilisateur = utilisateur_courant(request, db)
     params = get_params_with_defaults(db)
 
     # L'historique complet vit ici désormais : la page « Historique sync »
     # affichait la même liste sous un autre menu, ce qui obligeait à
     # deviner laquelle des deux faisait autorité.
-    requete, etat_tri = appliquer_tri(db.query(SyncLog), tri, sens, {
+    requete, etat_tri = appliquer_tri(
+        filtrer_logs(db, db.query(SyncLog), utilisateur), tri, sens, {
         "debut": (SyncLog.debut, "desc"),
         "fin": (SyncLog.fin, "desc"),
         "declenchement": SyncLog.declenchement,
@@ -1533,14 +1676,15 @@ async def admin_sync(
         src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
         log.etablissement_code = src.etablissement.code if src else "—"
 
-    sources = db.query(ZoteroSource).all()
+    sources = sources_visibles(db, utilisateur).all()
     sync_intervalle = int(params.get("sync_intervalle_min", "60"))
     return templates.TemplateResponse("admin/sync.html", {
         "request": request, "params": params, "logs": logs, "sources": sources,
         "pagination": pagination, "tri": etat_tri,
         "nb_syncs_total": pagination["total"],
         "sync_intervalle": sync_intervalle,
-        "current_user": require_auth(request, db), "active_nav": "sync",
+        "super_admin": permissions.est_super_admin(utilisateur),
+        "current_user": utilisateur, "active_nav": "sync",
     })
 
 @app.get("/admin/sync-logs")
@@ -1840,11 +1984,16 @@ async def admin_acces(
 
 @app.get("/admin/exports", response_class=HTMLResponse)
 async def admin_exports(request: Request, db: Session = Depends(get_db)):
+    utilisateur = utilisateur_courant(request, db)
     params = get_params_with_defaults(db)
-    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+    etabs = db.query(Etablissement).filter(Etablissement.actif == True)  # noqa: E712
+    code = permissions.perimetre(utilisateur)
+    if code is not None:
+        etabs = etabs.filter(Etablissement.code == code)
     return templates.TemplateResponse("admin/exports.html", {
-        "request": request, "params": params, "etablissements": etabs,
-        "current_user": require_auth(request, db), "active_nav": "exports",
+        "request": request, "params": params, "etablissements": etabs.all(),
+        "super_admin": code is None,
+        "current_user": utilisateur, "active_nav": "exports",
     })
 
 @app.get("/admin/parametres/contenu", response_class=HTMLResponse)
@@ -1897,8 +2046,13 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
     })
 
 @app.post("/admin/documents/{doc_id}/toggle-acces")
-async def admin_document_toggle_acces(doc_id: str, db: Session = Depends(get_db)):
-    doc = db.query(Document).filter(Document.id == doc_id).first()
+async def admin_document_toggle_acces(
+    doc_id: str, request: Request, db: Session = Depends(get_db)
+):
+    utilisateur = utilisateur_courant(request, db)
+    doc = filtrer_documents(db.query(Document), utilisateur).filter(
+        Document.id == doc_id
+    ).first()
     if not doc:
         return redirect_flash("/admin/documents", "Document introuvable.", "danger")
     doc.acces = "restreint" if doc.acces == "public" else "public"
@@ -1928,10 +2082,15 @@ async def admin_zotero_supprimer(source_id: int, db: Session = Depends(get_db)):
     return redirect_flash("/admin/zotero", f"Compte Zotero de {libelle} supprimé.", "success")
 
 @app.post("/admin/sync/lancer/{source_id}")
-async def admin_sync_lancer_source(source_id: int, db: Session = Depends(get_db)):
+async def admin_sync_lancer_source(
+    source_id: int, request: Request, db: Session = Depends(get_db)
+):
     from app.sync.engine import sync_source
 
-    src = db.query(ZoteroSource).filter(ZoteroSource.id == source_id).first()
+    utilisateur = utilisateur_courant(request, db)
+    # Recherche dans le périmètre : la source d'un autre établissement
+    # est « introuvable », sans confirmer qu'elle existe.
+    src = sources_visibles(db, utilisateur).filter(ZoteroSource.id == source_id).first()
     if not src:
         return redirect_flash("/admin/sync", "Source introuvable.", "danger")
     if not src.actif:
@@ -1985,10 +2144,10 @@ async def admin_acces_supprimer(ex_id: int, db: Session = Depends(get_db)):
 
 @app.get("/admin/exports/documents")
 async def admin_exports_documents(
-    db: Session = Depends(get_db),
+    request: Request, db: Session = Depends(get_db),
     format: str = "csv", etablissement: str = "", type: str = ""
 ):
-    query = db.query(Document)
+    query = filtrer_documents(db.query(Document), utilisateur_courant(request, db))
     if etablissement: query = query.filter(Document.etablissement_code == etablissement)
     if type: query = query.filter(Document.type == type)
     docs = query.order_by(Document.annee.desc()).all()
@@ -2031,15 +2190,16 @@ async def admin_exports_documents(
     return JSONResponse({"error": "Format non supporté"}, status_code=400)
 
 @app.get("/admin/exports/rapport")
-async def admin_exports_rapport(db: Session = Depends(get_db)):
-    stats = get_stats(db)
+async def admin_exports_rapport(request: Request, db: Session = Depends(get_db)):
+    code = permissions.perimetre(utilisateur_courant(request, db))
+    stats = get_stats(db, code)
     from fastapi.responses import HTMLResponse
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
     <style>body{{font-family:Arial,sans-serif;padding:2rem;}}
     h1{{color:#1a3a5c;}} table{{width:100%;border-collapse:collapse;}}
     th{{background:#1a3a5c;color:white;padding:8px;}} td{{padding:8px;border:1px solid #ddd;}}
     </style></head><body>
-    <h1>Rapport ScholarSync</h1>
+    <h1>Rapport ScholarSync{(" — " + code) if code and code != permissions.AUCUN else ""}</h1>
     <p>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
     <h2>Statistiques générales</h2>
     <table><tr><th>Indicateur</th><th>Valeur</th></tr>

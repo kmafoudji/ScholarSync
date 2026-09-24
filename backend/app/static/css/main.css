@@ -2917,3 +2917,91 @@ td.col-numero {
   text-decoration: none;
 }
 .fiche-proches__tout:hover { text-decoration: underline; }
+
+/* ══ Mon établissement : fiche et téléversement du logo ══════════════
+   Deux aperçus : le logo en grand sur fond clair, pour juger sa
+   netteté, et à la taille réelle des listes publiques (48 px), pour
+   juger sa lisibilité. Un logo qui passe le premier et rate le second
+   est trop détaillé pour une vignette. */
+.mon-etab { display: grid; gap: 1rem; margin-top: 1rem; }
+.mon-etab__fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
+.mon-etab__titre {
+  font-size: var(--fs-md);
+  margin-bottom: 1.25rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: .5rem;
+}
+.mon-etab__titre .ti { color: var(--primary); }
+.mon-etab__note { font-size: var(--fs-sm); color: var(--text-2); margin-top: .5rem; }
+.mon-etab__vide { font-size: var(--fs-base); display: flex; gap: .625rem; align-items: flex-start; }
+.mon-etab__date { font-size: var(--fs-lg); }
+.mon-etab__actions { display: flex; justify-content: flex-end; }
+
+.logo-televersement {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.logo-televersement__apercus { display: flex; gap: 1rem; align-items: flex-end; }
+.logo-televersement__apercus figure { margin: 0; text-align: center; }
+.logo-televersement__apercus figcaption {
+  font-size: var(--fs-xs); color: var(--text-2); margin-top: .5rem; max-width: 10rem;
+}
+.logo-televersement__cadre {
+  display: flex; align-items: center; justify-content: center;
+  border: 1px dashed var(--border-strong);
+  background: var(--surface-2);
+  color: var(--text-3);
+  overflow: hidden;
+}
+.logo-televersement__cadre img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.logo-televersement__cadre--clair {
+  width: 160px; height: 160px; padding: 12px;
+  border-radius: var(--radius); background: #fff; font-size: 40px;
+}
+.logo-televersement__cadre--vignette {
+  width: 48px; height: 48px; border-radius: 8px; border-style: solid; font-size: 20px;
+}
+.logo-televersement__corps .form-control { font-size: var(--fs-sm); }
+.logo-televersement__regles {
+  margin: 1rem 0 0; padding-left: 1.25rem;
+  font-size: var(--fs-sm); color: var(--text-2); line-height: 1.6;
+}
+.logo-televersement__retour:empty { display: none; }
+.logo-televersement__retour {
+  margin-top: .75rem; padding: .75rem 1rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm); line-height: 1.5;
+}
+.logo-televersement__retour p { margin: 0; }
+.logo-televersement__retour p + p { margin-top: .25rem; }
+.logo-televersement__retour--ok { background: var(--success-bg); color: var(--success); }
+.logo-televersement__retour--avertissement { background: var(--warning-bg); color: var(--warning); }
+.logo-televersement__retour--erreur { background: var(--danger-bg); color: var(--danger); }
+
+@media (max-width: 720px) {
+  .logo-televersement { grid-template-columns: minmax(0, 1fr); }
+  .logo-televersement__apercus { justify-content: center; }
+  .mon-etab__actions .btn { width: 100%; justify-content: center; }
+}
+#logoDropzone img { max-height: 80px; max-width: 220px; object-fit: contain; }
+
+/* Bandeau d'établissement en tête du tableau de bord */
+.etab-bandeau {
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  margin-bottom: 1rem; padding: 1rem 1.25rem;
+}
+.etab-bandeau__logo {
+  width: 56px; height: 56px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 10px; background: #fff;
+  color: var(--text-3); font-size: 26px; overflow: hidden; padding: 4px;
+}
+.etab-bandeau__logo img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.etab-bandeau__texte { flex: 1; min-width: 12rem; display: grid; gap: .125rem; }
+.etab-bandeau__texte strong { font-size: var(--fs-md); }
+.etab-bandeau__texte span { font-size: var(--fs-sm); color: var(--text-2); }
+.etab-bandeau__actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.stat-card__sub a { color: var(--primary); font-weight: 600; }

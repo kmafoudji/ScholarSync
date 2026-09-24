@@ -42,9 +42,13 @@
       </h2>
       <div class="grid-2" style="align-items:start;">
         <div>
-          <div class="form-group">
-            <label class="form-label" for="f-bande_decorative">Logo principal</label>
-            <div id="logoDropzone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:all .15s;"
+          <div class="form-group" data-logo-champ
+               data-min-court="{{ profil_logo.min_cote_court }}"
+               data-min-long="{{ profil_logo.min_cote_long }}"
+               data-ratio-max="{{ profil_logo.ratio_max }}"
+               data-max-mo="{{ max_logo_mo }}">
+            <label class="form-label" for="logoInput">Logo principal</label>
+            <div id="logoDropzone" data-logo-apercu style="border:2px dashed var(--border);border-radius:var(--radius);padding:1.5rem;text-align:center;cursor:pointer;transition:all .15s;"
                  onclick="document.getElementById('logoInput').click()"
                  ondragover="event.preventDefault();this.style.borderColor='var(--primary)'"
                  ondragleave="this.style.borderColor='var(--border)'"
@@ -55,10 +59,11 @@
               {% else %}
               <i class="ti ti-upload" style="font-size:2rem;color:var(--text-3);display:block;margin-bottom:.5rem;"></i>
               {% endif %}
-              <span style="font-size:var(--fs-xs);color:var(--text-2);">PNG, SVG, JPG · Max 2 Mo · Ratio 2:1 à 5:1</span>
+              <span style="font-size:var(--fs-sm);color:var(--text-2);">PNG, SVG, WebP, JPG · {{ max_logo_mo }} Mo au plus · au moins {{ profil_logo.min_cote_long }} × {{ profil_logo.min_cote_court }} px</span>
             </div>
-            <input type="file" id="logoInput" name="logo" accept=".png,.svg,.jpg,.jpeg" style="display:none;"
-                   onchange="previewLogo(this)">
+            <input type="file" id="logoInput" name="logo"
+                   accept="image/png,image/jpeg,image/webp,image/svg+xml" class="sr-only">
+            <div class="logo-televersement__retour" data-logo-retour aria-live="polite"></div>
           </div>
         </div>
         <div>
@@ -68,7 +73,7 @@
             </div>
             <div style="font-size:var(--fs-xs);color:var(--text-2);line-height:1.6;">
               <div style="margin-bottom:.375rem;">✓ Fond transparent (PNG ou SVG)</div>
-              <div style="margin-bottom:.375rem;">✓ Dimensions min. 200×60px</div>
+              <div style="margin-bottom:.375rem;">✓ Dimensions min. {{ profil_logo.min_cote_long }}×{{ profil_logo.min_cote_court }} px</div>
               <div style="margin-bottom:.375rem;">✓ Version claire (sur fond coloré)</div>
               <div>✗ Pas de texte trop petit</div>
             </div>
@@ -283,39 +288,20 @@ function updatePreview() {
   `;
 }
 
+/* Le dépôt affectait le fichier à l'aperçu, jamais au champ : le logo
+   déposé ne partait pas avec le formulaire. On l'affecte au champ, et
+   logo.js prend le relais (aperçu et contrôle de qualité). */
 function handleLogoDrop(e) {
   e.preventDefault();
-  const file = e.dataTransfer.files[0];
-  if (file) validateAndPreviewLogo(file);
-}
-
-function previewLogo(input) {
-  if (input.files[0]) validateAndPreviewLogo(input.files[0]);
-}
-
-function validateAndPreviewLogo(file) {
-  const errEl = document.getElementById('logoError');
-  const allowed = ['image/png','image/svg+xml','image/jpeg'];
-  if (!allowed.includes(file.type)) {
-    errEl.style.display = 'flex';
-    errEl.innerHTML = '<i class="ti ti-x"></i> Format non accepté. Utilisez PNG, SVG ou JPG.';
-    return;
+  e.currentTarget.style.borderColor = 'var(--border)';
+  const input = document.getElementById('logoInput');
+  if (e.dataTransfer.files.length) {
+    input.files = e.dataTransfer.files;
+    input.dispatchEvent(new Event('change'));
   }
-  if (file.size > 2 * 1024 * 1024) {
-    errEl.style.display = 'flex';
-    errEl.innerHTML = '<i class="ti ti-x"></i> Fichier trop volumineux (max 2 Mo).';
-    return;
-  }
-  errEl.style.display = 'none';
-  const reader = new FileReader();
-  reader.onload = e => {
-    document.getElementById('logoDropzone').innerHTML =
-      `<img src="${e.target.result}" alt="Aperçu du logo choisi" style="max-height:60px;max-width:180px;object-fit:contain;"><br>
-       <span style="font-size:var(--fs-xs);color:var(--text-2);">${file.name}</span>`;
-  };
-  reader.readAsDataURL(file);
 }
 
 updatePreview();
 </script>
+<script src="{{ static_url('js/logo.js') }}"></script>
 {% endblock %}

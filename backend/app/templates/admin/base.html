@@ -91,11 +91,14 @@
 
       {% else %}
       <div class="admin-nav-section">Mon établissement</div>
+      <a href="/admin/mon-etablissement" class="{{ 'active' if active_nav == 'mon_etablissement' }}">
+        <i class="ti ti-building-bank"></i> Fiche et logo
+      </a>
       <a href="/admin/documents" class="{{ 'active' if active_nav == 'documents' }}">
         <i class="ti ti-files"></i> Mes documents
       </a>
       <a href="/admin/sync" class="{{ 'active' if active_nav == 'sync' }}">
-        <i class="ti ti-refresh"></i> Sync Zotero
+        <i class="ti ti-refresh"></i> Synchroniser
       </a>
       {% endif %}
 

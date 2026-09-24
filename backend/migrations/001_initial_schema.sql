@@ -176,13 +176,16 @@ CREATE TABLE utilisateurs (
     mot_de_passe_hash   TEXT NOT NULL,
     nom                 TEXT,
     prenom              TEXT,
-    role                VARCHAR(20) NOT NULL CHECK (role IN ('super_admin','gestionnaire_bu')),
+    role                VARCHAR(20) NOT NULL,
     etablissement_code  VARCHAR(10) REFERENCES etablissements(code),
     actif               BOOLEAN DEFAULT true,
     derniere_connexion  TIMESTAMPTZ,
     created_at          TIMESTAMPTZ DEFAULT now(),
+    CONSTRAINT utilisateurs_role_valide CHECK (
+        role IN ('super_admin','admin_etablissement','lecteur')
+    ),
     CONSTRAINT bu_needs_etablissement CHECK (
-        role = 'super_admin' OR etablissement_code IS NOT NULL
+        role <> 'admin_etablissement' OR etablissement_code IS NOT NULL
     )
 );
 

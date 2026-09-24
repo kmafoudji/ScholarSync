@@ -1,6 +1,6 @@
 {% extends "admin/base.html" %}
 {% block title %}Tableau de bord{% endblock %}
-{% block page_title %}Tableau de bord{% endblock %}
+{% block page_title %}{{ ('Tableau de bord — ' ~ mon_etablissement.code) if mon_etablissement else 'Tableau de bord' }}{% endblock %}
 
 {% block topbar_actions %}
 <a href="/admin/exports?format=pdf&scope=global" class="btn btn--ghost btn--sm">
@@ -16,6 +16,34 @@
 {% endblock %}
 
 {% block content %}
+{% if mon_etablissement %}
+{# Un compte d'établissement voit son périmètre, et doit le savoir :
+   sans ce bandeau, des chiffres plus petits que prévu passeraient pour
+   une anomalie. #}
+<div class="card etab-bandeau">
+  <div class="etab-bandeau__logo">
+    {% if mon_etablissement.logo_url %}
+    <img src="{{ mon_etablissement.logo_url }}" alt="">
+    {% else %}
+    <i class="ti ti-building-bank" aria-hidden="true"></i>
+    {% endif %}
+  </div>
+  <div class="etab-bandeau__texte">
+    <strong>{{ mon_etablissement.nom }}</strong>
+    <span>Les chiffres ci-dessous concernent uniquement votre établissement.</span>
+  </div>
+  <div class="etab-bandeau__actions">
+    {% if current_user.role != 'lecteur' %}
+    <a href="/admin/sync" class="btn btn--primary btn--sm">
+      <i class="ti ti-refresh" aria-hidden="true"></i> Synchroniser
+    </a>
+    {% endif %}
+    <a href="/admin/mon-etablissement" class="btn btn--ghost btn--sm">
+      <i class="ti ti-photo" aria-hidden="true"></i> {{ 'Modifier le logo' if mon_etablissement.logo_url else 'Ajouter le logo' }}
+    </a>
+  </div>
+</div>
+{% endif %}
 <!-- STAT CARDS -->
 <div class="stat-cards">
   <div class="stat-card stat-card--accent">

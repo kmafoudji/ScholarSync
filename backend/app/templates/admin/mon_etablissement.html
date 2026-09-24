@@ -1,0 +1,146 @@
+{% extends "admin/base.html" %}
+{% block title %}Mon établissement{% endblock %}
+{% block page_title %}Mon établissement{% endblock %}
+
+{% block content %}
+{% if not etab %}
+<div class="card card--lg">
+  <p class="mon-etab__vide">
+    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+    Aucun établissement n'est rattaché à votre compte. Demandez au super
+    administrateur de le rattacher à votre université.
+  </p>
+</div>
+{% else %}
+
+<div class="stat-cards">
+  <div class="stat-card stat-card--accent">
+    <div class="stat-card__label">Code</div>
+    <div class="stat-card__value">{{ etab.code }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Documents signalés</div>
+    <div class="stat-card__value">{{ nb_documents|format_number }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Dernière synchronisation</div>
+    <div class="stat-card__value mon-etab__date">
+      {{ source.derniere_sync|format_datetime if source and source.derniere_sync else '—' }}
+    </div>
+    {% if source %}
+    <div class="stat-card__sub"><a href="/admin/sync">Synchroniser maintenant</a></div>
+    {% else %}
+    <div class="stat-card__sub">Aucune source Zotero : contactez le super administrateur.</div>
+    {% endif %}
+  </div>
+</div>
+
+<form method="post" action="/admin/mon-etablissement" enctype="multipart/form-data"
+      class="mon-etab">
+  <fieldset {{ 'disabled' if not peut_modifier }} class="mon-etab__fieldset">
+
+  <div class="card card--lg">
+    <h2 class="mon-etab__titre"><i class="ti ti-photo" aria-hidden="true"></i> Logo</h2>
+
+    <div class="logo-televersement" data-logo-champ
+         data-min-court="{{ profil_logo.min_cote_court }}"
+         data-min-long="{{ profil_logo.min_cote_long }}"
+         data-ratio-max="{{ profil_logo.ratio_max }}"
+         data-max-mo="{{ max_logo_mo }}">
+      <div class="logo-televersement__apercus">
+        <figure>
+          <div class="logo-televersement__cadre logo-televersement__cadre--clair" data-logo-apercu>
+            {% if etab.logo_url %}
+            <img src="{{ etab.logo_url }}" alt="Logo actuel de {{ etab.code }}">
+            {% else %}
+            <i class="ti ti-photo" aria-hidden="true"></i>
+            {% endif %}
+          </div>
+          <figcaption>Sur fond clair</figcaption>
+        </figure>
+        <figure>
+          <div class="logo-televersement__cadre logo-televersement__cadre--vignette" data-logo-apercu>
+            {% if etab.logo_url %}
+            <img src="{{ etab.logo_url }}" alt="">
+            {% else %}
+            <i class="ti ti-photo" aria-hidden="true"></i>
+            {% endif %}
+          </div>
+          <figcaption>Taille réelle dans les listes</figcaption>
+        </figure>
+      </div>
+
+      <div class="logo-televersement__corps">
+        <label class="form-label" for="logoEtab">Choisir un nouveau logo</label>
+        <input id="logoEtab" type="file" name="logo" class="form-control"
+               accept="image/png,image/jpeg,image/webp,image/svg+xml">
+        <div class="logo-televersement__retour" data-logo-retour aria-live="polite"></div>
+        <ul class="logo-televersement__regles">
+          <li>PNG, SVG, WebP ou JPEG — {{ max_logo_mo }} Mo au plus</li>
+          <li>Au moins {{ profil_logo.min_cote_court }} × {{ profil_logo.min_cote_court }} px ; 300 × 300 px ou plus recommandé</li>
+          <li>Forme plutôt carrée (au plus {{ profil_logo.ratio_max|int }} fois plus large que haut)</li>
+          <li>Fond transparent de préférence ; les marges vides sont retirées automatiquement</li>
+        </ul>
+        {% if etab.logo_url %}
+        <label class="logo-champ__retirer">
+          <input type="checkbox" name="retirer_logo" value="1"> Retirer le logo actuel
+        </label>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="card card--lg">
+    <h2 class="mon-etab__titre"><i class="ti ti-building-bank" aria-hidden="true"></i> Fiche publique</h2>
+    <div class="form-group">
+      <label class="form-label" for="f-nom">Nom complet <span class="required">*</span></label>
+      <input id="f-nom" type="text" name="nom" class="form-control" required
+             value="{{ etab.nom }}">
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label" for="f-nom_court">Nom court</label>
+        <input id="f-nom_court" type="text" name="nom_court" class="form-control"
+               value="{{ etab.nom_court or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-url_site">Site web</label>
+        <input id="f-url_site" type="url" name="url_site" class="form-control"
+               value="{{ etab.url_site or '' }}" placeholder="https://…">
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label" for="f-ville">Ville</label>
+        <input id="f-ville" type="text" name="ville" class="form-control"
+               value="{{ etab.ville or '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-pays">Pays</label>
+        <input id="f-pays" type="text" name="pays" class="form-control"
+               value="{{ etab.pays or '' }}">
+      </div>
+    </div>
+    <p class="form-hint mon-etab__note">
+      Le code <strong>{{ etab.code }}</strong> ne peut pas être modifié : il
+      identifie vos documents et leur numéro national.
+    </p>
+  </div>
+
+  {% if peut_modifier %}
+  <div class="mon-etab__actions">
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check" aria-hidden="true"></i> Enregistrer
+    </button>
+  </div>
+  {% else %}
+  <p class="mon-etab__note">Votre compte est en consultation seule.</p>
+  {% endif %}
+  </fieldset>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ static_url('js/logo.js') }}"></script>
+{% endblock %}

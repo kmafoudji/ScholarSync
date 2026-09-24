@@ -102,12 +102,18 @@
           <td class="col-etroite">{{ doc.annee }}</td>
           <td class="col-numero">{{ doc.numero_national }}</td>
           <td>
+            {% if current_user.role == 'lecteur' %}
+            <span class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}">
+              {{ 'Public' if doc.acces == 'public' else 'Restreint' }}
+            </span>
+            {% else %}
             <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
               <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"
                       style="background:none;border:none;cursor:pointer;padding:0;">
                 {{ 'Public' if doc.acces == 'public' else 'Restreint' }}
               </button>
             </form>
+            {% endif %}
           </td>
         </tr>
         {% else %}
@@ -122,7 +128,9 @@
               </p>
               <div class="state__actions">
                 <a href="/admin/sync" class="btn btn--primary">Aller à la synchronisation</a>
+                {% if current_user.role == 'super_admin' %}
                 <a href="/admin/zotero" class="btn btn--ghost">Comptes Zotero</a>
+                {% endif %}
               </div>
             </div>
           </td>
