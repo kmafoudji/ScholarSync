@@ -33,7 +33,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Document, Etablissement, NumerotationCompteur
+from app.models import Document, DocumentRetire, Etablissement, NumerotationCompteur
 
 
 # Valeurs initiales, reprises en base au démarrage (core/schema.py)
@@ -112,9 +112,16 @@ def _plus_grand_ordre_existant(db: Session, code_etab: str, type_doc: str,
     l'insertion. On relit donc les numéros déjà en base.
     """
     prefixe = f"SC{code_etab}{CODES_TYPES.get(type_doc, 'X')}"
+    motif = f"{prefixe}_{int(annee):04d}%"
+    # Les numéros des documents retirés comptent aussi : un numéro
+    # national n'est jamais réattribué, même à un autre travail.
     numeros = (
         db.query(Document.numero_national)
-        .filter(Document.numero_national.like(f"{prefixe}_{int(annee):04d}%"))
+        .filter(Document.numero_national.like(motif))
+        .all()
+    ) + (
+        db.query(DocumentRetire.numero_national)
+        .filter(DocumentRetire.numero_national.like(motif))
         .all()
     )
     ordres = [

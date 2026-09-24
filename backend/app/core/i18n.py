@@ -174,6 +174,11 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
         "You do not have permission to view this page.",
         "Não tem permissão para consultar esta página."),
     "Une erreur est survenue": ("An error occurred", "Ocorreu um erro"),
+    "Document retiré": ("Document withdrawn", "Documento retirado"),
+    "Ce document a été retiré du catalogue.": (
+        "This document has been withdrawn from the catalogue.",
+        "Este documento foi retirado do catálogo."),
+    "Numéro national : {n}.": ("National number: {n}.", "Número nacional: {n}."),
     "Erreur interne": ("Internal error", "Erro interno"),
     "Le serveur a rencontré un problème. L'incident a été enregistré.": (
         "The server ran into a problem. The incident has been logged.",

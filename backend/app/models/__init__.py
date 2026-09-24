@@ -83,6 +83,29 @@ class Document(Base):
 
     etablissement = relationship("Etablissement")
 
+class DocumentRetire(Base):
+    """Trace d'un document retiré du portail (supprimé ou mis à la
+    corbeille dans Zotero, sorti des collections Thèses / Mémoires).
+
+    Le numéro national est un identifiant officiel : même retiré, il doit
+    rester explicable (« ce numéro a désigné tel travail, retiré tel
+    jour ») et ne jamais être réattribué. Si l'item revient dans Zotero,
+    le document reprend son identifiant et son numéro.
+    """
+    __tablename__ = "documents_retires"
+    id                 = Column(Integer, primary_key=True, autoincrement=True)
+    document_id        = Column(UUID(as_uuid=True), nullable=False, index=True)
+    numero_national    = Column(String(20), index=True)
+    titre              = Column(Text)
+    auteur             = Column(Text)
+    type               = Column(String(10))
+    annee              = Column(SmallInteger)
+    etablissement_code = Column(String(10), index=True)
+    zotero_source_id   = Column(Integer)
+    zotero_item_key    = Column(String(20))
+    raison             = Column(Text)
+    retire_le          = Column(DateTime(timezone=True), server_default=func.now())
+
 class AccesException(Base):
     __tablename__ = "acces_exceptions"
     id         = Column(Integer, primary_key=True, autoincrement=True)

@@ -27,7 +27,8 @@ from app.core import i18n
 from app.services import acces as acces_docs
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
-    Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
+    Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException,
+    DocumentRetire,
 )
 
 # Créer les tables, puis rattraper les colonnes ajoutées après coup.
@@ -875,8 +876,25 @@ async def memoires(request: Request, db: Session = Depends(get_db), page: int = 
 @app.get("/document/{doc_id}", response_class=HTMLResponse)
 async def detail_document(doc_id: str, request: Request, db: Session = Depends(get_db)):
     params = get_params_with_defaults(db)
+    try:
+        uuid.UUID(str(doc_id))
+    except ValueError:
+        raise HTTPException(status_code=404)
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
+        # Document retiré : on le dit (410), numéro national compris,
+        # plutôt qu'un « page introuvable » qui laisserait croire à une
+        # adresse erronée — le lien a pu être cité dans une bibliographie.
+        retire = db.query(DocumentRetire).filter(DocumentRetire.document_id == doc_id).first()
+        if retire:
+            langue = i18n.langue_de(request, params)
+            message = i18n.traduire("Ce document a été retiré du catalogue.", langue)
+            if retire.numero_national:
+                message += " " + i18n.traduire("Numéro national : {n}.", langue, n=retire.numero_national)
+            return templates.TemplateResponse("erreur.html", {
+                "request": request, "params": params, "code": 410, "lang": langue,
+                "titre": i18n.traduire("Document retiré", langue), "message": message,
+            }, status_code=410)
         raise HTTPException(status_code=404)
     nom_etab = doc.etablissement.nom if doc.etablissement else doc.etablissement_code
     return templates.TemplateResponse("public/document.html", {
@@ -1518,6 +1536,32 @@ async def admin_documents(
         ),
         "current_user": utilisateur, "active_nav": "documents",
     })
+
+@app.get("/admin/retires", response_class=HTMLResponse)
+async def admin_documents_retires(
+    request: Request, db: Session = Depends(get_db),
+    q: str = "", page: int = 1, par_page: int = PAR_PAGE_DEFAUT,
+):
+    """Documents retirés du portail : ce qu'ils étaient, pourquoi, quand.
+    Limité au périmètre de l'utilisateur."""
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    requete = db.query(DocumentRetire)
+    if code is not None:
+        requete = requete.filter(DocumentRetire.etablissement_code == code)
+    if q.strip():
+        motif = f"%{q.strip()}%"
+        requete = requete.filter(DocumentRetire.titre.ilike(motif)
+                                 | DocumentRetire.auteur.ilike(motif)
+                                 | DocumentRetire.numero_national.ilike(motif))
+    retires, pagination = paginate(requete.order_by(DocumentRetire.retire_le.desc()),
+                                   page, normaliser_par_page(par_page))
+    return templates.TemplateResponse("admin/retires.html", {
+        "request": request, "params": get_params_with_defaults(db),
+        "retires": retires, "pagination": pagination, "q": q,
+        "current_user": utilisateur, "active_nav": "documents",
+    })
+
 
 @app.get("/api/stats")
 async def api_stats(db: Session = Depends(get_db)):

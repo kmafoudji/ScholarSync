@@ -1,10 +1,11 @@
 from sqlalchemy.orm import Session
 from datetime import datetime
 from pyzotero import zotero
-from app.models import ZoteroSource, Document, SyncLog, NumerotationCompteur
+from app.models import ZoteroSource, Document, SyncLog, NumerotationCompteur, DocumentRetire
 from app.services.numerotation import generer_numero
 from app.services import acces as acces_docs
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,12 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                 return 0
             logger.info("Document retiré (%s) : %s %s", raison, doc.numero_national,
                         (doc.titre or "")[:40])
+            db.add(DocumentRetire(
+                document_id=doc.id, numero_national=doc.numero_national,
+                titre=doc.titre, auteur=doc.auteur, type=doc.type, annee=doc.annee,
+                etablissement_code=doc.etablissement_code,
+                zotero_source_id=source.id, zotero_item_key=cle, raison=raison,
+            ))
             db.delete(doc)
             return 1
 
@@ -216,14 +223,32 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                     existing.synced_at = datetime.now()
                     modified += 1
                 else:
-                    numero = generer_numero(
-                        db,
-                        etablissement_code=etab_code,
-                        type_doc=type_info["type"],
-                        statut=statut,
-                        annee=annee,
+                    # Item revenu (restauré de la corbeille, remis dans la
+                    # collection) : il reprend son identifiant et son
+                    # numéro national, au lieu d'en consommer un nouveau.
+                    ancien = (
+                        db.query(DocumentRetire)
+                        .filter(DocumentRetire.zotero_source_id == source.id,
+                                DocumentRetire.zotero_item_key == zotero_key)
+                        .order_by(DocumentRetire.retire_le.desc())
+                        .first()
                     )
+                    numero = ancien.numero_national if ancien and ancien.numero_national else None
+                    if numero is None:
+                        numero = generer_numero(
+                            db,
+                            etablissement_code=etab_code,
+                            type_doc=type_info["type"],
+                            statut=statut,
+                            annee=annee,
+                        )
+                    if ancien is not None:
+                        db.query(DocumentRetire).filter(
+                            DocumentRetire.zotero_source_id == source.id,
+                            DocumentRetire.zotero_item_key == zotero_key,
+                        ).delete(synchronize_session=False)
                     db.add(Document(
+                        id=ancien.document_id if ancien else uuid.uuid4(),
                         numero_national=numero,
                         titre=data.get("title", "Sans titre"),
                         auteur=auteur or "Auteur inconnu",

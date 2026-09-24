@@ -38,6 +38,7 @@ _UUID = r"[0-9a-fA-F-]{36}"
 ROUTES_ETABLISSEMENT = [
     ({"GET"}, r"/admin"),
     ({"GET"}, r"/admin/documents"),
+    ({"GET"}, r"/admin/retires"),
     ({"POST"}, rf"/admin/documents/{_UUID}/toggle-acces"),
     ({"GET"}, r"/admin/sync"),
     ({"GET"}, r"/admin/sync/etat"),

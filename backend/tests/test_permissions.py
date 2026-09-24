@@ -52,6 +52,7 @@ def test_etablissement_accede_a_son_espace():
         ("POST", "/admin/acces/12/supprimer"),
         ("POST", "/admin/mon-etablissement/zotero"),
         ("POST", "/admin/mon-etablissement/zotero/tester"),
+        ("GET", "/admin/retires"),
     ]:
         assert p.autorise(ADMIN, methode, chemin), chemin
         assert p.autorise(ANCIEN, methode, chemin), chemin

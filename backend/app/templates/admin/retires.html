@@ -1,0 +1,66 @@
+{% extends "admin/base.html" %}
+{% import "admin/components/tableau.html" as t with context %}
+{% block title %}Documents retirés{% endblock %}
+{% block page_title %}Documents retirés{% endblock %}
+
+{% block topbar_actions %}
+<a href="/admin/documents" class="btn btn--ghost btn--sm">
+  <i class="ti ti-arrow-left" aria-hidden="true"></i> Documents
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert--warning" style="margin-bottom:1.25rem;">
+  <i class="ti ti-info-circle" aria-hidden="true"></i>
+  <div>
+    Un document est retiré du portail quand sa notice est supprimée ou mise à la corbeille
+    dans Zotero, ou sortie des collections Thèses / Mémoires. Son numéro national n'est
+    jamais réattribué ; si la notice revient dans Zotero, le document reprend son numéro
+    et son adresse à la synchronisation suivante.
+  </div>
+</div>
+
+<div class="card" style="padding:0;">
+  <div class="doc-filtres">
+    <form method="get" class="doc-filtres__form">
+      <label class="sr-only" for="rechRetires">Rechercher</label>
+      <input type="search" id="rechRetires" name="q" value="{{ q }}" class="form-control"
+             placeholder="Titre, auteur, numéro national…" style="min-width:220px;flex:1;">
+      <button type="submit" class="btn btn--outline btn--sm">
+        <i class="ti ti-search" aria-hidden="true"></i> Rechercher
+      </button>
+      {% if q %}<a href="/admin/retires" class="btn btn--ghost btn--sm">Réinitialiser</a>{% endif %}
+    </form>
+  </div>
+  {{ t.barre(pagination, 'documents retirés') }}
+  {{ t.pagination(pagination, 'haut') }}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Titre</th><th>Auteur</th><th>Établissement</th><th>Année</th>
+          <th>Numéro national</th><th>Raison</th><th>Retiré le</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in retires %}
+        <tr>
+          <td style="font-weight:500;">{{ r.titre }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ r.auteur }}</td>
+          <td><span class="cellule-code">{{ r.etablissement_code }}</span></td>
+          <td style="font-size:var(--fs-sm);">{{ r.annee or '—' }}</td>
+          <td style="font-size:var(--fs-sm);font-variant-numeric:tabular-nums;white-space:nowrap;">{{ r.numero_national or '—' }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ r.raison }}</td>
+          <td style="font-size:var(--fs-sm);white-space:nowrap;">{{ r.retire_le|format_datetime }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-3);">
+          Aucun document retiré.
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {{ t.pagination(pagination, 'bas') }}
+</div>
+{% endblock %}
