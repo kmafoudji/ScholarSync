@@ -1,0 +1,157 @@
+{% extends "admin/base.html" %}
+{% block title %}Importer des notices{% endblock %}
+{% block page_title %}Importer des notices{% endblock %}
+
+{% block content %}
+{% if not apercu %}
+<div class="alert alert--warning" style="margin-bottom:1.25rem;">
+  <i class="ti ti-info-circle" aria-hidden="true"></i>
+  <div>
+    Pour les établissements qui ne cataloguent pas dans Zotero. Koha, PMB, EndNote, Mendeley,
+    JabRef ou un tableur exportent tous au moins un de ces formats : <strong>CSV</strong>,
+    <strong>RIS</strong> ou <strong>BibTeX</strong>. L'import se fait en deux temps : un aperçu,
+    puis la confirmation. Réimporter le même fichier met les notices à jour sans les dupliquer.
+  </div>
+</div>
+
+<form method="post" action="/admin/import/analyser" enctype="multipart/form-data" class="card card--lg">
+  <h2 class="mon-etab__titre"><i class="ti ti-upload" aria-hidden="true"></i> Fichier à importer</h2>
+  {% if super_admin %}
+  <div class="form-group">
+    <label class="form-label" for="i-etab">Établissement destinataire <span class="required">*</span></label>
+    <select id="i-etab" name="etablissement" class="form-control" required>
+      <option value="">— choisir —</option>
+      {% for e in etablissements %}<option value="{{ e.code }}">{{ e.code }} — {{ e.nom }}</option>{% endfor %}
+    </select>
+  </div>
+  {% else %}
+  <p class="mon-etab__note" style="margin-top:0;">Les notices seront ajoutées au fonds de <strong>{{ code_etab }}</strong>.</p>
+  {% endif %}
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label" for="i-fichier">Fichier CSV, RIS ou BibTeX <span class="required">*</span></label>
+      <input id="i-fichier" type="file" name="fichier" class="form-control" required
+             accept=".csv,.txt,.tsv,.ris,.bib,.bibtex">
+      <div class="form-hint">5 Mo et 5 000 notices au plus.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="i-type">Type si le fichier ne le précise pas</label>
+      <select id="i-type" name="type_defaut" class="form-control">
+        <option value="">— exiger le type dans le fichier —</option>
+        <option value="these">Thèses</option>
+        <option value="memoire">Mémoires</option>
+      </select>
+    </div>
+  </div>
+  <div class="mon-etab__actions" style="justify-content:space-between;flex-wrap:wrap;gap:.5rem;">
+    <a href="/admin/import/modele.csv" class="btn btn--ghost">
+      <i class="ti ti-download" aria-hidden="true"></i> Télécharger le modèle CSV
+    </a>
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-eye" aria-hidden="true"></i> Analyser le fichier
+    </button>
+  </div>
+</form>
+
+<div class="card card--lg" style="margin-top:1rem;">
+  <h2 class="mon-etab__titre"><i class="ti ti-list-details" aria-hidden="true"></i> Formats acceptés</h2>
+  <ul class="logo-televersement__regles" style="margin-top:0;">
+    <li><strong>CSV</strong> (séparateur « ; » ou « , ») : colonnes titre, auteur, type (thèse / mémoire),
+      statut (soutenu / en préparation), année, directeur, domaine, faculté, langue, résumé,
+      mots-clés (séparés par « ; » entre guillemets, ou « | »), url. Seuls titre, auteur, type
+      et année sont obligatoires.</li>
+    <li><strong>RIS</strong> : TY THES ; TI titre, AU auteur, PY année, M3 « Thèse de doctorat » ou
+      « Mémoire de master », A2 direction, KW mots-clés, AB résumé, UR lien, N1 « en préparation ».</li>
+    <li><strong>BibTeX</strong> : @phdthesis (thèse) et @mastersthesis (mémoire) ; title, author, year,
+      supervisor, keywords, abstract, url, institution (faculté).</li>
+    <li>Koha / PMB : exportez le panier ou la sélection au format RIS, ou en CSV avec les colonnes ci-dessus.</li>
+  </ul>
+</div>
+
+{% else %}
+{# ── Aperçu ────────────────────────────────────────────────────── #}
+<div class="stat-cards">
+  <div class="stat-card stat-card--accent">
+    <div class="stat-card__label">Notices lues ({{ apercu.format }})</div>
+    <div class="stat-card__value">{{ apercu.total|format_number }}</div>
+    <div class="stat-card__sub">{{ apercu.fichier }} → {{ apercu.code }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Nouvelles</div>
+    <div class="stat-card__value" style="color:var(--success);">{{ apercu.nouvelles|format_number }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Mises à jour</div>
+    <div class="stat-card__value">{{ apercu.mises_a_jour|format_number }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Rejetées</div>
+    <div class="stat-card__value" style="color:{{ 'var(--danger)' if apercu.nb_erreurs else 'inherit' }};">{{ apercu.nb_erreurs|format_number }}</div>
+  </div>
+</div>
+
+{% if apercu.nb_erreurs %}
+<div class="card" style="padding:0;margin-bottom:1rem;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h2>Notices rejetées — elles ne seront pas importées</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Ligne</th><th>Titre</th><th>Problème</th></tr></thead>
+      <tbody>
+        {% for n in apercu.erreurs %}
+        <tr>
+          <td style="font-variant-numeric:tabular-nums;">{{ n.ligne }}</td>
+          <td>{{ n.titre or '—' }}</td>
+          <td style="color:var(--danger);">{{ n.erreurs|join(', ') }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% if apercu.valides %}
+<div class="card" style="padding:0;margin-bottom:1rem;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h2>Aperçu{{ ' (15 premières)' if apercu.valides > 15 }}</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Titre</th><th>Auteur</th><th>Type</th><th>Statut</th><th>Année</th><th>Faculté</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for n in apercu.exemples %}
+        <tr>
+          <td style="font-weight:500;">{{ n.titre }}</td>
+          <td style="font-size:var(--fs-sm);color:var(--text-2);">{{ n.auteur }}</td>
+          <td><span class="badge badge--{{ n.type }}">{{ 'Thèse' if n.type == 'these' else 'Mémoire' }}</span></td>
+          <td><span class="badge badge--{{ n.statut }}">{{ 'Soutenu' if n.statut == 'soutenu' else 'En prép.' }}</span></td>
+          <td>{{ n.annee }}</td>
+          <td style="font-size:var(--fs-sm);">{{ n.faculte or '—' }}</td>
+          <td style="font-size:var(--fs-sm);">{{ 'Mise à jour' if n.cle in apercu.existantes else 'Ajout' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+<div class="mon-etab__actions" style="gap:.5rem;justify-content:flex-end;flex-wrap:wrap;">
+  <a href="/admin/import" class="btn btn--ghost">Annuler</a>
+  {% if apercu.valides %}
+  <form method="post" action="/admin/import/confirmer">
+    <input type="hidden" name="jeton" value="{{ apercu.jeton }}">
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check" aria-hidden="true"></i>
+      Importer {{ apercu.valides|format_number }} notice{{ 's' if apercu.valides != 1 }}
+    </button>
+  </form>
+  {% endif %}
+</div>
+<p class="mon-etab__note" style="text-align:right;">
+  Les travaux soutenus reçoivent leur numéro national à l'import ; ceux en préparation, à leur soutenance.
+</p>
+{% endif %}
+{% endblock %}

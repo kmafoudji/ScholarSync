@@ -53,6 +53,8 @@ def test_etablissement_accede_a_son_espace():
         ("POST", "/admin/mon-etablissement/zotero"),
         ("POST", "/admin/mon-etablissement/zotero/tester"),
         ("GET", "/admin/retires"),
+        ("GET", "/admin/import"), ("GET", "/admin/import/modele.csv"),
+        ("POST", "/admin/import/analyser"), ("POST", "/admin/import/confirmer"),
     ]:
         assert p.autorise(ADMIN, methode, chemin), chemin
         assert p.autorise(ANCIEN, methode, chemin), chemin
@@ -67,6 +69,7 @@ def test_lecteur_ne_modifie_rien():
     assert p.autorise(LECTEUR, "GET", "/admin/acces")
     assert not p.autorise(LECTEUR, "POST", "/admin/acces/definir")
     assert not p.autorise(LECTEUR, "POST", "/admin/mon-etablissement/zotero")
+    assert not p.autorise(LECTEUR, "POST", "/admin/import/confirmer")
 
 
 def test_role_inconnu_na_rien():

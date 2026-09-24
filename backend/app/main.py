@@ -1587,6 +1587,161 @@ async def admin_documents_retires(
     })
 
 
+# ─── IMPORT HORS ZOTERO (CSV, RIS, BibTeX) ───────────────────────
+
+import tempfile as _tempfile
+
+DOSSIER_IMPORTS = os.path.join(_tempfile.gettempdir(), "scholarsync-imports")
+DUREE_APERCU_S = 3600
+
+
+def _code_import(utilisateur, db: Session, etablissement: str = ""):
+    """Établissement visé par l'import : le sien, ou celui choisi par le
+    super administrateur. None si aucun."""
+    code = permissions.perimetre(utilisateur)
+    if code is None:
+        code = (etablissement or "").strip().upper()
+    if not code or code == permissions.AUCUN:
+        return None
+    return code if db.query(Etablissement).filter(Etablissement.code == code).first() else None
+
+
+def _page_import(request, db, utilisateur, **extra):
+    super_admin = permissions.est_super_admin(utilisateur)
+    return templates.TemplateResponse("admin/import.html", {
+        "request": request, "params": get_params_with_defaults(db),
+        "super_admin": super_admin,
+        "etablissements": db.query(Etablissement).order_by(Etablissement.code).all() if super_admin else [],
+        "code_etab": permissions.perimetre(utilisateur),
+        "current_user": utilisateur, "active_nav": "import", **extra,
+    })
+
+
+@app.get("/admin/import", response_class=HTMLResponse)
+async def admin_import(request: Request, db: Session = Depends(get_db)):
+    return _page_import(request, db, utilisateur_courant(request, db))
+
+
+@app.get("/admin/import/modele.csv")
+async def admin_import_modele():
+    from app.services import importation
+    return Response(importation.modele_csv().encode("utf-8"), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="modele-import-scholarsync.csv"'})
+
+
+@app.post("/admin/import/analyser", response_class=HTMLResponse)
+async def admin_import_analyser(
+    request: Request, db: Session = Depends(get_db),
+    fichier: UploadFile = File(...), etablissement: str = Form(""),
+    type_defaut: str = Form(""),
+):
+    """Étape 1 : lecture et aperçu. Rien n'est écrit en base."""
+    from app.services import importation
+    utilisateur = utilisateur_courant(request, db)
+    code = _code_import(utilisateur, db, etablissement)
+    if code is None:
+        return redirect_flash("/admin/import", "Choisissez l'établissement destinataire.", "danger")
+    contenu = await fichier.read(importation.TAILLE_MAX_MO * 1024 * 1024 + 1)
+    try:
+        fmt, notices = importation.lire(fichier.filename or "", contenu,
+                                        type_defaut if type_defaut in ("these", "memoire") else "")
+    except importation.ImportRefuse as e:
+        return redirect_flash("/admin/import", f"Import impossible : {e}", "danger")
+
+    valides = [n for n in notices if n.valide]
+    existantes = {k for (k,) in db.query(Document.zotero_item_key).filter(
+        Document.etablissement_code == code,
+        Document.zotero_item_key.in_([n.cle for n in valides] or ["-"]))}
+
+    import secrets as _secrets
+    jeton = _secrets.token_urlsafe(16)
+    os.makedirs(DOSSIER_IMPORTS, exist_ok=True)
+    with open(os.path.join(DOSSIER_IMPORTS, f"{jeton}.json"), "w", encoding="utf-8") as f:
+        json.dump({
+            "utilisateur": str(utilisateur.id), "code": code, "cree": datetime.now().timestamp(),
+            "fichier": fichier.filename, "notices": [
+                {k: getattr(n, k) for k in ("titre", "auteur", "type", "statut", "annee",
+                                            "directeur", "domaine", "faculte", "langue",
+                                            "resume", "mots_cles", "url")} | {"cle": n.cle}
+                for n in valides],
+        }, f, ensure_ascii=False)
+
+    return _page_import(
+        request, db, utilisateur, apercu={
+            "jeton": jeton, "format": fmt.upper() if fmt != "bibtex" else "BibTeX",
+            "fichier": fichier.filename, "code": code,
+            "total": len(notices), "valides": len(valides),
+            "nouvelles": sum(1 for n in valides if n.cle not in existantes),
+            "mises_a_jour": sum(1 for n in valides if n.cle in existantes),
+            "erreurs": [n for n in notices if not n.valide][:200],
+            "nb_erreurs": sum(1 for n in notices if not n.valide),
+            "exemples": valides[:15], "existantes": existantes,
+        })
+
+
+@app.post("/admin/import/confirmer")
+async def admin_import_confirmer(
+    request: Request, db: Session = Depends(get_db), jeton: str = Form(...),
+):
+    """Étape 2 : écriture des notices validées à l'étape 1."""
+    from app.services.numerotation import generer_numero
+    utilisateur = utilisateur_courant(request, db)
+    if not re.match(r"^[A-Za-z0-9_-]{10,40}$", jeton):
+        return redirect_flash("/admin/import", "Aperçu introuvable.", "danger")
+    chemin = os.path.join(DOSSIER_IMPORTS, f"{jeton}.json")
+    try:
+        with open(chemin, encoding="utf-8") as f:
+            lot = json.load(f)
+    except (OSError, ValueError):
+        return redirect_flash("/admin/import", "Aperçu expiré : relancez l'analyse du fichier.", "warning")
+    code = lot.get("code")
+    if (lot.get("utilisateur") != str(utilisateur.id)
+            or datetime.now().timestamp() - lot.get("cree", 0) > DUREE_APERCU_S
+            or permissions.perimetre(utilisateur) not in (None, code)):
+        return redirect_flash("/admin/import", "Aperçu expiré : relancez l'analyse du fichier.", "warning")
+
+    ajoutes = modifies = 0
+    for n in lot["notices"]:
+        doc = db.query(Document).filter(Document.etablissement_code == code,
+                                        Document.zotero_item_key == n["cle"]).first()
+        champs = dict(
+            titre=n["titre"], auteur=n["auteur"], statut=n["statut"], annee=n["annee"],
+            directeur=n["directeur"], domaine=n["domaine"], sous_entite_nom=n["faculte"],
+            langue=n["langue"] or "français", resume=n["resume"],
+            mots_cles=n["mots_cles"] or None, url_document=n["url"],
+            synced_at=datetime.now(),
+        )
+        if doc is None:
+            doc = Document(type=n["type"], etablissement_code=code,
+                           zotero_item_key=n["cle"], **champs)
+            doc.numero_national = generer_numero(db, etablissement_code=code, type_doc=n["type"],
+                                                 statut=n["statut"], annee=n["annee"])
+            db.add(doc)
+            ajoutes += 1
+        else:
+            for k, v in champs.items():
+                setattr(doc, k, v)
+            if n["statut"] == "soutenu" and not doc.numero_national:
+                doc.numero_national = generer_numero(db, etablissement_code=code, type_doc=doc.type,
+                                                     statut="soutenu", annee=n["annee"])
+            modifies += 1
+        db.flush()
+    acces_docs.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
+    db.commit()
+    moteur_recherche.indexer(db, db.query(Document).filter(
+        Document.etablissement_code == code,
+        Document.zotero_item_key.in_([n["cle"] for n in lot["notices"]] or ["-"])))
+    moteur_recherche.vider_cache()
+    try:
+        os.remove(chemin)
+    except OSError:
+        pass
+    return redirect_flash(
+        "/admin/documents",
+        f"Import terminé pour {code} : {ajoutes} notice(s) ajoutée(s), {modifies} mise(s) à jour.",
+        "success")
+
+
 @app.get("/api/stats")
 async def api_stats(db: Session = Depends(get_db)):
     return get_stats(db)
