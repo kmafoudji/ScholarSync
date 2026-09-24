@@ -34,24 +34,20 @@
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label" for="f-email">Adresse de courriel <span class="required">*</span></label>
-      <input id="f-email" type="email" name="email" class="form-control" required
-             value="{{ utilisateur.email }}" data-initial="{{ utilisateur.email }}" autocomplete="email">
-      <div class="form-hint">Elle sert à vous connecter et à recevoir les liens de réinitialisation.</div>
-    </div>
-    <div class="form-group" id="blocConfirmEmail" hidden>
-      <label class="form-label" for="f-mdp-email">Mot de passe actuel <span class="required">*</span></label>
-      <input id="f-mdp-email" type="password" name="mot_de_passe_actuel" class="form-control"
-             autocomplete="current-password">
-      <div class="form-hint">Obligatoire pour changer d'adresse de courriel.</div>
+      <span class="form-label">Adresse de courriel</span>
+      <p class="compte-fixe">{{ utilisateur.email }}</p>
     </div>
     <div class="form-group">
       <span class="form-label">Rôle et établissement</span>
       <p class="compte-fixe">
         {{ role_libelle }}{% if etab %} — {{ etab.nom }} ({{ etab.code }}){% endif %}
-        <br><span>Seul le super administrateur peut les modifier.</span>
       </p>
     </div>
+    <p class="mon-etab__note">
+      L'adresse de courriel sert d'identifiant de connexion. Elle, le rôle
+      et l'établissement ne peuvent être modifiés que par le super
+      administrateur.
+    </p>
     <div class="mon-etab__actions">
       <button type="submit" class="btn btn--primary">
         <i class="ti ti-check" aria-hidden="true"></i> Enregistrer
@@ -121,17 +117,6 @@
 {% block extra_js %}
 <script>
 (function () {
-  // Mot de passe demandé seulement si le courriel change
-  var email = document.getElementById('f-email');
-  var bloc = document.getElementById('blocConfirmEmail');
-  var mdpEmail = document.getElementById('f-mdp-email');
-  function majEmail() {
-    var change = email.value.trim().toLowerCase() !== email.dataset.initial;
-    bloc.hidden = !change;
-    mdpEmail.required = change;
-  }
-  email.addEventListener('input', majEmail);
-
   // Afficher / masquer
   document.querySelectorAll('[data-voir]').forEach(function (b) {
     b.addEventListener('click', function () {

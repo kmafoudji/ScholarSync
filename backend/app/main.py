@@ -1718,7 +1718,6 @@ ROLES_COURTS = {
 }
 
 LONGUEUR_MDP_MIN = 10
-MOTIF_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def maintenant_utc() -> datetime:
@@ -1995,54 +1994,22 @@ async def admin_mon_compte(request: Request, db: Session = Depends(get_db)):
 @app.post("/admin/mon-compte")
 async def admin_mon_compte_save(
     request: Request, db: Session = Depends(get_db),
-    prenom: str = Form(""), nom: str = Form(""), email: str = Form(...),
-    mot_de_passe_actuel: str = Form(""),
+    prenom: str = Form(""), nom: str = Form(""),
 ):
-    retour = "/admin/mon-compte"
+    """Prénom et nom seulement. Le courriel est l'identifiant du compte :
+    il n'est modifiable que par le super administrateur (page
+    Utilisateurs). Un champ « email » envoyé ici est ignoré."""
     session_user = utilisateur_courant(request, db)
     # L'objet du middleware est détaché de la session : on relit le compte.
     user = db.query(Utilisateur).filter(Utilisateur.id == session_user.id).first()
-
-    email = email.strip().lower()
-    if not MOTIF_EMAIL.match(email):
-        return redirect_flash(retour, "Adresse de courriel invalide.", "danger")
-
-    change_email = email != user.email
-    if change_email:
-        # Le courriel sert d'identifiant et reçoit les liens de
-        # réinitialisation : le changer revient à pouvoir prendre le
-        # compte. On exige donc le mot de passe actuel.
-        if not verify_password(mot_de_passe_actuel, user.mot_de_passe_hash):
-            return redirect_flash(
-                retour,
-                "Pour changer d'adresse de courriel, saisissez votre mot de passe actuel.",
-                "danger",
-            )
-        if db.query(Utilisateur).filter(
-            Utilisateur.email == email, Utilisateur.id != user.id
-        ).first():
-            return redirect_flash(retour, "Cette adresse est déjà utilisée par un autre compte.", "danger")
-
     user.prenom = prenom.strip()[:100] or None
     user.nom = nom.strip()[:100] or None
-    user.email = email
     try:
         db.commit()
     except Exception:
         db.rollback()
-        return redirect_flash(retour, "Enregistrement impossible.", "danger")
-
-    reponse = redirect_flash(
-        retour,
-        f"Informations enregistrées. Connectez-vous désormais avec {email}."
-        if change_email else "Informations enregistrées.",
-        "success",
-    )
-    if change_email:
-        # Le jeton de session porte l'ancien courriel : sans un nouveau
-        # jeton, l'utilisateur serait déconnecté à la page suivante.
-        poser_session(reponse, user)
-    return reponse
+        return redirect_flash("/admin/mon-compte", "Enregistrement impossible.", "danger")
+    return redirect_flash("/admin/mon-compte", "Informations enregistrées.", "success")
 
 
 @app.post("/admin/mon-compte/mot-de-passe")
