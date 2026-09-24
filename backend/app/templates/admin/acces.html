@@ -12,7 +12,9 @@
 {% block content %}
 <div class="alert alert--warning" style="margin-bottom:1.25rem;">
   <i class="ti ti-info-circle"></i>
-  Les règles s'appliquent du niveau le plus fin au plus large. Une restriction sur un document prime sur celle de sa collection.
+  La règle la plus fine l'emporte : document, puis sous-collection, puis collection, puis établissement.
+  Un document restreint reste signalé sur le portail, mais le lien vers son texte intégral n'est
+  publié nulle part (fiche, exports, citations).
 </div>
 
 <div class="card" style="padding:0;margin-bottom:1rem;">
@@ -158,7 +160,12 @@
           <label class="form-label" for="f-reference">Référence <span class="required">*</span></label>
           <input id="f-reference" type="text" name="reference" class="form-control" required
                  placeholder="Code établissement, nom collection, ou UUID document">
-          <div class="form-hint">Ex: UCAD — ou — Thèses — ou — UUID du document</div>
+          <div class="form-hint">
+            Établissement : son code (UCAD). Collection : « Thèses » ou « Mémoires »,
+            ou « UCAD/Thèses » pour un seul établissement. Sous-collection : le nom de
+            la faculté ou de l'école doctorale, ou « UCAD/FASTEF ». Document : son
+            identifiant — le plus simple est le bouton Public/Restreint de la page Documents.
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">Accès <span class="required">*</span></label>

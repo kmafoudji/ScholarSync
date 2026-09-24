@@ -29,6 +29,7 @@ COLONNES = [
     ("sync_logs", "documents_total", "INTEGER DEFAULT 0"),
     ("sync_logs", "documents_traites", "INTEGER DEFAULT 0"),
     ("utilisateurs", "mdp_modifie_le", "TIMESTAMPTZ"),
+    ("sync_logs", "documents_supprimes", "INTEGER DEFAULT 0"),
 ]
 
 # Corrections de données et de contraintes, idempotentes.

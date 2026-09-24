@@ -15,6 +15,7 @@ l'échappement normal de Jinja.
 
 import re
 import unicodedata
+from app.services.acces import url_publique
 
 # ── BibTeX ────────────────────────────────────────────────────────
 # Ces caractères ont un sens pour TeX. Non protégés, ils cassent la
@@ -71,7 +72,7 @@ def bibtex(doc, etablissement_nom: str = None, base_url: str = "") -> str:
         ("keywords", ", ".join(doc.mots_cles) if doc.mots_cles else None),
         ("abstract", doc.resume),
         ("note", f"Numéro national : {doc.numero_national}"),
-        ("url", doc.url_document or (f"{base_url}/document/{doc.id}" if base_url else None)),
+        ("url", url_publique(doc) or (f"{base_url}/document/{doc.id}" if base_url else None)),
     ]
     if doc.sous_entite_nom:
         champs.insert(5, ("institution", doc.sous_entite_nom))
@@ -117,7 +118,7 @@ def ris(doc, etablissement_nom: str = None, base_url: str = "") -> str:
         sortie += _ris_ligne("KW", mot)
     sortie += _ris_ligne("AB", doc.resume)
     sortie += _ris_ligne("SN", doc.numero_national)
-    sortie += _ris_ligne("UR", doc.url_document
+    sortie += _ris_ligne("UR", url_publique(doc)
                          or (f"{base_url}/document/{doc.id}" if base_url else None))
     sortie += "ER  - \n"
     return sortie
@@ -141,8 +142,8 @@ def apa(doc, etablissement_nom: str = None) -> str:
     ]
     if doc.numero_national:
         morceaux.append(f"N° national {doc.numero_national}.")
-    if doc.url_document:
-        morceaux.append(doc.url_document)
+    if url_publique(doc):
+        morceaux.append(url_publique(doc))
     return " ".join(m for m in morceaux if m)
 
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from pyzotero import zotero
 from app.models import ZoteroSource, Document, SyncLog, NumerotationCompteur
 from app.services.numerotation import generer_numero
+from app.services import acces as acces_docs
 import logging
 
 logger = logging.getLogger(__name__)
@@ -127,17 +128,41 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
         raw_cols = zot.everything(zot.collections())
         tree = construire_arbre_collections(raw_cols)
 
-        items = zot.everything(zot.items(since=since))
+        # includeTrashed : un item mis à la corbeille Zotero n'apparaît
+        # plus dans /items. Sans ce paramètre, il restait publié sur le
+        # portail jusqu'à ce que la corbeille soit vidée.
+        items = zot.everything(zot.items(since=since, includeTrashed=1))
 
         log.documents_total = len(items)
         db.commit()
 
-        added = modified = errors = 0
+        added = modified = errors = removed = 0
         etab_code = source.etablissement.code
+
+        def _retirer(cle: str, raison: str) -> int:
+            """Retire du portail le document issu de l'item `cle` de CETTE
+            source. Le numéro national n'est pas réattribué : le compteur
+            de l'établissement ne recule jamais."""
+            doc = (
+                db.query(Document)
+                .filter(Document.zotero_source_id == source.id,
+                        Document.zotero_item_key == cle)
+                .first()
+            )
+            if doc is None:
+                return 0
+            logger.info("Document retiré (%s) : %s %s", raison, doc.numero_national,
+                        (doc.titre or "")[:40])
+            db.delete(doc)
+            return 1
 
         for index, item in enumerate(items, start=1):
             try:
                 data = item.get("data", {})
+                if data.get("deleted"):
+                    removed += _retirer(data.get("key", ""), "corbeille Zotero")
+                    db.commit()
+                    continue
                 if data.get("itemType") not in (
                     "thesis", "book", "document", "journalArticle", "report"
                 ):
@@ -146,6 +171,10 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                 col_keys = data.get("collections", [])
                 type_info = determiner_type_depuis_arbre(col_keys, tree)
                 if not type_info["type"]:
+                    # Sorti des collections Thèses / Mémoires : s'il était
+                    # publié, il ne doit plus l'être.
+                    removed += _retirer(data.get("key", ""), "hors collections Thèses/Mémoires")
+                    db.commit()
                     logger.info(
                         "Item ignoré (type non détecté) : %s",
                         data.get("title", "")[:40],
@@ -226,6 +255,25 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                 log.documents_erreur = errors
                 db.commit()
 
+        # Items supprimés définitivement (corbeille vidée) depuis la
+        # dernière version. Un échec ici compte comme une erreur : avancer
+        # la version ferait perdre ces suppressions pour toujours.
+        try:
+            supprimes = (zot.deleted(since=since) or {}).get("items") or []
+            for cle in supprimes:
+                removed += _retirer(cle, "supprimé dans Zotero")
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.exception("Suppressions Zotero non récupérées pour la source %s", source.id)
+            errors += 1
+
+        # Règles d'accès appliquées aux documents nouveaux ou modifiés
+        acces_docs.recalculer(
+            db, db.query(Document).filter(Document.zotero_source_id == source.id)
+        )
+        db.commit()
+
         # La sync est incrémentale (items modifiés depuis zotero_version) :
         # avancer la version malgré des notices en erreur les ferait
         # disparaître des syncs suivantes, sans que personne ne le voie.
@@ -248,11 +296,13 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
         log.documents_ajoutes = added
         log.documents_modifies = modified
         log.documents_erreur = errors
+        log.documents_supprimes = removed
         log.documents_traites = len(items)
         log.fin = datetime.now()
         db.commit()
         logger.info(
-            "Sync %s : +%s modifiés:%s erreurs:%s", etab_code, added, modified, errors
+            "Sync %s : +%s modifiés:%s retirés:%s erreurs:%s",
+            etab_code, added, modified, removed, errors,
         )
 
     except Exception as e:

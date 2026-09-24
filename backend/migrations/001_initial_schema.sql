@@ -161,6 +161,7 @@ CREATE TABLE sync_logs (
     documents_ajoutes   INTEGER DEFAULT 0,
     documents_modifies  INTEGER DEFAULT 0,
     documents_erreur    INTEGER DEFAULT 0,
+    documents_supprimes INTEGER DEFAULT 0,
     message_erreur      TEXT,
     debut               TIMESTAMPTZ DEFAULT now(),
     fin                 TIMESTAMPTZ

@@ -155,6 +155,7 @@
             toast(
               'Synchronisation terminée : ' + log.ajoutes + ' ajout(s), ' +
               log.modifies + ' mise(s) à jour' +
+              (log.supprimes ? ', ' + log.supprimes + ' retrait(s)' : '') +
               (log.erreurs ? ', ' + log.erreurs + ' erreur(s)' : '') + '.',
               log.erreurs ? 'warning' : 'success'
             );

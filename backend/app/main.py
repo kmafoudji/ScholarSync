@@ -24,6 +24,7 @@ from app.core import citations
 from app.core import logos
 from app.core import permissions
 from app.core import i18n
+from app.services import acces as acces_docs
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -36,6 +37,28 @@ from app.models import (
 # un 502 sans rien expliquer. Ici l'application démarre quand même et
 # /sante dit ce qui manque.
 schema_bd.initialiser(engine, Base)
+
+# Les règles d'accès enregistrées avant qu'elles ne soient appliquées
+# prennent effet dès le démarrage, sans attendre une synchronisation.
+def _appliquer_regles_acces_au_demarrage():
+    db = SessionLocal()
+    try:
+        from app.services import acces as _acces
+        changes = _acces.recalculer(db)
+        db.commit()
+        if changes:
+            logging.getLogger("scholarsync").info(
+                "Règles d'accès appliquées au démarrage : %s document(s)", changes)
+    except Exception:
+        db.rollback()
+        logging.getLogger("scholarsync").warning(
+            "Règles d'accès non appliquées au démarrage", exc_info=True)
+    finally:
+        db.close()
+
+
+if schema_bd.etat.get("pret"):
+    _appliquer_regles_acces_au_demarrage()
 
 app = FastAPI(title="ScholarSync", docs_url="/api/docs")
 
@@ -805,7 +828,7 @@ async def export_public(
                 d.directeur or "",
                 "; ".join(d.mots_cles) if d.mots_cles else "",
                 "Public" if d.acces == "public" else "Restreint",
-                d.url_document or "",
+                acces_docs.url_publique(d) or "",
                 f"{base}/document/{d.id}",
             ])
         contenu = tampon.getvalue()
@@ -1266,6 +1289,7 @@ async def admin_sync_etat(request: Request, db: Session = Depends(get_db)):
             "ajoutes": log.documents_ajoutes or 0,
             "modifies": log.documents_modifies or 0,
             "erreurs": log.documents_erreur or 0,
+            "supprimes": log.documents_supprimes or 0,
             "message_erreur": log.message_erreur,
             "debut": log.debut.isoformat() if log.debut else None,
             "fin": log.fin.isoformat() if log.fin else None,
@@ -1688,6 +1712,7 @@ async def admin_sync(
         "ajoutes": (SyncLog.documents_ajoutes, "desc"),
         "modifies": (SyncLog.documents_modifies, "desc"),
         "erreurs": (SyncLog.documents_erreur, "desc"),
+        "supprimes": (SyncLog.documents_supprimes, "desc"),
     }, defaut="debut")
     logs, pagination = paginate(requete, page, normaliser_par_page(par_page))
 
@@ -2163,13 +2188,29 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
 async def admin_document_toggle_acces(
     doc_id: str, request: Request, db: Session = Depends(get_db)
 ):
+    """Bascule l'accès d'un document, par une règle de niveau document.
+
+    Écrire directement documents.acces serait effacé au prochain calcul
+    des règles (après une synchronisation, par exemple) : la bascule doit
+    être une règle, la plus fine, qui prime sur celles de l'établissement
+    ou de la collection.
+    """
     utilisateur = utilisateur_courant(request, db)
     doc = filtrer_documents(db.query(Document), utilisateur).filter(
         Document.id == doc_id
     ).first()
     if not doc:
         return redirect_flash("/admin/documents", "Document introuvable.", "danger")
-    doc.acces = "restreint" if doc.acces == "public" else "public"
+    nouveau = "restreint" if doc.acces == "public" else "public"
+    regle = db.query(AccesException).filter(
+        AccesException.niveau == "document", AccesException.reference == str(doc.id)
+    ).first()
+    if regle:
+        regle.acces = nouveau
+    else:
+        db.add(AccesException(niveau="document", reference=str(doc.id), acces=nouveau))
+    db.flush()
+    acces_docs.recalculer(db, db.query(Document).filter(Document.id == doc.id))
     db.commit()
     return redirect_flash(
         "/admin/documents",
@@ -2233,6 +2274,11 @@ async def admin_acces_definir(
     db: Session = Depends(get_db),
     niveau: str = Form(...), reference: str = Form(...), acces: str = Form(...)
 ):
+    reference = reference.strip()
+    if niveau not in acces_docs.NIVEAUX or acces not in (acces_docs.PUBLIC, acces_docs.RESTREINT):
+        return redirect_flash("/admin/acces", "Niveau ou accès inconnu.", "danger")
+    if not reference:
+        return redirect_flash("/admin/acces", "La référence est obligatoire.", "danger")
     existing = db.query(AccesException).filter(
         AccesException.niveau == niveau,
         AccesException.reference == reference
@@ -2241,9 +2287,14 @@ async def admin_acces_definir(
         existing.acces = acces
     else:
         db.add(AccesException(niveau=niveau, reference=reference, acces=acces))
+    db.flush()
+    changes = acces_docs.recalculer(db)
     db.commit()
     return redirect_flash(
-        "/admin/acces", f"Règle d'accès enregistrée pour « {reference} ».", "success"
+        "/admin/acces",
+        f"Règle d'accès enregistrée pour « {reference} » : "
+        f"{changes} document(s) concerné(s) sur le portail.",
+        "success" if changes else "info",
     )
 
 @app.post("/admin/acces/{ex_id}/supprimer")
@@ -2253,8 +2304,14 @@ async def admin_acces_supprimer(ex_id: int, db: Session = Depends(get_db)):
         return redirect_flash("/admin/acces", "Règle introuvable.", "danger")
     reference = ex.reference
     db.delete(ex)
+    db.flush()
+    changes = acces_docs.recalculer(db)
     db.commit()
-    return redirect_flash("/admin/acces", f"Règle sur « {reference} » supprimée.", "success")
+    return redirect_flash(
+        "/admin/acces",
+        f"Règle sur « {reference} » supprimée : {changes} document(s) concerné(s).",
+        "success",
+    )
 
 @app.get("/admin/exports/documents")
 async def admin_exports_documents(

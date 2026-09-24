@@ -96,6 +96,7 @@ class SyncLog(Base):
     documents_ajoutes   = Column(Integer, default=0)
     documents_modifies  = Column(Integer, default=0)
     documents_erreur    = Column(Integer, default=0)
+    documents_supprimes = Column(Integer, default=0)
     documents_total     = Column(Integer, default=0)
     documents_traites   = Column(Integer, default=0)
     message_erreur      = Column(Text)

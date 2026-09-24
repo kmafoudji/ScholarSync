@@ -123,6 +123,7 @@
           {{ t.th_fixe('Durée') }}
           {{ t.th('Ajoutés', 'ajoutes', tri, 'desc') }}
           {{ t.th('Modifiés', 'modifies', tri, 'desc') }}
+          {{ t.th('Retirés', 'supprimes', tri, 'desc') }}
           {{ t.th('Erreurs', 'erreurs', tri, 'desc') }}
           {{ t.th('Statut', 'statut', tri) }}
           {{ t.th_fixe('Message') }}
@@ -144,6 +145,7 @@
           </td>
           <td style="font-weight:600;color:var(--success);">+{{ log.documents_ajoutes }}</td>
           <td style="color:var(--warning);">{{ log.documents_modifies }}</td>
+          <td>{{ log.documents_supprimes or 0 }}</td>
           <td style="color:var(--danger);">{{ log.documents_erreur }}</td>
           <td>
             <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
@@ -156,7 +158,7 @@
         </tr>
         {% else %}
         <tr>
-          <td colspan="10" style="padding:0;">
+          <td colspan="11" style="padding:0;">
             <div class="state">
               <i class="ti ti-history-off state__icon" aria-hidden="true"></i>
               <div class="state__title">Aucune synchronisation enregistrée</div>
