@@ -169,6 +169,25 @@ sudo chown -R 1000:1000 uploads
 
 ---
 
+## Moteur de recherche (Meilisearch)
+
+Le conteneur `scholarsync-search` fournit la recherche plein texte :
+tolérance aux fautes de frappe, classement par pertinence, recherche dans
+les mots-clés, la direction et la faculté. Sa clé `MEILI_MASTER_KEY` est
+créée dans `.env` par `scripts/deployer.sh` si elle manque.
+
+- L'index se reconstruit tout seul depuis la base au démarrage de
+  l'application s'il est vide ou incomplet : le volume
+  `scholarsync-search-data` n'a pas besoin de sauvegarde.
+- Si le moteur est arrêté ou injoignable, la recherche retombe sur la
+  base de données (sans tolérance aux fautes) ; l'application réessaie
+  toutes les minutes.
+- Vérifier : `docker compose logs scholarsync-app | grep -i meilisearch`
+  doit afficher « Meilisearch disponible ».
+- Forcer une reconstruction : `docker compose restart scholarsync-search
+  scholarsync-app` après avoir vidé le volume, ou simplement redémarrer
+  l'application si l'index est incomplet.
+
 ## Sauvegardes
 
 `scripts/deployer.sh` sauvegarde avant chaque mise à jour, mais cela ne

@@ -4,6 +4,7 @@ from pyzotero import zotero
 from app.models import ZoteroSource, Document, SyncLog, NumerotationCompteur, DocumentRetire
 from app.services.numerotation import generer_numero
 from app.services import acces as acces_docs
+from app.services import recherche as moteur_recherche
 import logging
 import uuid
 
@@ -138,6 +139,7 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
         db.commit()
 
         added = modified = errors = removed = 0
+        ids_retires = []
         etab_code = source.etablissement.code
 
         def _retirer(cle: str, raison: str) -> int:
@@ -160,6 +162,7 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                 etablissement_code=doc.etablissement_code,
                 zotero_source_id=source.id, zotero_item_key=cle, raison=raison,
             ))
+            ids_retires.append(doc.id)
             db.delete(doc)
             return 1
 
@@ -306,6 +309,16 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
             db, db.query(Document).filter(Document.zotero_source_id == source.id)
         )
         db.commit()
+
+        # Moteur de recherche : notices traitées ajoutées ou mises à jour,
+        # documents retirés supprimés. Sans moteur, rien à faire.
+        cles = [i.get("data", {}).get("key") for i in items]
+        if cles:
+            moteur_recherche.indexer(db, db.query(Document).filter(
+                Document.zotero_source_id == source.id,
+                Document.zotero_item_key.in_(cles)))
+        moteur_recherche.retirer(ids_retires)
+        moteur_recherche.vider_cache()
 
         # La sync est incrémentale (items modifiés depuis zotero_version) :
         # avancer la version malgré des notices en erreur les ferait

@@ -25,6 +25,7 @@ from app.core import logos
 from app.core import permissions
 from app.core import i18n
 from app.services import acces as acces_docs
+from app.services import recherche as moteur_recherche
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException,
@@ -60,6 +61,10 @@ def _appliquer_regles_acces_au_demarrage():
 
 if schema_bd.etat.get("pret"):
     _appliquer_regles_acces_au_demarrage()
+    # Index de recherche reconstruit en tâche de fond s'il ne correspond
+    # pas à la base (premier démarrage de Meilisearch, index vidé).
+    from app.services import recherche as _recherche
+    _recherche.verifier_au_demarrage(SessionLocal)
 
 app = FastAPI(title="ScholarSync", docs_url="/api/docs")
 
@@ -462,13 +467,19 @@ def appliquer_filtres(query, filtres: dict, sauf: str = None):
 
     texte = filtres.get("q")
     if texte:
-        motif = f"%{texte}%"
-        query = query.filter(
-            Document.titre.ilike(motif)
-            | Document.auteur.ilike(motif)
-            | Document.numero_national.ilike(motif)
-            | Document.resume.ilike(motif)
-        )
+        ids = moteur_recherche.chercher(texte)
+        if ids is not None:
+            # Meilisearch : tolérance aux fautes, pertinence, mots-clés,
+            # direction, faculté. Le SQL ne fait plus que filtrer.
+            query = query.filter(Document.id.in_(ids or [uuid.UUID(int=0)]))
+        else:
+            motif = f"%{texte}%"
+            query = query.filter(
+                Document.titre.ilike(motif)
+                | Document.auteur.ilike(motif)
+                | Document.numero_national.ilike(motif)
+                | Document.resume.ilike(motif)
+            )
     return query
 
 
@@ -677,11 +688,23 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
     évolution devait être reportée deux fois, et l'accueil affichait déjà
     un tri différent de celui annoncé par son propre sélecteur.
     """
-    if sort not in TRIS:
+    ids_pertinence = moteur_recherche.chercher(filtres["q"]) if filtres.get("q") else None
+    if not sort:
+        sort = "pertinence" if ids_pertinence else TRI_DEFAUT
+    if sort == "pertinence" and not ids_pertinence:
+        sort = TRI_DEFAUT
+    if sort not in TRIS and sort != "pertinence":
         sort = TRI_DEFAUT
 
     par_page = normaliser_par_page(par_page)
-    query = appliquer_filtres(db.query(Document), filtres).order_by(*TRIS[sort])
+    query = appliquer_filtres(db.query(Document), filtres)
+    if sort == "pertinence":
+        from sqlalchemy import case
+        rang = case({uuid.UUID(i): n for n, i in enumerate(ids_pertinence)},
+                    value=Document.id, else_=len(ids_pertinence))
+        query = query.order_by(rang, Document.titre.asc())
+    else:
+        query = query.order_by(*TRIS[sort])
     docs, pagination = paginate(query, page, par_page)
 
     params = get_params_with_defaults(db)
@@ -694,6 +717,7 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
         "pagination": pagination,
         "current_filters": filtres,
         "sort": sort,
+        "tri_pertinence_possible": bool(ids_pertinence),
         "query_string": construire_query_string(filtres, sort, par_page),
         "nb_filtres_actifs": sum(
             len(v) for k, v in filtres.items() if k != "q"
@@ -728,7 +752,7 @@ async def recherche(
     sous_entite: List[str] = Query(default=[]),
     # L'année est le repère de lecture de la liste : la trier par date
     # d'ajout afficherait une colonne d'années dans le désordre.
-    sort: str = "annee", page: int = 1,
+    sort: str = "", page: int = 1,
     par_page: int = PAR_PAGE_DEFAUT,
 ):
     filtres = {k: v for k, v in {
@@ -1713,6 +1737,10 @@ async def _mettre_a_jour_etablissement(
     except Exception:
         db.rollback()
         return redirect_flash(retour, "Enregistrement impossible.", "danger")
+    # Le nom de l'établissement est cherchable : on réindexe ses documents
+    moteur_recherche.indexer(db, db.query(Document).filter(
+        Document.etablissement_code == etab.code))
+    moteur_recherche.vider_cache()
     message, niveau = message_logo(f"Établissement {etab.code} mis à jour.", resultat)
     return redirect_flash(retour, message, niveau)
 

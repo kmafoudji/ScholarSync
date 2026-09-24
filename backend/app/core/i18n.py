@@ -97,6 +97,7 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
     "pour": ("for", "para"),
     "Par page": ("Per page", "Por página"),
     "Trier par": ("Sort by", "Ordenar por"),
+    "Pertinence": ("Relevance", "Relevância"),
     "Année décroissante": ("Newest year first", "Ano mais recente"),
     "Année croissante": ("Oldest year first", "Ano mais antigo"),
     "Ajout le plus récent": ("Recently added", "Adicionados recentemente"),

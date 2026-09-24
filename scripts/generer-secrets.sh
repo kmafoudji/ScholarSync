@@ -42,6 +42,7 @@ echo "Secrets :"
 # SECRET_KEY se régénère sans risque : elle ne fait que signer les cookies.
 # La changer déconnecte les sessions ouvertes, rien de plus.
 remplir SECRET_KEY "$(openssl rand -hex 32)"
+remplir MEILI_MASTER_KEY "$(openssl rand -hex 24)"
 
 if [ "$BASE_EXISTANTE" -eq 1 ] && ! grep -qE "^POSTGRES_PASSWORD=.+" .env; then
   echo

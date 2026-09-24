@@ -55,6 +55,9 @@
     <label class="results-reglage">
       <span>{{ _("Trier par") }}</span>
       <select class="sort-select" id="tri" name="sort">
+        {% if tri_pertinence_possible %}
+        <option value="pertinence" {{ 'selected' if sort == 'pertinence' }}>{{ _('Pertinence') }}</option>
+        {% endif %}
         <option value="annee"  {{ 'selected' if sort == 'annee' }}>{{ _('Année décroissante') }}</option>
         <option value="ancien" {{ 'selected' if sort == 'ancien' }}>{{ _('Année croissante') }}</option>
         <option value="recent" {{ 'selected' if sort == 'recent' }}>{{ _('Ajout le plus récent') }}</option>

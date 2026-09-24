@@ -18,9 +18,15 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:?POSTGRES_USER manquant dans .env}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}@scholarsync-db:5432/${POSTGRES_DB:-scholarsync}
       SECRET_KEY: ${SECRET_KEY:?SECRET_KEY manquant dans .env}
       DEBUG: "false"
+      # Recherche : si le moteur est absent ou arrêté, l'application
+      # continue avec la recherche en base (repli automatique).
+      MEILISEARCH_URL: http://scholarsync-search:7700
+      MEILISEARCH_KEY: ${MEILI_MASTER_KEY:-}
     depends_on:
       scholarsync-db:
         condition: service_healthy
+      scholarsync-search:
+        condition: service_started
     volumes:
       # Le WORKDIR de l'image est /app et le code est copié dans /app/app :
       # les téléversements vivent donc dans /app/app/static/img/uploads.
@@ -57,5 +63,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # Moteur de recherche plein texte. L'index se reconstruit depuis la base
+  # au démarrage de l'application s'il est vide : le volume n'a pas besoin
+  # de sauvegarde.
+  scholarsync-search:
+    image: getmeili/meilisearch:v1.10
+    container_name: scholarsync-search
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
+      MEILI_NO_ANALYTICS: "true"
+    # Pas de port publié : seule l'application interroge le moteur.
+    volumes:
+      - scholarsync-search-data:/meili_data
+
 volumes:
   scholarsync-db-data:
+  scholarsync-search-data:

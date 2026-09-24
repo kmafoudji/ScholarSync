@@ -23,6 +23,16 @@ if [ ! -f .env ]; then
   exit 1
 fi
 # shellcheck disable=SC1091
+# Clé du moteur de recherche, apparue avec Meilisearch : une installation
+# antérieure ne l'a pas encore. On la crée plutôt que d'échouer.
+if ! grep -qE "^MEILI_MASTER_KEY=.+" .env; then
+  command -v openssl >/dev/null && {
+    grep -q "^MEILI_MASTER_KEY=" .env && sed -i '/^MEILI_MASTER_KEY=/d' .env
+    [ -n "$(tail -c1 .env)" ] && echo >> .env
+    echo "MEILI_MASTER_KEY=$(openssl rand -hex 24)" >> .env
+    ok "MEILI_MASTER_KEY générée dans .env"
+  }
+fi
 set -a; . ./.env; set +a
 : "${SECRET_KEY:?SECRET_KEY vide dans .env}"
 : "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD vide dans .env}"
