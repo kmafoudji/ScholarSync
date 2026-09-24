@@ -1541,6 +1541,9 @@ async def admin_etablissements(
         "request": request, "params": params, "etablissements": etabs,
         "pagination": pagination, "tri": etat_tri,
         "profil_logo": logos.PROFILS["etablissement"],
+        # Établissements dont le code de numérotation est figé
+        "etabs_numerotes": {c for (c,) in db.query(Document.etablissement_code)
+                            .filter(Document.numero_national.isnot(None)).distinct()},
         "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
@@ -1549,13 +1552,31 @@ async def admin_etablissements(
 MOTIF_CODE_ETAB = re.compile(r"^[A-Z0-9][A-Z0-9_-]{0,9}$")
 
 
+def _verifier_code_numero(db: Session, code_numero: str, sauf_id=None):
+    """Message d'erreur si le code de numérotation est invalide ou pris."""
+    from app.services.numerotation import MOTIF_CODE_NUMERO
+    if not MOTIF_CODE_NUMERO.match(code_numero or ""):
+        return ("Le code de numérotation compte exactement 2 caractères, "
+                "lettres majuscules ou chiffres (ex. UC).")
+    autre = db.query(Etablissement).filter(Etablissement.code_numero == code_numero)
+    if sauf_id is not None:
+        autre = autre.filter(Etablissement.id != sauf_id)
+    autre = autre.first()
+    if autre:
+        # Deux établissements avec le même code produiraient des numéros
+        # nationaux identiques.
+        return f"Le code de numérotation {code_numero} est déjà utilisé par {autre.code}."
+    return None
+
+
 @app.post("/admin/etablissements/ajouter")
 async def admin_etablissements_ajouter(
     db: Session = Depends(get_db),
     code: str = Form(...), nom: str = Form(...), nom_court: str = Form(""),
     pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form(""),
-    logo: UploadFile = File(None),
+    logo: UploadFile = File(None), code_numero: str = Form(""),
 ):
+    from app.services.numerotation import code_par_defaut
     code = code.strip().upper()
     if not code or not nom.strip():
         return redirect_flash(
@@ -1572,6 +1593,10 @@ async def admin_etablissements_ajouter(
         return redirect_flash(
             "/admin/etablissements", f"Le code {code} est déjà utilisé.", "warning"
         )
+    code_numero = (code_numero or code_par_defaut(code)).strip().upper()
+    erreur = _verifier_code_numero(db, code_numero)
+    if erreur:
+        return redirect_flash("/admin/etablissements", erreur, "danger")
 
     # Le logo est enregistré avant la ligne en base : si le fichier est
     # refusé, rien n'est créé et l'administrateur corrige d'un seul
@@ -1590,7 +1615,7 @@ async def admin_etablissements_ajouter(
     db.add(Etablissement(
         code=code, nom=nom.strip(), nom_court=nom_court.strip() or None,
         pays=pays, ville=ville.strip() or None, url_site=url_site.strip() or None,
-        logo_url=logo_url,
+        logo_url=logo_url, code_numero=code_numero,
     ))
     try:
         db.commit()
@@ -1654,15 +1679,32 @@ async def admin_etablissements_modifier(
     nom: str = Form(...), nom_court: str = Form(""),
     pays: str = Form("Sénégal"), ville: str = Form(""), url_site: str = Form(""),
     logo: UploadFile = File(None), retirer_logo: str = Form(None),
+    code_numero: str = Form(""),
 ):
     """Le code n'est pas modifiable : il identifie les documents
     synchronisés et nomme le fichier de logo. Le changer romprait les
-    deux liens sans prévenir."""
+    deux liens sans prévenir.
+
+    Le code de numérotation, lui, se change tant qu'aucun numéro national
+    n'a été attribué avec : ensuite, les numéros existants et les
+    nouveaux ne correspondraient plus."""
     etab = db.query(Etablissement).filter(Etablissement.id == etab_id).first()
     if not etab:
         return redirect_flash(
             "/admin/etablissements", "Établissement introuvable.", "danger"
         )
+    code_numero = code_numero.strip().upper()
+    if code_numero and code_numero != etab.code_numero:
+        erreur = _verifier_code_numero(db, code_numero, sauf_id=etab.id)
+        if not erreur and etab.code_numero and db.query(Document).filter(
+            Document.etablissement_code == etab.code,
+            Document.numero_national.isnot(None),
+        ).first():
+            erreur = (f"Des numéros nationaux ont déjà été attribués avec le code "
+                      f"{etab.code_numero} : il ne peut plus être changé.")
+        if erreur:
+            return redirect_flash("/admin/etablissements", erreur, "danger")
+        etab.code_numero = code_numero
     return await _mettre_a_jour_etablissement(
         db, etab, "/admin/etablissements",
         nom, nom_court, pays, ville, url_site, logo, retirer_logo,

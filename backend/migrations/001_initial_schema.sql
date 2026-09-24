@@ -41,6 +41,7 @@ INSERT INTO parametres (cle, valeur, type) VALUES
 CREATE TABLE etablissements (
     id              SERIAL PRIMARY KEY,
     code            VARCHAR(10) UNIQUE NOT NULL,  -- UCAD, UGB, UADB...
+    code_numero     VARCHAR(2) UNIQUE,            -- UC : code dans le numéro national
     nom             TEXT NOT NULL,
     nom_court       TEXT,
     pays            VARCHAR(100) DEFAULT 'Sénégal',
@@ -87,7 +88,7 @@ CREATE TABLE numerotation_compteurs (
 -- ============================================================
 CREATE TABLE documents (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    numero_national     VARCHAR(20) UNIQUE NOT NULL,
+    numero_national     VARCHAR(20) UNIQUE,          -- attribué à la soutenance
     -- Format : SN-UC-T-S-2024-0012-47 (17 chars avec tirets)
 
     -- Identification principale

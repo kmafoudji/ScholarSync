@@ -15,6 +15,9 @@ class Etablissement(Base):
     __tablename__ = "etablissements"
     id        = Column(Integer, primary_key=True, autoincrement=True)
     code      = Column(String(10), unique=True, nullable=False)
+    # Deux caractères qui représentent l'établissement dans le numéro
+    # national (UC pour UCAD). Géré depuis l'administration.
+    code_numero = Column(String(2), unique=True)
     nom       = Column(Text, nullable=False)
     nom_court = Column(Text)
     pays      = Column(String(100), default="Sénégal")
@@ -53,7 +56,8 @@ class NumerotationCompteur(Base):
 class Document(Base):
     __tablename__ = "documents"
     id                 = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    numero_national    = Column(String(20), unique=True, nullable=False)
+    # Attribué à la soutenance : un travail en préparation n'a pas de numéro.
+    numero_national    = Column(String(20), unique=True, nullable=True)
     titre              = Column(Text, nullable=False)
     auteur             = Column(Text, nullable=False)
     type               = Column(String(10), nullable=False)

@@ -147,12 +147,18 @@
        sa place, pas une ligne de tableau parmi d'autres. #}
     <div class="fiche-numero">
       <span class="fiche-numero__libelle">{{ _("Numéro national") }}</span>
+      {% if doc.numero_national %}
       <span class="fiche-numero__valeur">{{ doc.numero_national }}</span>
       <button type="button" class="fiche-numero__copier"
               data-copier="{{ doc.numero_national }}"
               data-libelle="{{ _('Numéro national copié :') }} {{ doc.numero_national }}">
         <i class="ti ti-copy" aria-hidden="true"></i> {{ _('Copier') }}
       </button>
+      {% else %}
+      {# Un travail en préparation n'est pas encore numéroté : le numéro
+         national identifie un travail soutenu. #}
+      <span class="fiche-numero__attente">{{ _("Attribué à la soutenance") }}</span>
+      {% endif %}
     </div>
 
     {# Un catalogue de thèses sert d'abord à être cité. Sans export,

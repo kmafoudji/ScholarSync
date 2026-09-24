@@ -18,6 +18,7 @@
       <thead>
         <tr>
           {{ t.th('Code', 'code', tri) }}
+          {{ t.th_fixe('N° national') }}
           {{ t.th('Nom', 'nom', tri) }}
           {{ t.th('Pays', 'pays', tri) }}
           {{ t.th('Ville', 'ville', tri) }}
@@ -37,6 +38,10 @@
               {% endif %}
               <span class="etab-identite__code">{{ etab.code }}</span>
             </div>
+          </td>
+          <td>
+            <span class="cellule-code" title="Code de l'établissement dans le numéro national">{{ etab.code_numero or '—' }}</span>
+            {% if etab.code in etabs_numerotes %}<i class="ti ti-lock" aria-label="Figé : des numéros ont été attribués" style="color:var(--text-3);"></i>{% endif %}
           </td>
           <td>
             <div style="font-weight:500;">{{ etab.nom }}</div>
@@ -65,7 +70,7 @@
           </td>
         </tr>
         {% else %}
-        <tr><td colspan="6" style="text-align:center;padding:2rem;color:var(--text-3);">
+        <tr><td colspan="7" style="text-align:center;padding:2rem;color:var(--text-3);">
           Aucun établissement — <button type="button" data-dialog-open="dlgAjout"
           style="background:none;border:none;color:var(--primary);cursor:pointer;font-weight:600;font-family:inherit;">Ajouter le premier</button>
         </td></tr>
@@ -169,6 +174,17 @@
           synchronisés et ne pourra plus être changé ensuite.
         </div>
       </div>
+      <div class="form-group">
+        <label class="form-label" for="a-code_numero">Code de numérotation</label>
+        <input id="a-code_numero" type="text" name="code_numero" class="form-control"
+               maxlength="2" pattern="[A-Za-z0-9]{2}" placeholder="UC"
+               style="text-transform:uppercase;width:6rem;">
+        <div class="form-hint">
+          Deux caractères qui représentent l'établissement dans le numéro national
+          (UC dans SC<strong>UC</strong>TS2016000192). Laissé vide : les deux premières
+          lettres du code. Il ne pourra plus changer une fois des numéros attribués.
+        </div>
+      </div>
       {{ champs_etab() }}
     </div>
     <div class="dialog__foot">
@@ -192,6 +208,18 @@
       </button>
     </div>
     <div class="dialog__body">
+      <div class="form-group">
+        <label class="form-label" for="e{{ etab.id }}-code_numero">Code de numérotation</label>
+        {% if etab.code in etabs_numerotes %}
+        <p class="compte-fixe"><strong>{{ etab.code_numero }}</strong>
+          <br><span>Figé : des numéros nationaux ont déjà été attribués avec ce code.</span></p>
+        {% else %}
+        <input id="e{{ etab.id }}-code_numero" type="text" name="code_numero" class="form-control"
+               maxlength="2" pattern="[A-Za-z0-9]{2}" value="{{ etab.code_numero or '' }}"
+               style="text-transform:uppercase;width:6rem;">
+        <div class="form-hint">Deux caractères, dans le numéro national (SC<strong>{{ etab.code_numero or 'UC' }}</strong>TS…). Unique.</div>
+        {% endif %}
+      </div>
       {{ champs_etab(etab) }}
     </div>
     <div class="dialog__foot">

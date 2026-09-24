@@ -137,6 +137,7 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
         "O registo está referenciado; o texto integral ainda não foi depositado."),
     "Numéro national": ("National number", "Número nacional"),
     "Numéro national copié :": ("National number copied:", "Número nacional copiado:"),
+    "Attribué à la soutenance": ("Assigned upon defence", "Atribuído após a defesa"),
     "Copier": ("Copy", "Copiar"),
     "Citer ce document": ("Cite this document", "Citar este documento"),
     "Citation APA copiée.": ("APA citation copied.", "Citação APA copiada."),

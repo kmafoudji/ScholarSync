@@ -107,7 +107,7 @@
           <td><span class="badge badge--{{ doc.type }}">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span></td>
           <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
           <td class="col-etroite">{{ doc.annee }}</td>
-          <td class="col-numero">{{ doc.numero_national }}</td>
+          <td class="col-numero">{% if doc.numero_national %}{{ doc.numero_national }}{% else %}<span title="Attribué à la soutenance" style="color:var(--text-3);">— à la soutenance</span>{% endif %}</td>
           <td class="col-acces">
             <div class="acces-doc">
               <span class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}">

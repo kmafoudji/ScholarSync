@@ -205,6 +205,14 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                     existing.sous_entite_nom = (
                         type_info["sous_entite_nom"] or existing.sous_entite_nom
                     )
+                    # Travail soutenu depuis la dernière synchronisation :
+                    # il reçoit maintenant son numéro national. Un numéro
+                    # déjà attribué n'est jamais retiré ni changé.
+                    if statut == "soutenu" and not existing.numero_national:
+                        existing.numero_national = generer_numero(
+                            db, etablissement_code=etab_code, type_doc=existing.type,
+                            statut=statut, annee=annee,
+                        )
                     existing.synced_at = datetime.now()
                     modified += 1
                 else:

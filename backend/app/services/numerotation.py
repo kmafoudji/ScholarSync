@@ -12,6 +12,16 @@ Format : SC{CODE}{TYPE}{STATUT}{ANNEE}{ORDRE}{CLE} — 16 caractères, sans sép
 
 Exemple : SCUCTS2016000192
 
+Le numéro est attribué à la SOUTENANCE : un travail en préparation n'en
+a pas (generer_numero renvoie None). Il le reçoit à la synchronisation
+qui suit le passage au statut « soutenu ». La lettre de statut vaut donc
+toujours S pour les nouveaux numéros ; elle est conservée pour que les
+numéros déjà attribués restent valides.
+
+Le code de l'établissement (2 caractères) est géré depuis
+l'administration (etablissements.code_numero). La table
+CODES_ETABLISSEMENTS ne sert plus que de valeur initiale.
+
 C'est le format des numéros déjà attribués en production. La version
 précédente de ce fichier produisait « SC-UC-T-S-2024-0012-47 » (22
 caractères) : refusé par la colonne numero_national (20 caractères), et
@@ -23,9 +33,10 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import Document, NumerotationCompteur
+from app.models import Document, Etablissement, NumerotationCompteur
 
 
+# Valeurs initiales, reprises en base au démarrage (core/schema.py)
 CODES_ETABLISSEMENTS = {
     "UCAD":  "UC",
     "UGB":   "UG",
@@ -47,6 +58,7 @@ CODES_STATUTS = {
 
 LONGUEUR = 16
 MOTIF = re.compile(r"^SC[A-Z0-9]{2}[TMX][SPX]\d{4}\d{4}\d{2}$")
+MOTIF_CODE_NUMERO = re.compile(r"^[A-Z0-9]{2}$")
 
 
 def _calculer_cle(numero_partiel: str) -> str:
@@ -60,11 +72,21 @@ def _calculer_cle(numero_partiel: str) -> str:
     return str(98 - (int(chiffres) % 97)).zfill(2)
 
 
-def code_etablissement(etablissement_code: str) -> str:
+def code_par_defaut(etablissement_code: str) -> str:
+    """Proposition pour un nouvel établissement (modifiable ensuite)."""
     code = CODES_ETABLISSEMENTS.get(etablissement_code)
     if code:
         return code
-    return (etablissement_code or "XX")[:2].upper().ljust(2, "X")
+    return re.sub(r"[^A-Z0-9]", "", (etablissement_code or "").upper())[:2].ljust(2, "X")
+
+
+def code_etablissement(etablissement_code: str, db: Session = None) -> str:
+    """Code à 2 caractères de l'établissement dans le numéro national."""
+    if db is not None:
+        etab = db.query(Etablissement).filter(Etablissement.code == etablissement_code).first()
+        if etab is not None and etab.code_numero:
+            return etab.code_numero
+    return code_par_defaut(etablissement_code)
 
 
 def composer_numero(code_etab: str, type_doc: str, statut: str,
@@ -108,15 +130,18 @@ def generer_numero(
     type_doc: str,
     statut: str,
     annee: int = None,
-) -> str:
+):
     """
     Génère un numéro national unique et incrémente le compteur
-    (établissement, type, année).
+    (établissement, type, année). Renvoie None pour un travail qui n'est
+    pas encore soutenu : il ne consomme aucun rang.
     """
+    if statut != "soutenu":
+        return None
     if annee is None:
         annee = datetime.now().year
 
-    code_etab = code_etablissement(etablissement_code)
+    code_etab = code_etablissement(etablissement_code, db)
 
     compteur = (
         db.query(NumerotationCompteur)

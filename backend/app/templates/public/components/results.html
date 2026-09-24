@@ -154,7 +154,7 @@
       {% endif %}
 
       <p class="notice__pied">
-        <span class="notice__num">{{ doc.numero_national }}</span>
+        {% if doc.numero_national %}<span class="notice__num">{{ doc.numero_national }}</span>{% endif %}
         {% if doc.statut != 'soutenu' %}
         <span class="notice__etat">{{ _("En préparation") }}</span>
         {% endif %}

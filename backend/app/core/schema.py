@@ -30,6 +30,7 @@ COLONNES = [
     ("sync_logs", "documents_traites", "INTEGER DEFAULT 0"),
     ("utilisateurs", "mdp_modifie_le", "TIMESTAMPTZ"),
     ("sync_logs", "documents_supprimes", "INTEGER DEFAULT 0"),
+    ("etablissements", "code_numero", "VARCHAR(2)"),
 ]
 
 # Corrections de données et de contraintes, idempotentes.
@@ -43,6 +44,23 @@ COLONNES = [
 RATTRAPAGES = [
     "ALTER TABLE utilisateurs DROP CONSTRAINT IF EXISTS utilisateurs_role_check",
     "UPDATE utilisateurs SET role = 'admin_etablissement' WHERE role = 'gestionnaire_bu'",
+    # Numéro national : attribué à la soutenance seulement. Les travaux en
+    # préparation déjà numérotés (lettre P en 6e position) perdent leur
+    # numéro ; ils en recevront un, avec la lettre S, une fois soutenus.
+    # Idempotent : plus aucun numéro en P n'est produit.
+    "ALTER TABLE documents ALTER COLUMN numero_national DROP NOT NULL",
+    "UPDATE documents SET numero_national = NULL WHERE statut = 'en_preparation' "
+    "AND substring(numero_national from 6 for 1) = 'P'",
+    # Codes de numérotation : repris de l'ancienne table écrite dans le
+    # code, sinon les deux premiers caractères du code — exactement ce
+    # que produisait l'ancien calcul, pour que les numéros existants
+    # restent cohérents.
+    "UPDATE etablissements SET code_numero = CASE code "
+    "WHEN 'UCAD' THEN 'UC' WHEN 'UGB' THEN 'UG' WHEN 'UADB' THEN 'UA' "
+    "WHEN 'UASZ' THEN 'US' WHEN 'UIDT' THEN 'UI' WHEN 'UNCHK' THEN 'UN' "
+    "ELSE upper(substring(code from 1 for 2)) END WHERE code_numero IS NULL",
+    "CREATE UNIQUE INDEX IF NOT EXISTS etablissements_code_numero_key "
+    "ON etablissements (code_numero)",
 ]
 
 # État partagé, lu par la sonde /sante

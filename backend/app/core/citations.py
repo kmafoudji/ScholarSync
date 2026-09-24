@@ -71,7 +71,7 @@ def bibtex(doc, etablissement_nom: str = None, base_url: str = "") -> str:
         ("language", doc.langue),
         ("keywords", ", ".join(doc.mots_cles) if doc.mots_cles else None),
         ("abstract", doc.resume),
-        ("note", f"Numéro national : {doc.numero_national}"),
+        ("note", f"Numéro national : {doc.numero_national}" if doc.numero_national else None),
         ("url", url_publique(doc) or (f"{base_url}/document/{doc.id}" if base_url else None)),
     ]
     if doc.sous_entite_nom:

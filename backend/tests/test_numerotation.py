@@ -100,6 +100,33 @@ def test_compteur_en_retard_sur_la_base():
         etablissement_code="UCAD", type="these", annee=2026, compteur=0
     )
     db = _Session(compteur=compteur, numeros=["SCUCTS2026000102"])
-    n = num.generer_numero(db, "UCAD", "these", "en_preparation", 2026)
-    assert n.startswith("SCUCTP20260002")
+    n = num.generer_numero(db, "UCAD", "these", "soutenu", 2026)
+    assert n.startswith("SCUCTS20260002")
     assert compteur.compteur == 2
+
+
+def test_pas_de_numero_avant_la_soutenance():
+    compteur = num.NumerotationCompteur(
+        etablissement_code="UCAD", type="these", annee=2026, compteur=5
+    )
+    db = _Session(compteur=compteur)
+    assert num.generer_numero(db, "UCAD", "these", "en_preparation", 2026) is None
+    assert compteur.compteur == 5  # aucun rang consommé
+
+
+def test_code_numero_gere_en_base():
+    class Etab:
+        code_numero = "K7"
+    class Session2(_Session):
+        def query(self, cible):
+            if cible is num.Etablissement:
+                return _Requete(Etab())
+            return super().query(cible)
+    n = num.generer_numero(Session2(), "NOUVELLE", "these", "soutenu", 2030)
+    assert n.startswith("SCK7TS2030") and num.valider_numero(n)
+
+
+def test_code_par_defaut():
+    assert num.code_par_defaut("UCAD") == "UC"
+    assert num.code_par_defaut("ISM-Dakar") == "IS"
+    assert num.code_par_defaut("X") == "XX"
