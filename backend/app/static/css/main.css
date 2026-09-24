@@ -3037,3 +3037,11 @@ td.col-numero {
 }
 .regles-mdp li.ok { color: var(--success); }
 .regles-mdp li.ok::before { background: var(--success); border-color: var(--success); }
+
+/* En-tête public sur petit téléphone : le sélecteur de langue et le
+   bouton d'administration se chevauchaient à 390 px. */
+@media (max-width: 480px) {
+  .site-header__inner { gap: .5rem; padding: 0 1rem; }
+  .lang-switcher button { padding: 4px 6px; }
+  .btn-admin { padding: .375rem .5rem; }
+}

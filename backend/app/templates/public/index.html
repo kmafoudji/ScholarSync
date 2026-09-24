@@ -1,21 +1,22 @@
 {% extends "public/base.html" %}
-{% block title %}{{ params.nom_outil }} — {{ params.slogan or 'Mémoires et thèses académiques' }}{% endblock %}
+{% block title %}{{ params.nom_outil }} — {{ _(params.slogan) if params.slogan else _('Mémoires et thèses académiques') }}{% endblock %}
 
 {% block content %}
 <!-- HERO -->
 <section class="hero">
   <div class="hero__tag">
     <i class="ti ti-building-bank" style="font-size:var(--fs-2xs);"></i>
-    {{ params.institution_nom or 'Plateforme académique nationale' }}
+    {{ _(params.institution_nom) if params.institution_nom else _('Plateforme académique nationale') }}
   </div>
   <h1>{{ params.nom_outil }}</h1>
-  <p>{{ params.slogan or 'Accédez à la production scientifique académique' }}</p>
+  <p>{{ _(params.slogan) if params.slogan else _('Accédez à la production scientifique académique') }}</p>
 
-  <form class="search-box" action="/recherche" method="get">
+  <form class="search-box" action="/recherche" method="get" role="search">
     <i class="ti ti-search" style="font-size:18px;color:#aaa;" aria-hidden="true"></i>
-    <input type="text" name="q" placeholder="Titre, auteur, mots-clés, numéro national…" autocomplete="off">
+    <input type="text" name="q" placeholder="{{ _('Titre, auteur, mots-clés, numéro national…') }}"
+           aria-label="{{ _('Rechercher') }}" autocomplete="off">
     <button type="submit" class="search-btn">
-      <i class="ti ti-search" style="font-size:var(--fs-xs);"></i> Rechercher
+      <i class="ti ti-search" style="font-size:var(--fs-xs);"></i> {{ _("Rechercher") }}
     </button>
   </form>
 
@@ -32,7 +33,7 @@
   <div class="stat-item">
     <i class="ti ti-{{ ic }} stat-icone" aria-hidden="true"></i>
     <div class="stat-num">{{ val|format_number }}</div>
-    <div class="stat-label">{{ lib }}</div>
+    <div class="stat-label">{{ _(lib) }}</div>
   </div>
   {% endfor %}
 </div>

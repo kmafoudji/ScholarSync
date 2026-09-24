@@ -1,12 +1,12 @@
 {% macro pagination_nav(position) %}
   {% if pagination.pages > 1 %}
   <nav class="pagination pagination--{{ position }}"
-       aria-label="Pagination des résultats{{ ' (haut)' if position == 'haut' else ' (bas)' }}">
+       aria-label="{{ _('Pagination des résultats') }}">
     {% if pagination.page > 1 %}
     <a href="?{{ query_string }}&page={{ pagination.page - 1 }}" class="page-btn"
-       aria-label="Page précédente" rel="prev">
+       aria-label="{{ _('Page précédente') }}" rel="prev">
       <i class="ti ti-chevron-left" aria-hidden="true"></i>
-      <span class="page-btn__mot">Précédent</span>
+      <span class="page-btn__mot">{{ _("Précédent") }}</span>
     </a>
     {% endif %}
     {% for p in pagination.range %}
@@ -15,14 +15,14 @@
       {% else %}
       <a href="?{{ query_string }}&page={{ p }}"
          class="page-btn {{ 'active' if p == pagination.page }}"
-         aria-label="Page {{ p }}"
+         aria-label="{{ _('Page {n}', n=p) }}"
          {{ 'aria-current=page' if p == pagination.page }}>{{ p }}</a>
       {% endif %}
     {% endfor %}
     {% if pagination.page < pagination.pages %}
     <a href="?{{ query_string }}&page={{ pagination.page + 1 }}" class="page-btn"
-       aria-label="Page suivante" rel="next">
-      <span class="page-btn__mot">Suivant</span>
+       aria-label="{{ _('Page suivante') }}" rel="next">
+      <span class="page-btn__mot">{{ _("Suivant") }}</span>
       <i class="ti ti-chevron-right" aria-hidden="true"></i>
     </a>
     {% endif %}
@@ -36,16 +36,16 @@
   <p class="results-count">
     {% if pagination.total %}
     <strong>{{ pagination.debut|format_number }}–{{ pagination.fin|format_number }}</strong>
-    sur <strong>{{ pagination.total|format_number }}</strong> document{{ 's' if pagination.total != 1 }}
+    {{ _("sur") }} <strong>{{ pagination.total|format_number }}</strong> {{ _("documents") if pagination.total != 1 else _("document") }}
     {% else %}
-    <strong>Aucun</strong> document
+    <strong>{{ _("Aucun document") }}</strong>
     {% endif %}
-    {% if current_filters.q %} pour « <em>{{ current_filters.q }}</em> »{% endif %}
+    {% if current_filters.q %} {{ _("pour") }} « <em>{{ current_filters.q }}</em> »{% endif %}
   </p>
 
   <div class="results-reglages">
     <label class="results-reglage">
-      <span>Par page</span>
+      <span>{{ _("Par page") }}</span>
       <select class="sort-select" id="parPage" name="par_page">
         {% for n in pagination.options_par_page %}
         <option value="{{ n }}" {{ 'selected' if pagination.per_page == n }}>{{ n }}</option>
@@ -53,12 +53,12 @@
       </select>
     </label>
     <label class="results-reglage">
-      <span>Trier par</span>
+      <span>{{ _("Trier par") }}</span>
       <select class="sort-select" id="tri" name="sort">
-        <option value="annee"  {{ 'selected' if sort == 'annee' }}>Année décroissante</option>
-        <option value="ancien" {{ 'selected' if sort == 'ancien' }}>Année croissante</option>
-        <option value="recent" {{ 'selected' if sort == 'recent' }}>Ajout le plus récent</option>
-        <option value="titre"  {{ 'selected' if sort == 'titre' }}>Titre A–Z</option>
+        <option value="annee"  {{ 'selected' if sort == 'annee' }}>{{ _('Année décroissante') }}</option>
+        <option value="ancien" {{ 'selected' if sort == 'ancien' }}>{{ _('Année croissante') }}</option>
+        <option value="recent" {{ 'selected' if sort == 'recent' }}>{{ _('Ajout le plus récent') }}</option>
+        <option value="titre"  {{ 'selected' if sort == 'titre' }}>{{ _('Titre A–Z') }}</option>
       </select>
     </label>
 
@@ -71,18 +71,18 @@
       <button type="button" class="export-menu__bouton" aria-expanded="false"
               aria-haspopup="true" aria-controls="menuExport">
         <i class="ti ti-download" aria-hidden="true"></i>
-        <span>Exporter</span>
+        <span>{{ _("Exporter") }}</span>
         <i class="ti ti-chevron-down export-menu__chevron" aria-hidden="true"></i>
       </button>
       <div class="export-menu__liste" id="menuExport" hidden>
         <p class="export-menu__intro">
-          {{ pagination.total|format_number }} notice{{ 's' if pagination.total != 1 }}
+          {{ pagination.total|format_number }} {{ _("notices") if pagination.total != 1 else _("notice") }}
           {% if nb_filtres_actifs or current_filters.q %}
-          correspondant aux filtres en cours
-          {% else %}du catalogue{% endif %}
+          {{ _("correspondant aux filtres en cours") }}
+          {% else %}{{ _("du catalogue") }}{% endif %}
         </p>
         {% for ext, titre, detail, icone in [
-             ('csv', 'Tableur (CSV)', 'Excel, LibreOffice', 'file-type-csv'),
+             ('csv', _('Tableur (CSV)'), 'Excel, LibreOffice', 'file-type-csv'),
              ('bib', 'BibTeX', 'LaTeX, Overleaf', 'math-function'),
              ('ris', 'RIS', 'Zotero, Mendeley, EndNote', 'books')] %}
         <a href="/export?format={{ ext }}{{ '&' ~ query_string if query_string }}"
@@ -104,15 +104,15 @@
 
 {% if nb_filtres_actifs %}
 <div class="filtres-actifs">
-  {% for cle, libelle in [('etablissement','Établissement'), ('sous_entite','Entité'),
-                          ('type','Type'), ('statut','Statut'),
-                          ('domaine','Domaine'), ('annee','Année'), ('langue','Langue')] %}
+  {% for cle, libelle in [('etablissement',_('Établissement')), ('sous_entite',_('Entité')),
+                          ('type',_('Type')), ('statut',_('Statut')),
+                          ('domaine',_('Domaine')), ('annee',_('Année')), ('langue',_('Langue'))] %}
     {% for v in (current_filters.get(cle) or []) %}
     <a href="{{ url_facette(current_filters, cle, v, sort) }}" class="filtre-actif"
-       aria-label="Retirer le filtre {{ libelle }} : {{ v }}">
+       aria-label="{{ _('Retirer le filtre') }} {{ libelle }} : {{ v }}">
       <span class="filtre-actif__cle">{{ libelle }}</span>
-      {{ {'these':'Thèse','memoire':'Mémoire','soutenu':'Soutenu',
-          'en_preparation':'En préparation'}.get(v, v) }}
+      {{ {'these':_('Thèse'),'memoire':_('Mémoire'),'soutenu':_('Soutenu'),
+          'en_preparation':_('En préparation')}.get(v, v) }}
       <i class="ti ti-x" aria-hidden="true"></i>
     </a>
     {% endfor %}
@@ -131,7 +131,7 @@
   <article class="notice">
     <div class="notice__ancre">
       <span class="notice__annee">{{ doc.annee }}</span>
-      <span class="notice__genre">{{ 'Thèse' if doc.type == 'these' else 'Mémoire' }}</span>
+      <span class="notice__genre">{{ _('Thèse') if doc.type == 'these' else _('Mémoire') }}</span>
     </div>
 
     <div class="notice__corps">
@@ -147,7 +147,7 @@
 
       {% if doc.directeur or doc.domaine %}
       <p class="notice__complement">
-        {%- if doc.directeur %}Sous la direction de {{ doc.directeur }}{% endif -%}
+        {%- if doc.directeur %}{{ _('Sous la direction de') }} {{ doc.directeur }}{% endif -%}
         {%- if doc.directeur and doc.domaine %} · {% endif -%}
         {%- if doc.domaine %}{{ doc.domaine }}{% endif -%}
       </p>
@@ -156,11 +156,11 @@
       <p class="notice__pied">
         <span class="notice__num">{{ doc.numero_national }}</span>
         {% if doc.statut != 'soutenu' %}
-        <span class="notice__etat">En préparation</span>
+        <span class="notice__etat">{{ _("En préparation") }}</span>
         {% endif %}
         {% if doc.acces == 'restreint' %}
         <span class="notice__etat notice__etat--restreint">
-          <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
+          <i class="ti ti-lock" aria-hidden="true"></i> {{ _("Accès restreint") }}
         </span>
         {% endif %}
       </p>
@@ -171,19 +171,19 @@
   {{ pagination_nav('bas') }}
   {% if pagination.pages > 1 %}
   <p class="pagination-resume">
-    Page {{ pagination.page }} sur {{ pagination.pages }}
+    {{ _("Page {n} sur {total}", n=pagination.page, total=pagination.pages) }}
   </p>
   {% endif %}
 
 {% else %}
   <div class="state">
     <i class="ti ti-search-off state__icon" aria-hidden="true"></i>
-    <div class="state__title">Aucun document trouvé</div>
+    <div class="state__title">{{ _("Aucun document trouvé") }}</div>
     <p class="state__text">
-      Essayez d'autres mots-clés, ou retirez un filtre pour élargir la recherche.
+      {{ _("Essayez d'autres mots-clés, ou retirez un filtre pour élargir la recherche.") }}
     </p>
     <div class="state__actions">
-      <a href="/recherche" class="btn btn--outline">Réinitialiser la recherche</a>
+      <a href="/recherche" class="btn btn--outline">{{ _("Réinitialiser la recherche") }}</a>
     </div>
   </div>
 {% endif %}

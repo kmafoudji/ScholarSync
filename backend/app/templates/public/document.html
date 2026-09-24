@@ -8,19 +8,19 @@
 <header class="fiche-tete">
   <div class="fiche-tete__inner">
     <a href="/recherche" class="fiche-retour">
-      <i class="ti ti-arrow-left" aria-hidden="true"></i> Retour aux résultats
+      <i class="ti ti-arrow-left" aria-hidden="true"></i> {{ _("Retour aux résultats") }}
     </a>
 
     <p class="fiche-genre">
       <span class="fiche-annee">{{ doc.annee }}</span>
       <span class="fiche-sep" aria-hidden="true">·</span>
-      {{ 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master' }}
+      {{ _('Thèse de doctorat') if doc.type == 'these' else _('Mémoire de master') }}
       {% if doc.statut != 'soutenu' %}
-      <span class="fiche-sep" aria-hidden="true">·</span> En préparation
+      <span class="fiche-sep" aria-hidden="true">·</span> {{ _('En préparation') }}
       {% endif %}
       {% if doc.acces == 'restreint' %}
       <span class="fiche-sep" aria-hidden="true">·</span>
-      <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
+      <i class="ti ti-lock" aria-hidden="true"></i> {{ _('Accès restreint') }}
       {% endif %}
     </p>
 
@@ -39,7 +39,7 @@
   <article class="fiche-contenu">
     {% if doc.resume %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> Résumé</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> {{ _("Résumé") }}</h2>
       {# La césure automatique s'appuie sur la langue déclarée. Celle du
          résumé est celle du document, qui n'est pas forcément celle de
          l'interface : une thèse en anglais se coupe selon les règles
@@ -54,19 +54,17 @@
        colonne est déjà vide, un état vide imposant ne ferait qu'en
        souligner le vide. #}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> Résumé</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-file-description" aria-hidden="true"></i> {{ _("Résumé") }}</h2>
       <p class="fiche-absent">
         <i class="ti ti-file-text" aria-hidden="true"></i>
-        Aucun résumé dans la notice Zotero d'origine. Ajoutez-le au champ
-        « Résumé » de l'entrée Zotero : il apparaîtra à la prochaine
-        synchronisation.
+        {{ _("Aucun résumé n'est disponible pour ce document.") }}
       </p>
     </section>
     {% endif %}
 
     {% if doc.mots_cles %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre"><i class="ti ti-tag" aria-hidden="true"></i> Mots-clés</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-tag" aria-hidden="true"></i> {{ _("Mots-clés") }}</h2>
       <ul class="fiche-motscles">
         {% for mc in doc.mots_cles %}
         <li><a href="/recherche?q={{ mc | urlencode }}">{{ mc }}</a></li>
@@ -77,7 +75,7 @@
 
     {% if doc.jury %}
     <section class="fiche-bloc">
-      <h2 class="fiche-bloc__titre"><i class="ti ti-users" aria-hidden="true"></i> Jury</h2>
+      <h2 class="fiche-bloc__titre"><i class="ti ti-users" aria-hidden="true"></i> {{ _("Jury") }}</h2>
       <p class="fiche-texte">{{ doc.jury }}</p>
     </section>
     {% endif %}
@@ -89,7 +87,7 @@
     {% if voisins %}
     <section class="fiche-bloc">
       <h2 class="fiche-bloc__titre">
-        <i class="ti ti-books" aria-hidden="true"></i> Travaux proches
+        <i class="ti ti-books" aria-hidden="true"></i> {{ _("Travaux proches") }}
       </h2>
       <ul class="fiche-proches">
         {% for v in voisins %}
@@ -98,7 +96,7 @@
             <span class="fiche-proche__genre">
               <i class="ti ti-{{ 'certificate' if v.type == 'these' else 'book' }}"
                  aria-hidden="true"></i>
-              {{ 'Thèse' if v.type == 'these' else 'Mémoire' }}
+              {{ _('Thèse') if v.type == 'these' else _('Mémoire') }}
               <span class="fiche-sep" aria-hidden="true">·</span>
               {{ v.annee }}
             </span>
@@ -111,8 +109,7 @@
 
       <a href="/recherche?{{ 'domaine=' ~ (doc.domaine|urlencode) if doc.domaine else 'etablissement=' ~ (doc.etablissement_code|urlencode) }}"
          class="fiche-proches__tout">
-        Voir tous les travaux
-        {% if doc.domaine %}en {{ doc.domaine|lower }}{% else %}de {{ doc.etablissement_code }}{% endif %}
+        {% if doc.domaine %}{{ _("Voir tous les travaux en {domaine}", domaine=doc.domaine|lower) }}{% else %}{{ _("Voir tous les travaux de {etab}", etab=doc.etablissement_code) }}{% endif %}
         <i class="ti ti-arrow-right" aria-hidden="true"></i>
       </a>
     </section>
@@ -125,24 +122,23 @@
     <div class="fiche-acces">
       {% if doc.acces == 'restreint' %}
       <p class="fiche-acces__etat">
-        <i class="ti ti-lock" aria-hidden="true"></i> Accès restreint
+        <i class="ti ti-lock" aria-hidden="true"></i> {{ _('Accès restreint') }}
       </p>
       <p class="fiche-acces__note">
-        Contactez {{ doc.etablissement.nom if doc.etablissement else doc.etablissement_code }}
-        pour consulter ce document.
+        {{ _("Contactez {etab} pour consulter ce document.", etab=(doc.etablissement.nom if doc.etablissement else doc.etablissement_code)) }}
       </p>
       {% elif doc.url_document %}
       <a href="{{ doc.url_document }}" target="_blank" rel="noopener"
          class="btn btn--primary fiche-acces__lien">
-        <i class="ti ti-external-link" aria-hidden="true"></i> Consulter le document
+        <i class="ti ti-external-link" aria-hidden="true"></i> {{ _("Consulter le document") }}
       </a>
-      <p class="fiche-acces__note">Redirige vers le dépôt de l'établissement</p>
+      <p class="fiche-acces__note">{{ _("Redirige vers le dépôt de l'établissement") }}</p>
       {% else %}
       <p class="fiche-acces__etat fiche-acces__etat--absent">
-        <i class="ti ti-file-off" aria-hidden="true"></i> Non disponible en ligne
+        <i class="ti ti-file-off" aria-hidden="true"></i> {{ _("Non disponible en ligne") }}
       </p>
       <p class="fiche-acces__note">
-        La notice est référencée, le texte intégral n'est pas encore déposé.
+        {{ _("La notice est référencée, le texte intégral n'est pas encore déposé.") }}
       </p>
       {% endif %}
     </div>
@@ -150,12 +146,12 @@
     {# Le numéro national est l'identifiant officiel du dépôt : il mérite
        sa place, pas une ligne de tableau parmi d'autres. #}
     <div class="fiche-numero">
-      <span class="fiche-numero__libelle">Numéro national</span>
+      <span class="fiche-numero__libelle">{{ _("Numéro national") }}</span>
       <span class="fiche-numero__valeur">{{ doc.numero_national }}</span>
       <button type="button" class="fiche-numero__copier"
               data-copier="{{ doc.numero_national }}"
-              data-libelle="Numéro national copié : {{ doc.numero_national }}">
-        <i class="ti ti-copy" aria-hidden="true"></i> Copier
+              data-libelle="{{ _('Numéro national copié :') }} {{ doc.numero_national }}">
+        <i class="ti ti-copy" aria-hidden="true"></i> {{ _('Copier') }}
       </button>
     </div>
 
@@ -163,15 +159,15 @@
        chaque lecteur retape les métadonnées à la main. #}
     <div class="fiche-citer">
       <h2 class="fiche-bloc__titre">
-        <i class="ti ti-quote" aria-hidden="true"></i> Citer ce document
+        <i class="ti ti-quote" aria-hidden="true"></i> {{ _("Citer ce document") }}
       </h2>
 
       <div class="fiche-citer__apa">
         <p class="fiche-citer__texte">{{ citation_apa }}</p>
         <button type="button" class="fiche-citer__copier"
                 data-copier="{{ citation_apa }}"
-                data-libelle="Citation APA copiée.">
-          <i class="ti ti-copy" aria-hidden="true"></i> Copier la citation
+                data-libelle="{{ _('Citation APA copiée.') }}">
+          <i class="ti ti-copy" aria-hidden="true"></i> {{ _("Copier la citation") }}
         </button>
       </div>
 
@@ -197,7 +193,7 @@
 
     <div class="fiche-infos">
       <h2 class="fiche-bloc__titre">
-        <i class="ti ti-list-details" aria-hidden="true"></i> Informations
+        <i class="ti ti-list-details" aria-hidden="true"></i> {{ _("Informations") }}
       </h2>
       <dl class="fiche-champs">
         {% macro champ(icone, libelle, valeur) %}
@@ -209,27 +205,27 @@
           {% endif %}
         {% endmacro %}
 
-        {{ champ('certificate', 'Type',
-                 'Thèse de doctorat' if doc.type == 'these' else 'Mémoire de master') }}
-        {{ champ('circle-check', 'Statut',
-                 'Soutenu' if doc.statut == 'soutenu' else 'En préparation') }}
-        {{ champ('calendar', 'Année', doc.annee) }}
-        {{ champ('user-check', 'Direction', doc.directeur) }}
-        {{ champ('building-bank', 'Établissement',
+        {{ champ('certificate', _('Type'),
+                 _('Thèse de doctorat') if doc.type == 'these' else _('Mémoire de master')) }}
+        {{ champ('circle-check', _('Statut'),
+                 _('Soutenu') if doc.statut == 'soutenu' else _('En préparation')) }}
+        {{ champ('calendar', _('Année'), doc.annee) }}
+        {{ champ('user-check', _('Direction'), doc.directeur) }}
+        {{ champ('building-bank', _('Établissement'),
                  doc.etablissement.nom if doc.etablissement else doc.etablissement_code) }}
         {{ champ('school',
-                 'École doctorale' if doc.sous_entite_type == 'ecole_doctorale' else 'Faculté',
+                 _('École doctorale') if doc.sous_entite_type == 'ecole_doctorale' else _('Faculté'),
                  doc.sous_entite_nom) }}
-        {{ champ('tag', 'Domaine', doc.domaine) }}
-        {{ champ('language', 'Langue', doc.langue) }}
+        {{ champ('tag', _('Domaine'), doc.domaine) }}
+        {{ champ('language', _('Langue'), doc.langue) }}
       </dl>
     </div>
 
-    <nav class="fiche-voisins" aria-label="Recherches liées">
-      <h2 class="fiche-bloc__titre"><i class="ti ti-compass" aria-hidden="true"></i> Explorer</h2>
+    <nav class="fiche-voisins" aria-label="{{ _('Recherches liées') }}">
+      <h2 class="fiche-bloc__titre"><i class="ti ti-compass" aria-hidden="true"></i> {{ _("Explorer") }}</h2>
       <a href="/recherche?etablissement={{ doc.etablissement_code | urlencode }}">
         <i class="ti ti-building-bank" aria-hidden="true"></i>
-        Tous les travaux de {{ doc.etablissement_code }}
+        {{ _("Tous les travaux de {etab}", etab=doc.etablissement_code) }}
       </a>
       {% if doc.sous_entite_nom %}
       <a href="/recherche?sous_entite={{ doc.sous_entite_nom | urlencode }}&etablissement={{ doc.etablissement_code | urlencode }}">
@@ -239,7 +235,7 @@
       {% endif %}
       <a href="/recherche?annee={{ doc.annee }}">
         <i class="ti ti-calendar" aria-hidden="true"></i>
-        Travaux de {{ doc.annee }}
+        {{ _("Travaux de {annee}", annee=doc.annee) }}
       </a>
     </nav>
 
@@ -249,14 +245,14 @@
 
 {% block extra_js %}
 <script>
+  var TEXTE_COPIE_ECHEC = {{ _('Copie impossible — sélectionnez le texte à la main.')|tojson }};
   document.querySelectorAll('[data-copier]').forEach(function (b) {
     b.addEventListener('click', function () {
       var valeur = b.getAttribute('data-copier');
       var libelle = b.getAttribute('data-libelle') || 'Copié.';
       var fini = function (ok) {
         window.ScholarSync.toast(
-          ok ? libelle
-             : 'Copie impossible — sélectionnez le texte à la main.',
+          ok ? libelle : TEXTE_COPIE_ECHEC,
           ok ? 'success' : 'warning'
         );
       };

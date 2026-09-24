@@ -22,7 +22,7 @@
         <span class="facette-entete__titre">{{ titre }}</span>
         {% set retenues = (current_filters.get(cle) or [])|length %}
         {% if retenues %}
-        <span class="facette-entete__compte" aria-label="{{ retenues }} filtre(s) actif(s)">{{ retenues }}</span>
+        <span class="facette-entete__compte" aria-label="{{ _('{n} filtre(s) actif(s)', n=retenues) }}">{{ retenues }}</span>
         {% endif %}
         <i class="ti ti-chevron-down facette-entete__chevron" aria-hidden="true"></i>
       </button>
@@ -32,9 +32,9 @@
       {% if options|length > SEUIL_RECHERCHE %}
       <div class="facette-chercher">
         <i class="ti ti-search" aria-hidden="true"></i>
-        <label class="sr-only" for="rech-{{ cle }}">Rechercher dans {{ titre|lower }}</label>
+        <label class="sr-only" for="rech-{{ cle }}">{{ _("Rechercher dans {quoi}", quoi=titre|lower) }}</label>
         <input type="search" id="rech-{{ cle }}" class="facette-chercher__champ"
-               placeholder="Filtrer {{ titre|lower }}…" autocomplete="off"
+               placeholder="{{ _('Filtrer {quoi}…', quoi=titre|lower) }}" autocomplete="off"
                data-chercher-dans="{{ cle }}">
       </div>
       {% endif %}
@@ -72,11 +72,11 @@
       {% if options|length > SEUIL_VISIBLE %}
       <button type="button" class="facette-plus" data-plus-pour="{{ cle }}"
               data-restant="{{ options|length - SEUIL_VISIBLE }}">
-        Voir les {{ options|length - SEUIL_VISIBLE }} autres
+        {{ _("Voir les {n} autres", n=options|length - SEUIL_VISIBLE) }}
       </button>
       {% endif %}
 
-      <p class="facette-aucun" hidden>Aucune valeur ne correspond.</p>
+      <p class="facette-aucun" hidden>{{ _("Aucune valeur ne correspond.") }}</p>
     </div>
   </section>
   {% endif %}
@@ -84,34 +84,34 @@
 
 <div class="facettes__head">
   <h2 class="facettes__titre">
-    <i class="ti ti-filter" aria-hidden="true"></i> Affiner
+    <i class="ti ti-filter" aria-hidden="true"></i> {{ _("Affiner") }}
   </h2>
   {% if nb_filtres_actifs %}
   <a href="/recherche" class="facettes__reset">
     <i class="ti ti-x" aria-hidden="true"></i>
-    Tout effacer ({{ nb_filtres_actifs }})
+    {{ _("Tout effacer") }} ({{ nb_filtres_actifs }})
   </a>
   {% endif %}
 </div>
 
-{{ groupe('Établissement', 'etablissement', facettes.etablissements, 'building-bank') }}
+{{ groupe(_('Établissement'), 'etablissement', facettes.etablissements, 'building-bank') }}
 
 {% if facettes.sous_entites %}
-  {{ groupe('École doctorale / Faculté', 'sous_entite', facettes.sous_entites, 'school') }}
+  {{ groupe(_('École doctorale / Faculté'), 'sous_entite', facettes.sous_entites, 'school') }}
 {% endif %}
 
-{{ groupe('Type', 'type', facettes.types, 'certificate',
-          {'these': 'Thèse de doctorat', 'memoire': 'Mémoire de master'}) }}
+{{ groupe(_('Type'), 'type', facettes.types, 'certificate',
+          {'these': _('Thèse de doctorat'), 'memoire': _('Mémoire de master')}) }}
 
-{{ groupe('Statut', 'statut', facettes.statuts, 'circle-check',
-          {'soutenu': 'Soutenu', 'en_preparation': 'En préparation'}) }}
+{{ groupe(_('Statut'), 'statut', facettes.statuts, 'circle-check',
+          {'soutenu': _('Soutenu'), 'en_preparation': _('En préparation')}) }}
 
-{{ groupe('Domaine', 'domaine', facettes.domaines, 'tag') }}
-{{ groupe('Année', 'annee', facettes.annees, 'calendar') }}
-{{ groupe('Langue', 'langue', facettes.langues, 'language') }}
+{{ groupe(_('Domaine'), 'domaine', facettes.domaines, 'tag') }}
+{{ groupe(_('Année'), 'annee', facettes.annees, 'calendar') }}
+{{ groupe(_('Langue'), 'langue', facettes.langues, 'language') }}
 
 {% if not facettes.etablissements and not facettes.types %}
 <p class="facettes__vide">
-  Aucun critère disponible : le catalogue ne contient encore aucun document.
+  {{ _("Aucun critère disponible : le catalogue ne contient encore aucun document.") }}
 </p>
 {% endif %}

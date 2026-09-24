@@ -8,6 +8,7 @@ from typing import Optional, List
 import json, os, math, logging, re, io, csv
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
+from jinja2 import pass_context
 
 from app.core.database import get_db, engine, SessionLocal
 from app.core.config import settings
@@ -22,6 +23,7 @@ from app.core import html_riche
 from app.core import citations
 from app.core import logos
 from app.core import permissions
+from app.core import i18n
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException
@@ -311,6 +313,19 @@ def static_url(chemin: str) -> str:
 
 
 templates.env.globals["static_url"] = static_url
+
+
+@pass_context
+def _traduire_gabarit(contexte, texte, **valeurs):
+    """`_()` des gabarits : traduit dans la langue de la page."""
+    langue = contexte.get("lang")
+    if not langue and contexte.get("request") is not None:
+        langue = i18n.langue_de(contexte["request"], contexte.get("params"))
+    return i18n.traduire(texte, langue or i18n.LANGUE_DEFAUT, **valeurs)
+
+
+templates.env.globals["_"] = _traduire_gabarit
+templates.env.globals["langues_actives"] = i18n.langues_actives
 templates.env.globals["url_facette"] = url_facette
 templates.env.globals["facette_active"] = facette_active
 templates.env.filters["libelle_statut"] = libelle_statut
@@ -645,9 +660,10 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
     query = appliquer_filtres(db.query(Document), filtres).order_by(*TRIS[sort])
     docs, pagination = paginate(query, page, par_page)
 
+    params = get_params_with_defaults(db)
     return {
         "request": request,
-        "params": get_params_with_defaults(db),
+        "params": params,
         "stats": get_stats(db),
         "facettes": get_facettes(db, filtres),
         "documents": docs,
@@ -660,7 +676,7 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
         ) + (1 if filtres.get("q") else 0),
         "annees_recentes": [],
         "active_nav": "accueil",
-        "lang": "fr",
+        "lang": i18n.langue_de(request, params),
     }
 
 
@@ -844,7 +860,7 @@ async def detail_document(doc_id: str, request: Request, db: Session = Depends(g
         "request": request, "params": params, "doc": doc,
         "citation_apa": citations.apa(doc, nom_etab),
         "voisins": documents_proches(db, doc),
-        "active_nav": "", "lang": "fr",
+        "active_nav": "", "lang": i18n.langue_de(request, params),
     })
 
 
@@ -932,7 +948,8 @@ async def citation_document(
 async def apropos(request: Request, db: Session = Depends(get_db)):
     params = get_params_with_defaults(db)
     return templates.TemplateResponse("public/apropos.html", {
-        "request": request, "params": params, "active_nav": "apropos", "lang": "fr",
+        "request": request, "params": params, "active_nav": "apropos",
+        "lang": i18n.langue_de(request, params),
     })
 
 @app.get("/etablissements", response_class=HTMLResponse)
@@ -945,7 +962,7 @@ async def etablissements_page(request: Request, db: Session = Depends(get_db)):
         etabs_stats.append({"etablissement": e, "count": count})
     return templates.TemplateResponse("public/etablissements.html", {
         "request": request, "params": params, "etabs_stats": etabs_stats,
-        "active_nav": "etablissements", "lang": "fr",
+        "active_nav": "etablissements", "lang": i18n.langue_de(request, params),
     })
 
 @app.get("/statistiques")
@@ -2615,10 +2632,13 @@ async def handler_http(request: Request, exc: StarletteHTTPException):
     else:
         titre, message = "Une erreur est survenue", str(exc.detail or "")
 
+    params = _erreur_params()
+    langue = i18n.langue_de(request, params)
     return templates.TemplateResponse(
         "erreur.html",
-        {"request": request, "params": _erreur_params(), "code": exc.status_code,
-         "titre": titre, "message": message},
+        {"request": request, "params": params, "code": exc.status_code,
+         "titre": i18n.traduire(titre, langue),
+         "message": i18n.traduire(message, langue), "lang": langue},
         status_code=exc.status_code,
     )
 
@@ -2630,10 +2650,13 @@ async def handler_500(request: Request, exc: Exception):
     )
     if request.url.path.startswith("/api/"):
         return JSONResponse({"detail": "Erreur interne"}, status_code=500)
+    params = _erreur_params()
+    langue = i18n.langue_de(request, params)
     return templates.TemplateResponse(
         "erreur.html",
-        {"request": request, "params": _erreur_params(), "code": 500,
-         "titre": "Erreur interne",
-         "message": "Le serveur a rencontré un problème. L'incident a été enregistré."},
+        {"request": request, "params": params, "code": 500, "lang": langue,
+         "titre": i18n.traduire("Erreur interne", langue),
+         "message": i18n.traduire(
+             "Le serveur a rencontré un problème. L'incident a été enregistré.", langue)},
         status_code=500,
     )

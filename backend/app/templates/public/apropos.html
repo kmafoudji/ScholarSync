@@ -1,10 +1,10 @@
 {% extends "public/base.html" %}
-{% block title %}À propos — {{ params.nom_outil }}{% endblock %}
+{% block title %}{{ _('À propos') }} — {{ params.nom_outil }}{% endblock %}
 
 {% block content %}
 <div style="background:var(--primary);padding:2.5rem 0 2rem;">
   <div class="container-sm" style="text-align:center;">
-    <h1 style="color:#fff;font-size:2rem;margin-bottom:.5rem;">À propos</h1>
+    <h1 style="color:#fff;font-size:2rem;margin-bottom:.5rem;">{{ _('À propos') }}</h1>
     <p style="color:rgba(255,255,255,.65);">{{ params.slogan }}</p>
   </div>
 </div>
@@ -12,22 +12,24 @@
 <div class="container-sm" style="padding:2rem 1.5rem;">
   {% set contact = params.contact_json|fromjson %}
 
-  {% if params.apropos_fr %}
+  {# Texte dans la langue du visiteur, à défaut en français. #}
+  {% set texte_apropos = params.get('apropos_' ~ lang) or params.apropos_fr %}
+  {% if texte_apropos %}
   {# Le contenu vient de l'éditeur d'administration : il porte la même
      classe que la surface de saisie, faute de quoi les listes perdaient
      leur retrait et les paragraphes leur espacement à la publication. #}
   <div class="card card--lg contenu-riche" style="margin-bottom:1.5rem;">
-    {{ params.apropos_fr|safe }}
+    {{ texte_apropos|safe }}
   </div>
   {% else %}
   <div class="card card--lg" style="margin-bottom:1.5rem;">
-    <p style="color:var(--text-2);font-style:italic;">Le contenu de cette page peut être configuré dans l'espace d'administration.</p>
+    <p style="color:var(--text-2);font-style:italic;">{{ _("Le contenu de cette page peut être configuré dans l'espace d'administration.") }}</p>
   </div>
   {% endif %}
 
   {% if contact %}
   <div class="card" style="margin-bottom:1.5rem;">
-    <h2 style="font-size:var(--fs-base);margin-bottom:1rem;">Contact</h2>
+    <h2 style="font-size:var(--fs-base);margin-bottom:1rem;">{{ _('Contact') }}</h2>
     <div style="display:grid;gap:.5rem;font-size:var(--fs-sm);color:var(--text-2);">
       {% if contact.nom %}<div><i class="ti ti-building" style="color:var(--primary);margin-right:6px;"></i>{{ contact.nom }}</div>{% endif %}
       {% if contact.adresse %}<div><i class="ti ti-map-pin" style="color:var(--primary);margin-right:6px;"></i>{{ contact.adresse }}</div>{% endif %}

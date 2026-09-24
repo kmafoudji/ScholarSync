@@ -20,7 +20,7 @@
 </head>
 <body>
 
-<a href="#contenu-principal" class="skip-link">Aller au contenu</a>
+<a href="#contenu-principal" class="skip-link">{{ _("Aller au contenu") }}</a>
 
 <!-- HEADER -->
 <header class="site-header">
@@ -50,7 +50,7 @@
         <i class="ti ti-pencil"></i><i class="ti ti-microscope"></i>
       {% endif %}
     </div>
-    <a href="/" class="logo" aria-label="{{ params.nom_outil }} — accueil">
+    <a href="/" class="logo" aria-label="{{ params.nom_outil }} — {{ _('accueil') }}">
       {% if params.logo_url %}
         <div style="background:rgba(255,255,255,0.92);border-radius:8px;padding:4px 10px;display:flex;align-items:center;">
           <img src="{{ params.logo_url }}" alt="{{ params.nom_outil }}" style="height:32px;width:auto;object-fit:contain;">
@@ -63,33 +63,38 @@
       {% endif %}
     </a>
     <button type="button" class="menu-toggle" id="menuTogglePublic"
-            aria-label="Ouvrir le menu" aria-controls="siteNav" aria-expanded="false">
+            aria-label="{{ _('Ouvrir le menu') }}" aria-controls="siteNav" aria-expanded="false">
       <i class="ti ti-menu-2" aria-hidden="true"></i>
     </button>
-    <nav class="site-nav" id="siteNav" aria-label="Navigation principale">
+    <nav class="site-nav" id="siteNav" aria-label="{{ _('Navigation principale') }}">
       <a href="/theses" class="{{ 'active' if active_nav == 'theses' }}">
-        <i class="ti ti-certificate"></i> Thèses
+        <i class="ti ti-certificate"></i> {{ _("Thèses") }}
       </a>
       <a href="/memoires" class="{{ 'active' if active_nav == 'memoires' }}">
-        <i class="ti ti-books"></i> Mémoires
+        <i class="ti ti-books"></i> {{ _("Mémoires") }}
       </a>
       <a href="/etablissements" class="{{ 'active' if active_nav == 'etablissements' }}">
-        <i class="ti ti-building-bank"></i> Établissements
+        <i class="ti ti-building-bank"></i> {{ _("Établissements") }}
       </a>
       <a href="/a-propos" class="{{ 'active' if active_nav == 'apropos' }}">
-        <i class="ti ti-info-circle"></i> À propos
+        <i class="ti ti-info-circle"></i> {{ _("À propos") }}
       </a>
     </nav>
-    <div class="lang-switcher">
-      <button type="button" class="{{ 'active' if lang == 'fr' }}" onclick="setLang('fr')"
-              aria-label="Français" {{ 'aria-current=true' if lang == 'fr' }}>FR</button>
-      <button type="button" class="{{ 'active' if lang == 'en' }}" onclick="setLang('en')"
-              aria-label="English" {{ 'aria-current=true' if lang == 'en' }}>EN</button>
-      <button type="button" class="{{ 'active' if lang == 'pt' }}" onclick="setLang('pt')"
-              aria-label="Português" {{ 'aria-current=true' if lang == 'pt' }}>PT</button>
+    {# Seules les langues activées dans les paramètres généraux sont
+       proposées ; avec une seule langue, le sélecteur n'a pas lieu d'être. #}
+    {% set langues_site = langues_actives(params) %}
+    {% if langues_site|length > 1 %}
+    <div class="lang-switcher" role="group" aria-label="{{ _('Langue du site') }}">
+      {% for code, nom in [('fr', 'Français'), ('en', 'English'), ('pt', 'Português')] %}
+      {% if code in langues_site %}
+      <button type="button" class="{{ 'active' if lang == code }}" onclick="setLang('{{ code }}')"
+              lang="{{ code }}" aria-label="{{ nom }}" {{ 'aria-current=true' if lang == code }}>{{ code|upper }}</button>
+      {% endif %}
+      {% endfor %}
     </div>
-    <a href="/admin" class="btn-admin">
-      <i class="ti ti-lock" style="font-size:var(--fs-2xs);"></i> Admin
+    {% endif %}
+    <a href="/admin" class="btn-admin" aria-label="{{ _('Administration') }}">
+      <i class="ti ti-lock" style="font-size:var(--fs-2xs);" aria-hidden="true"></i> <span>Admin</span>
     </a>
   </div>
 </header>
@@ -138,7 +143,7 @@
     <div class="site-footer__bottom">
       <span class="site-footer__inst">{{ params.institution_nom }}</span>
       <span class="site-footer__credit">
-        {{ params.pied_page_texte or ('Propulsé par ScholarSync') }}
+        {{ params.pied_page_texte or _('Propulsé par ScholarSync') }}
       </span>
     </div>
   </div>

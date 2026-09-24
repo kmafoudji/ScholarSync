@@ -1,11 +1,11 @@
 {% extends "public/base.html" %}
-{% block title %}Établissements — {{ params.nom_outil }}{% endblock %}
+{% block title %}{{ _('Établissements') }} — {{ params.nom_outil }}{% endblock %}
 
 {% block content %}
 <div style="background:var(--primary);padding:2.5rem 0 2rem;">
   <div class="container" style="text-align:center;">
-    <h1 style="color:#fff;font-size:2rem;margin-bottom:.5rem;">Établissements partenaires</h1>
-    <p style="color:rgba(255,255,255,.65);">{{ etabs_stats|length }} établissements indexés dans {{ params.nom_outil }}</p>
+    <h1 style="color:#fff;font-size:2rem;margin-bottom:.5rem;">{{ _('Établissements partenaires') }}</h1>
+    <p style="color:rgba(255,255,255,.65);">{{ _('{n} établissements indexés dans {outil}', n=etabs_stats|length, outil=params.nom_outil) }}</p>
   </div>
 </div>
 
@@ -29,7 +29,7 @@
       <div style="display:flex;align-items:center;justify-content:space-between;">
         <div style="display:flex;gap:.5rem;">
           <span style="font-size:var(--fs-xs);background:var(--primary-light);color:var(--primary);padding:2px 8px;border-radius:10px;font-weight:600;">
-            {{ item.count }} docs
+            {{ item.count }} {{ _('docs') }}
           </span>
           {% if item.etablissement.ville %}
           <span style="font-size:var(--fs-xs);color:var(--text-3);display:flex;align-items:center;gap:3px;">
@@ -42,7 +42,7 @@
     </a>
     {% else %}
     <div style="grid-column:1/-1;text-align:center;padding:3rem;color:var(--text-3);">
-      Aucun établissement configuré
+      {{ _('Aucun établissement configuré') }}
     </div>
     {% endfor %}
   </div>
