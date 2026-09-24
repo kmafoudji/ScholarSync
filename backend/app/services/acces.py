@@ -86,26 +86,80 @@ class Regles:
             elif r.niveau == "etablissement":
                 self.etablissement[r.reference.strip().upper()] = acces
 
-    def acces(self, doc) -> str:
+    def origine(self, doc):
+        """Règle qui décide de l'accès du document : (niveau, référence,
+        accès), ou None si aucune règle ne s'applique (public par défaut).
+        Sert à expliquer à l'administrateur POURQUOI un document est
+        restreint — sans quoi un clic sur « Rendre public » semble ne
+        rien faire quand une règle d'établissement le recouvre."""
         code = (doc.etablissement_code or "").upper()
 
         valeur = self.document.get(str(doc.id).lower())
         if valeur:
-            return valeur
+            return ("document", str(doc.id), valeur)
 
         if doc.sous_entite_nom:
             nom = _cle(doc.sous_entite_nom)
-            valeur = (self.sous_collection.get((code, nom))
-                      or self.sous_collection.get((None, nom)))
-            if valeur:
-                return valeur
+            for cle in ((code, nom), (None, nom)):
+                if cle in self.sous_collection:
+                    ref = f"{code}/{doc.sous_entite_nom}" if cle[0] else doc.sous_entite_nom
+                    return ("sous_collection", ref, self.sous_collection[cle])
 
-        valeur = (self.collection.get((code, doc.type))
-                  or self.collection.get((None, doc.type)))
-        if valeur:
-            return valeur
+        for cle in ((code, doc.type), (None, doc.type)):
+            if cle in self.collection:
+                nom = "Thèses" if doc.type == "these" else "Mémoires"
+                return ("collection", f"{code}/{nom}" if cle[0] else nom, self.collection[cle])
 
-        return self.etablissement.get(code, PUBLIC)
+        if code in self.etablissement:
+            return ("etablissement", code, self.etablissement[code])
+        return None
+
+    def acces(self, doc) -> str:
+        o = self.origine(doc)
+        return o[2] if o else PUBLIC
+
+
+LIBELLES_NIVEAUX = {
+    "etablissement": "Établissement",
+    "collection": "Collection",
+    "sous_collection": "Sous-collection",
+    "document": "Document",
+}
+
+
+def dans_perimetre(regle, code: str, ids_documents: set) -> bool:
+    """La règle concerne-t-elle uniquement l'établissement `code` ?
+
+    C'est la condition pour qu'un administrateur d'établissement puisse
+    la modifier ou la supprimer. Une règle nationale (« Thèses » sans
+    préfixe) le concerne mais ne lui appartient pas.
+    """
+    ref = (regle.reference or "").strip()
+    if regle.niveau == "etablissement":
+        return ref.upper() == code
+    if regle.niveau in ("collection", "sous_collection"):
+        prefixe, _ = _separer(ref)
+        return prefixe == code
+    if regle.niveau == "document":
+        return ref.lower() in ids_documents
+    return False
+
+
+def reference_pour_etablissement(niveau: str, reference: str, code: str):
+    """Normalise la référence saisie par un administrateur d'établissement :
+    elle est ramenée de force à son propre établissement. Renvoie None si
+    la référence est inutilisable."""
+    _, nom = _separer(reference or "")
+    if niveau == "etablissement":
+        return code
+    if niveau == "collection":
+        type_doc = COLLECTIONS.get(_cle(nom).replace(" ", ""))
+        if not type_doc:
+            return None
+        return f"{code}/{'Thèses' if type_doc == 'these' else 'Mémoires'}"
+    if niveau == "sous_collection":
+        return f"{code}/{nom}" if nom else None
+    return None
 
 
 def charger(db: Session) -> Regles:

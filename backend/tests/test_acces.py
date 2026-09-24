@@ -9,7 +9,8 @@ from types import SimpleNamespace as N
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.services.acces import Regles, url_publique  # noqa: E402
+from app.services.acces import (  # noqa: E402
+    Regles, dans_perimetre, reference_pour_etablissement, url_publique)
 
 
 def doc(code="UCAD", type_="these", sous=None, acces="public", url="https://depot/x.pdf"):
@@ -71,3 +72,29 @@ def test_forme_prefixee_prime_sur_forme_simple():
 def test_url_masquee_si_restreint():
     assert url_publique(doc(acces="public")) == "https://depot/x.pdf"
     assert url_publique(doc(acces="restreint")) is None
+
+
+def test_origine_explique_la_decision():
+    d = doc(sous="FASTEF")
+    r = Regles([regle("etablissement", "UCAD", "restreint")])
+    assert r.origine(d) == ("etablissement", "UCAD", "restreint")
+    assert Regles([]).origine(d) is None
+
+
+def test_perimetre_etablissement():
+    ids = {"abc"}
+    assert dans_perimetre(regle("etablissement", "UCAD", "x"), "UCAD", ids)
+    assert not dans_perimetre(regle("etablissement", "UGB", "x"), "UCAD", ids)
+    assert dans_perimetre(regle("collection", "UCAD/Thèses", "x"), "UCAD", ids)
+    assert not dans_perimetre(regle("collection", "Thèses", "x"), "UCAD", ids)  # nationale
+    assert not dans_perimetre(regle("sous_collection", "UGB/FST", "x"), "UCAD", ids)
+    assert dans_perimetre(regle("document", "ABC", "x"), "UCAD", ids)
+    assert not dans_perimetre(regle("document", "zzz", "x"), "UCAD", ids)
+
+
+def test_reference_ramenee_a_son_etablissement():
+    assert reference_pour_etablissement("etablissement", "UGB", "UCAD") == "UCAD"
+    assert reference_pour_etablissement("collection", "UGB/theses", "UCAD") == "UCAD/Thèses"
+    assert reference_pour_etablissement("collection", "Livres", "UCAD") is None
+    assert reference_pour_etablissement("sous_collection", "FASTEF", "UCAD") == "UCAD/FASTEF"
+    assert reference_pour_etablissement("document", "x", "UCAD") is None

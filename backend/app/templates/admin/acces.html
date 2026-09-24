@@ -4,17 +4,26 @@
 {% block page_title %}Contrôle d'accès{% endblock %}
 
 {% block topbar_actions %}
+{% if current_user.role != 'lecteur' %}
 <button onclick="document.getElementById('modalAjouter').style.display='flex'" class="btn btn--primary btn--sm">
   <i class="ti ti-plus"></i> Ajouter une règle
 </button>
+{% endif %}
 {% endblock %}
 
 {% block content %}
 <div class="alert alert--warning" style="margin-bottom:1.25rem;">
   <i class="ti ti-info-circle"></i>
-  La règle la plus fine l'emporte : document, puis sous-collection, puis collection, puis établissement.
-  Un document restreint reste signalé sur le portail, mais le lien vers son texte intégral n'est
-  publié nulle part (fiche, exports, citations).
+  <div>
+    La règle la plus fine l'emporte : document, puis sous-collection, puis collection, puis établissement.
+    Un document restreint reste signalé sur le portail, mais le lien vers son texte intégral n'est
+    publié nulle part (fiche, exports, citations).
+    {% if not super_admin %}
+    <br>Vous gérez les règles de <strong>{{ code_etab }}</strong>. Les règles nationales, fixées par le
+    super administrateur, s'appliquent aussi et sont affichées pour information. Pour un document
+    précis, utilisez le bouton <em>Restreindre</em> de la page <a href="/admin/documents">Mes documents</a>.
+    {% endif %}
+  </div>
 </div>
 
 <div class="card" style="padding:0;margin-bottom:1rem;">
@@ -45,7 +54,16 @@
               {% else %}Document{% endif %}
             </span>
           </td>
-          <td style="font-variant-numeric:tabular-nums;letter-spacing:.05em;font-size:var(--fs-sm);">{{ ex.reference }}</td>
+          <td style="font-size:var(--fs-sm);">
+            {% if ex.niveau == 'document' and ex.titre_document %}
+            <a href="/document/{{ ex.reference }}" target="_blank" class="cellule-titre">{{ ex.titre_document }}</a>
+            {% else %}
+            <span style="font-variant-numeric:tabular-nums;letter-spacing:.05em;">{{ ex.reference }}</span>
+            {% endif %}
+            {% if not ex.modifiable %}
+            <span class="badge" style="margin-left:.375rem;">Règle nationale</span>
+            {% endif %}
+          </td>
           <td>
             <span class="badge badge--{{ 'soutenu' if ex.acces == 'public' else 'restreint' }}">
               {{ 'Public' if ex.acces == 'public' else 'Restreint' }}
@@ -53,12 +71,15 @@
           </td>
           <td style="font-size:var(--fs-xs);color:var(--text-2);">{{ ex.created_at|format_datetime }}</td>
           <td>
+            {% if ex.modifiable and current_user.role != 'lecteur' %}
             <form method="post" action="/admin/acces/{{ ex.id }}/supprimer"
                   onsubmit="return confirm('Supprimer cette règle ?')">
-              <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);">
-                <i class="ti ti-trash"></i>
+              <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);"
+                      aria-label="Supprimer la règle">
+                <i class="ti ti-trash" aria-hidden="true"></i>
               </button>
             </form>
+            {% else %}—{% endif %}
           </td>
         </tr>
         {% else %}
@@ -76,16 +97,16 @@
 
 <div class="card card--lg">
   <div class="acces-rapide__entete">
-    <h2>Accès rapide par établissement</h2>
+    <h2>{{ 'Accès rapide par établissement' if super_admin else 'Accès de tout mon fonds' }}</h2>
     <p>
-      Applique une règle à tout le fonds d'un établissement. Les règles
-      plus fines, définies ci-dessus, restent prioritaires.
+      Applique une règle à tout le fonds {{ "d'un établissement" if super_admin else "de votre établissement" }}.
+      Les règles plus fines, définies ci-dessus, restent prioritaires.
     </p>
   </div>
 
   <div class="acces-rapide">
     {% for etab in etablissements %}
-    {% set regle = regles_etab.get(etab.code) %}
+    {% set regle = regles_etab.get(etab.code|upper) %}
     <div class="acces-carte {{ 'acces-carte--restreint' if regle == 'restreint' }}">
       <div class="acces-carte__titre">
         {% if etab.logo_url %}
@@ -137,6 +158,7 @@
   </div>
 </div>
 
+{% if current_user.role != 'lecteur' %}
 <div class="modal-overlay" id="modalAjouter" style="display:none;">
   <div class="modal">
     <div class="modal__header">
@@ -147,6 +169,7 @@
     </div>
     <form method="post" action="/admin/acces/definir">
       <div class="modal__body">
+        {% if super_admin %}
         <div class="form-group">
           <label class="form-label" for="f-niveau">Niveau <span class="required">*</span></label>
           <select id="f-niveau" name="niveau" class="form-control" required>
@@ -167,6 +190,32 @@
             identifiant — le plus simple est le bouton Public/Restreint de la page Documents.
           </div>
         </div>
+        {% else %}
+        {# Établissement : choix fermés, ramenés à son propre fonds par le
+           serveur quoi qu'on envoie. #}
+        <div class="form-group">
+          <label class="form-label" for="f-niveau">Porte sur <span class="required">*</span></label>
+          <select id="f-niveau" name="niveau" class="form-control" required>
+            <option value="collection">Une collection de {{ code_etab }} (Thèses ou Mémoires)</option>
+            <option value="sous_collection" {{ 'disabled' if not sous_entites }}>Une faculté ou école doctorale de {{ code_etab }}</option>
+            <option value="etablissement">Tout le fonds de {{ code_etab }}</option>
+          </select>
+        </div>
+        <div class="form-group" data-pour-niveau="collection">
+          <label class="form-label" for="f-ref-col">Collection</label>
+          <select id="f-ref-col" name="reference" class="form-control">
+            <option value="Thèses">Thèses</option>
+            <option value="Mémoires">Mémoires</option>
+          </select>
+        </div>
+        <div class="form-group" data-pour-niveau="sous_collection" hidden>
+          <label class="form-label" for="f-ref-sous">Faculté / école doctorale</label>
+          <select id="f-ref-sous" name="reference" class="form-control" disabled>
+            {% for n in sous_entites %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+          </select>
+        </div>
+        <input type="hidden" name="reference" value="{{ code_etab }}" data-pour-niveau="etablissement" disabled>
+        {% endif %}
         <div class="form-group">
           <label class="form-label">Accès <span class="required">*</span></label>
           <div class="grid-2" style="gap:.75rem;margin-bottom:0;">
@@ -194,4 +243,27 @@
     </form>
   </div>
 </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/* Un seul champ « reference » actif à la fois : celui du niveau choisi.
+   Les champs désactivés ne sont pas envoyés par le navigateur. */
+(function () {
+  var niveau = document.getElementById('f-niveau');
+  var blocs = document.querySelectorAll('[data-pour-niveau]');
+  if (!niveau || !blocs.length) return;
+  function maj() {
+    blocs.forEach(function (b) {
+      var actif = b.dataset.pourNiveau === niveau.value;
+      if (b.tagName === 'INPUT') { b.disabled = !actif; return; }
+      b.hidden = !actif;
+      b.querySelectorAll('select, input').forEach(function (c) { c.disabled = !actif; });
+    });
+  }
+  niveau.addEventListener('change', maj);
+  maj();
+})();
+</script>
 {% endblock %}

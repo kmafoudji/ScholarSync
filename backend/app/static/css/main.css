@@ -3045,3 +3045,27 @@ td.col-numero {
   .lang-switcher button { padding: 4px 6px; }
   .btn-admin { padding: .375rem .5rem; }
 }
+
+/* ══ Accès d'un document dans le tableau ═════════════════════════
+   Le badge « Public / Restreint » était lui-même le bouton : rien ne
+   signalait qu'on pouvait cliquer dessus. L'état et l'action sont
+   désormais séparés, et l'origine de la règle est dite. */
+.table--documents .col-titre   { width: 19%; }
+.table--documents .col-auteur  { width: 10%; }
+.table--documents .col-etab    { width: 11%; }
+.table--documents .col-etroite { width: 7.5%; }
+.table--documents .col-numero  { width: 17%; }
+.table--documents .col-acces   { width: 20.5%; }
+.table--documents td.col-acces { overflow: visible; white-space: normal; }
+.acces-doc { display: grid; gap: .375rem; justify-items: start; }
+.acces-doc .status { display: inline-flex; align-items: center; gap: .3rem; }
+.acces-doc__origine { font-size: var(--fs-xs); color: var(--text-2); line-height: 1.35; }
+.acces-doc__actions { display: flex; flex-wrap: wrap; gap: .375rem; }
+.acces-doc__actions form { margin: 0; }
+.acces-doc__btn { white-space: nowrap; }
+
+/* Les textes .sr-only (position absolue) placés dans un tableau
+   s'échappaient du défilement horizontal de .table-wrap, faute
+   d'ancêtre positionné : sur téléphone, toute la page défilait
+   latéralement. */
+.table-wrap { position: relative; }

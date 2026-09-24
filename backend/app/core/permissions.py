@@ -48,6 +48,11 @@ ROUTES_ETABLISSEMENT = [
     ({"GET"}, r"/admin/exports/rapport"),
     ({"GET"}, r"/admin/mon-etablissement"),
     ({"POST"}, r"/admin/mon-etablissement"),
+    # Contrôle d'accès : limité à son établissement dans les routes
+    # (acces_docs.dans_perimetre, reference_pour_etablissement)
+    ({"GET"}, r"/admin/acces"),
+    ({"POST"}, r"/admin/acces/definir"),
+    ({"POST"}, r"/admin/acces/\d+/supprimer"),
 ]
 _COMPILEES = [(m, re.compile(rf"^{motif}/?$")) for m, motif in ROUTES_ETABLISSEMENT]
 

@@ -40,6 +40,13 @@
         <option value="en_preparation" {{ 'selected' if filtre_statut == 'en_preparation' }}>En préparation</option>
       </select>
 
+      <label class="sr-only" for="filtreAcces">Accès</label>
+      <select name="acces" id="filtreAcces" class="form-control" style="width:auto;">
+        <option value="">Tous accès</option>
+        <option value="public" {{ 'selected' if filtre_acces == 'public' }}>Publics</option>
+        <option value="restreint" {{ 'selected' if filtre_acces == 'restreint' }}>Restreints</option>
+      </select>
+
       {% if current_user.role == 'super_admin' and etablissements|length > 1 %}
       <label class="sr-only" for="filtreEtab">Établissement</label>
       <select name="etablissement" id="filtreEtab" class="form-control" style="width:auto;">
@@ -53,7 +60,7 @@
       <button type="submit" class="btn btn--outline btn--sm">
         <i class="ti ti-filter" aria-hidden="true"></i> Filtrer
       </button>
-      {% if q or filtre_type or filtre_statut or filtre_etablissement %}
+      {% if q or filtre_type or filtre_statut or filtre_etablissement or filtre_acces %}
       <a href="/admin/documents" class="btn btn--ghost btn--sm">Réinitialiser</a>
       {% endif %}
     </form>
@@ -74,7 +81,7 @@
           {{ t.th('Statut', 'statut', tri, 'asc', 'col-etroite') }}
           {{ t.th('Année', 'annee', tri, 'desc', 'col-etroite') }}
           {{ t.th('Numéro national', 'numero', tri, 'asc', 'col-numero') }}
-          {{ t.th_fixe('Accès', 'col-etroite') }}
+          {{ t.th_fixe('Accès', 'col-acces') }}
         </tr>
       </thead>
       <tbody>
@@ -101,19 +108,45 @@
           <td><span class="badge badge--{{ doc.statut }}">{{ 'Soutenu' if doc.statut == 'soutenu' else 'En prép.' }}</span></td>
           <td class="col-etroite">{{ doc.annee }}</td>
           <td class="col-numero">{{ doc.numero_national }}</td>
-          <td>
-            {% if current_user.role == 'lecteur' %}
-            <span class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}">
-              {{ 'Public' if doc.acces == 'public' else 'Restreint' }}
-            </span>
-            {% else %}
-            <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces" style="display:inline;">
-              <button type="submit" class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}"
-                      style="background:none;border:none;cursor:pointer;padding:0;">
+          <td class="col-acces">
+            <div class="acces-doc">
+              <span class="status status--{{ 'ok' if doc.acces == 'public' else 'err' }}">
+                <i class="ti ti-{{ 'lock-open' if doc.acces == 'public' else 'lock' }}" aria-hidden="true"></i>
                 {{ 'Public' if doc.acces == 'public' else 'Restreint' }}
-              </button>
-            </form>
-            {% endif %}
+              </span>
+              {% if doc.origine_acces %}
+              <span class="acces-doc__origine">par la règle {{ doc.origine_acces }}</span>
+              {% elif doc.regle_document %}
+              <span class="acces-doc__origine">réglé pour ce document</span>
+              {% endif %}
+              {% if current_user.role != 'lecteur' %}
+              <div class="acces-doc__actions">
+                <form method="post" action="/admin/documents/{{ doc.id }}/toggle-acces">
+                  <input type="hidden" name="retour" value="{{ retour }}">
+                  {% if doc.acces == 'public' %}
+                  <button type="submit" class="btn btn--outline btn--sm acces-doc__btn">
+                    <i class="ti ti-lock" aria-hidden="true"></i> Restreindre
+                  </button>
+                  {% else %}
+                  <button type="submit" class="btn btn--outline btn--sm acces-doc__btn">
+                    <i class="ti ti-lock-open" aria-hidden="true"></i> Rendre public
+                  </button>
+                  {% endif %}
+                </form>
+                {% if doc.regle_document_id %}
+                {# Retirer la règle propre au document : il reprend l'accès de
+                   sa collection ou de son établissement. #}
+                <form method="post" action="/admin/acces/{{ doc.regle_document_id }}/supprimer">
+                  <input type="hidden" name="retour" value="{{ retour }}">
+                  <button type="submit" class="btn btn--ghost btn--sm acces-doc__btn"
+                          title="Revenir à la règle générale de la collection ou de l'établissement">
+                    <i class="ti ti-arrow-back-up" aria-hidden="true"></i> Règle générale
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
           </td>
         </tr>
         {% else %}

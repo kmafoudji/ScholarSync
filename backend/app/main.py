@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import Optional, List
-import json, os, math, logging, re, io, csv
+import json, os, math, logging, re, io, csv, uuid
 from datetime import datetime, timedelta
 from urllib.parse import urlencode
 from jinja2 import pass_context
@@ -1441,7 +1441,7 @@ async def admin_documents(
     request: Request, db: Session = Depends(get_db),
     q: str = "", page: int = 1, par_page: int = PAR_PAGE_DEFAUT,
     type: str = "", statut: str = "", etablissement: str = "",
-    tri: str = "", sens: str = "",
+    tri: str = "", sens: str = "", acces: str = "",
 ):
     utilisateur = utilisateur_courant(request, db)
     params = get_params_with_defaults(db)
@@ -1460,6 +1460,8 @@ async def admin_documents(
         query = query.filter(Document.statut == statut)
     if etablissement:
         query = query.filter(Document.etablissement_code == etablissement)
+    if acces in ("public", "restreint"):
+        query = query.filter(Document.acces == acces)
 
     query, etat_tri = appliquer_tri(query, tri, sens, {
         "titre": Document.titre,
@@ -1475,11 +1477,31 @@ async def admin_documents(
     par_page = normaliser_par_page(par_page)
     docs, pagination = paginate(query, page, par_page)
 
+    # Pour chaque document affiché, la règle qui décide de son accès :
+    # « Restreint par : établissement UCAD » explique pourquoi le
+    # document est fermé, et ce qu'on lève en le rendant public.
+    regles = acces_docs.charger(db)
+    ids_regles_doc = {
+        r.reference.lower(): r.id for r in db.query(AccesException).filter(
+            AccesException.niveau == "document",
+            AccesException.reference.in_([str(d.id) for d in docs] or ["-"]),
+        )
+    }
+    for d in docs:
+        d.regle_document_id = ids_regles_doc.get(str(d.id).lower())
+        o = regles.origine(d)
+        d.origine_acces = (
+            None if o is None or o[0] == "document"
+            else f"{acces_docs.LIBELLES_NIVEAUX[o[0]]} {o[1]}"
+        )
+        d.regle_document = o is not None and o[0] == "document"
+
     return templates.TemplateResponse("admin/documents.html", {
         "request": request, "params": params, "documents": docs,
         "pagination": pagination, "tri": etat_tri, "q": q,
         "filtre_type": type, "filtre_statut": statut,
-        "filtre_etablissement": etablissement,
+        "filtre_etablissement": etablissement, "filtre_acces": acces,
+        "retour": str(request.url.path) + (f"?{request.url.query}" if request.url.query else ""),
         "etablissements": (
             db.query(Etablissement).order_by(Etablissement.code).all()
             if permissions.est_super_admin(utilisateur) else []
@@ -2094,31 +2116,78 @@ async def admin_acces(
     request: Request, db: Session = Depends(get_db),
     page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
 ):
+    """Règles d'accès. Le super administrateur voit et gère tout ; un
+    administrateur d'établissement voit les règles qui le concernent,
+    et ne gère que celles de son établissement."""
+    from sqlalchemy import or_, and_, cast, String
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
     params = get_params_with_defaults(db)
-    requete, etat_tri = appliquer_tri(db.query(AccesException), tri, sens, {
+
+    ids_docs = set()
+    base = db.query(AccesException)
+    if code is not None:
+        ids_docs = {str(i).lower() for (i,) in db.query(Document.id).filter(
+            Document.etablissement_code == code)}
+        base = base.filter(or_(
+            and_(AccesException.niveau == "etablissement",
+                 func.upper(AccesException.reference) == code),
+            and_(AccesException.niveau.in_(["collection", "sous_collection"]),
+                 or_(func.upper(AccesException.reference).like(f"{code}/%"),
+                     ~AccesException.reference.contains("/"))),
+            and_(AccesException.niveau == "document",
+                 func.lower(AccesException.reference).in_(
+                     db.query(func.lower(cast(Document.id, String)))
+                     .filter(Document.etablissement_code == code))),
+        ))
+
+    requete, etat_tri = appliquer_tri(base, tri, sens, {
         "niveau": AccesException.niveau,
         "reference": AccesException.reference,
         "acces": AccesException.acces,
         "creation": (AccesException.created_at, "desc"),
     }, defaut="creation")
     exceptions, pagination = paginate(requete, page, normaliser_par_page(par_page))
-    etabs = db.query(Etablissement).filter(Etablissement.actif == True).all()
+
+    # Une règle de niveau document affiche le titre, pas un UUID illisible
+    titres = {}
+    refs_docs = [e.reference for e in exceptions if e.niveau == "document"]
+    if refs_docs:
+        for d in db.query(Document).filter(cast(Document.id, String).in_(refs_docs)).all():
+            titres[str(d.id)] = d.titre
+    for e in exceptions:
+        e.modifiable = code is None or acces_docs.dans_perimetre(e, code, ids_docs)
+        e.titre_document = titres.get(e.reference)
+
+    etabs = db.query(Etablissement).filter(Etablissement.actif == True)  # noqa: E712
+    if code is not None:
+        etabs = etabs.filter(Etablissement.code == code)
 
     # État en cours par établissement : sans lui, les deux boutons du bloc
     # « Accès rapide » se ressemblaient et rien ne disait lequel était
     # appliqué. On ne peut pas choisir sans voir où l'on en est.
     regles_etab = {
-        r.reference: r.acces
+        r.reference.upper(): r.acces
         for r in db.query(AccesException).filter(
             AccesException.niveau == "etablissement"
         ).all()
     }
 
+    # Choix proposés à un établissement : ses propres facultés / écoles
+    sous_entites = []
+    if code is not None:
+        sous_entites = [n for (n,) in db.query(Document.sous_entite_nom)
+                        .filter(Document.etablissement_code == code,
+                                Document.sous_entite_nom.isnot(None))
+                        .distinct().order_by(Document.sous_entite_nom)]
+
     return templates.TemplateResponse("admin/acces.html", {
-        "request": request, "params": params, "exceptions": exceptions, "etablissements": etabs,
-        "regles_etab": regles_etab,
+        "request": request, "params": params, "exceptions": exceptions,
+        "etablissements": etabs.all(), "regles_etab": regles_etab,
         "pagination": pagination, "tri": etat_tri,
-        "current_user": require_auth(request, db), "active_nav": "acces",
+        "super_admin": code is None, "code_etab": code, "sous_entites": sous_entites,
+        "libelles_niveaux": acces_docs.LIBELLES_NIVEAUX,
+        "current_user": utilisateur, "active_nav": "acces",
     })
 
 @app.get("/admin/exports", response_class=HTMLResponse)
@@ -2186,7 +2255,8 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
 
 @app.post("/admin/documents/{doc_id}/toggle-acces")
 async def admin_document_toggle_acces(
-    doc_id: str, request: Request, db: Session = Depends(get_db)
+    doc_id: str, request: Request, db: Session = Depends(get_db),
+    retour: str = Form("/admin/documents"),
 ):
     """Bascule l'accès d'un document, par une règle de niveau document.
 
@@ -2196,11 +2266,14 @@ async def admin_document_toggle_acces(
     ou de la collection.
     """
     utilisateur = utilisateur_courant(request, db)
+    # On revient sur la page, les filtres et la pagination d'où l'on vient
+    if not retour.startswith("/admin/documents") or retour.startswith("//"):
+        retour = "/admin/documents"
     doc = filtrer_documents(db.query(Document), utilisateur).filter(
         Document.id == doc_id
     ).first()
     if not doc:
-        return redirect_flash("/admin/documents", "Document introuvable.", "danger")
+        return redirect_flash(retour, "Document introuvable.", "danger")
     nouveau = "restreint" if doc.acces == "public" else "public"
     regle = db.query(AccesException).filter(
         AccesException.niveau == "document", AccesException.reference == str(doc.id)
@@ -2213,7 +2286,7 @@ async def admin_document_toggle_acces(
     acces_docs.recalculer(db, db.query(Document).filter(Document.id == doc.id))
     db.commit()
     return redirect_flash(
-        "/admin/documents",
+        retour,
         f"« {doc.titre[:60]} » est désormais {doc.acces}.",
         "success",
     )
@@ -2271,14 +2344,37 @@ async def admin_sync_lancer_source(
 
 @app.post("/admin/acces/definir")
 async def admin_acces_definir(
-    db: Session = Depends(get_db),
-    niveau: str = Form(...), reference: str = Form(...), acces: str = Form(...)
+    request: Request, db: Session = Depends(get_db),
+    niveau: str = Form(...), reference: str = Form(""), acces: str = Form(...),
+    retour: str = Form("/admin/acces"),
 ):
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    retour = retour if retour.startswith("/admin/") and not retour.startswith("//") else "/admin/acces"
     reference = reference.strip()
     if niveau not in acces_docs.NIVEAUX or acces not in (acces_docs.PUBLIC, acces_docs.RESTREINT):
-        return redirect_flash("/admin/acces", "Niveau ou accès inconnu.", "danger")
+        return redirect_flash(retour, "Niveau ou accès inconnu.", "danger")
+
+    if niveau == "document":
+        # Le document doit exister, et appartenir à l'établissement du compte
+        doc = None
+        try:
+            doc = filtrer_documents(db.query(Document), utilisateur).filter(
+                Document.id == uuid.UUID(reference)).first()
+        except (ValueError, AttributeError):
+            pass
+        if doc is None:
+            return redirect_flash(retour, "Document introuvable.", "danger")
+        reference = str(doc.id)
+    elif code is not None:
+        # Un établissement ne règle que son propre fonds : la référence
+        # est ramenée à son code, quelle que soit la saisie.
+        reference = acces_docs.reference_pour_etablissement(niveau, reference, code)
+        if not reference:
+            return redirect_flash(retour, "Référence invalide pour votre établissement.", "danger")
     if not reference:
-        return redirect_flash("/admin/acces", "La référence est obligatoire.", "danger")
+        return redirect_flash(retour, "La référence est obligatoire.", "danger")
+
     existing = db.query(AccesException).filter(
         AccesException.niveau == niveau,
         AccesException.reference == reference
@@ -2290,25 +2386,38 @@ async def admin_acces_definir(
     db.flush()
     changes = acces_docs.recalculer(db)
     db.commit()
+    libelle = acces_docs.LIBELLES_NIVEAUX.get(niveau, niveau).lower()
     return redirect_flash(
-        "/admin/acces",
-        f"Règle d'accès enregistrée pour « {reference} » : "
+        retour,
+        f"Règle enregistrée ({libelle} « {reference if niveau != 'document' else 'document'} » : "
+        f"{'restreint' if acces == 'restreint' else 'public'}). "
         f"{changes} document(s) concerné(s) sur le portail.",
         "success" if changes else "info",
     )
 
 @app.post("/admin/acces/{ex_id}/supprimer")
-async def admin_acces_supprimer(ex_id: int, db: Session = Depends(get_db)):
+async def admin_acces_supprimer(
+    ex_id: int, request: Request, db: Session = Depends(get_db),
+    retour: str = Form("/admin/acces"),
+):
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    retour = retour if retour.startswith("/admin/") and not retour.startswith("//") else "/admin/acces"
     ex = db.query(AccesException).filter(AccesException.id == ex_id).first()
+    if ex and code is not None:
+        ids = {str(i).lower() for (i,) in db.query(Document.id).filter(
+            Document.etablissement_code == code)}
+        if not acces_docs.dans_perimetre(ex, code, ids):
+            ex = None  # règle d'un autre établissement, ou nationale
     if not ex:
-        return redirect_flash("/admin/acces", "Règle introuvable.", "danger")
-    reference = ex.reference
+        return redirect_flash(retour, "Règle introuvable.", "danger")
+    reference = ex.reference if ex.niveau != "document" else "document"
     db.delete(ex)
     db.flush()
     changes = acces_docs.recalculer(db)
     db.commit()
     return redirect_flash(
-        "/admin/acces",
+        retour,
         f"Règle sur « {reference} » supprimée : {changes} document(s) concerné(s).",
         "success",
     )
