@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 COLONNES = [
     ("sync_logs", "documents_total", "INTEGER DEFAULT 0"),
     ("sync_logs", "documents_traites", "INTEGER DEFAULT 0"),
+    ("utilisateurs", "mdp_modifie_le", "TIMESTAMPTZ"),
 ]
 
 # Corrections de données et de contraintes, idempotentes.

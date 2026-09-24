@@ -115,6 +115,9 @@ class Utilisateur(Base):
     etablissement_code = Column(String(10), ForeignKey("etablissements.code"))
     actif              = Column(Boolean, default=True)
     derniere_connexion = Column(DateTime(timezone=True))
+    # Changement de mot de passe : les jetons émis avant sont refusés
+    # (sessions ouvertes ailleurs, lien de réinitialisation déjà servi).
+    mdp_modifie_le     = Column(DateTime(timezone=True))
     created_at         = Column(DateTime(timezone=True), server_default=func.now())
 
     etablissement = relationship("Etablissement", back_populates="utilisateurs")

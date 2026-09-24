@@ -13,7 +13,7 @@ from app.core.database import get_db, engine, SessionLocal
 from app.core.config import settings
 from app.core.auth import (
     hash_password, verify_password, create_token, decode_token,
-    get_current_user, require_auth, require_super_admin
+    get_current_user, require_auth, require_super_admin, jeton_perime
 )
 from app.core import tasks
 from app.core.flash import read_flash, redirect_flash, set_flash, COOKIE_NAME as FLASH_COOKIE
@@ -74,7 +74,11 @@ class AdminAuthMiddleware(BaseHTTPMiddleware):
                 Utilisateur.actif == True,  # noqa: E712
             ).first()
             if utilisateur is not None:
-                db.expunge(utilisateur)
+                if jeton_perime(payload, utilisateur):
+                    # Mot de passe changé depuis l'ouverture de la session
+                    utilisateur = None
+                else:
+                    db.expunge(utilisateur)
         except Exception:
             # Base injoignable : la route affichera l'état dégradé.
             logging.getLogger("scholarsync").warning(
@@ -1714,6 +1718,26 @@ ROLES_COURTS = {
 }
 
 LONGUEUR_MDP_MIN = 10
+MOTIF_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def maintenant_utc() -> datetime:
+    from datetime import timezone
+    return datetime.now(timezone.utc)
+
+
+def erreur_mot_de_passe(mot_de_passe: str, email: str = "") -> Optional[str]:
+    """Message d'erreur si le mot de passe est trop faible, sinon None."""
+    if len(mot_de_passe) < LONGUEUR_MDP_MIN:
+        return f"Le mot de passe doit faire au moins {LONGUEUR_MDP_MIN} caractères."
+    if mot_de_passe.strip() != mot_de_passe or not mot_de_passe.strip():
+        return "Le mot de passe ne doit pas commencer ni finir par une espace."
+    if len(set(mot_de_passe)) < 4:
+        return "Le mot de passe est trop répétitif."
+    identifiant = email.split("@")[0].lower()
+    if identifiant and len(identifiant) >= 4 and identifiant in mot_de_passe.lower():
+        return "Le mot de passe ne doit pas contenir votre identifiant de courriel."
+    return None
 
 
 def _compte_super_admins_actifs(db: Session, sauf_id=None) -> int:
@@ -1949,6 +1973,112 @@ async def admin_utilisateurs(
         "longueur_mdp_min": LONGUEUR_MDP_MIN,
         "current_user": require_auth(request, db), "active_nav": "utilisateurs",
     })
+
+@app.get("/admin/mon-compte", response_class=HTMLResponse)
+async def admin_mon_compte(request: Request, db: Session = Depends(get_db)):
+    """Compte personnel : identité, courriel, mot de passe — tout rôle."""
+    utilisateur = utilisateur_courant(request, db)
+    etab = None
+    if utilisateur.etablissement_code:
+        etab = db.query(Etablissement).filter(
+            Etablissement.code == utilisateur.etablissement_code
+        ).first()
+    return templates.TemplateResponse("admin/mon_compte.html", {
+        "request": request, "params": get_params_with_defaults(db),
+        "utilisateur": utilisateur, "etab": etab,
+        "role_libelle": ROLES.get(permissions.role_de(utilisateur), utilisateur.role),
+        "longueur_mdp_min": LONGUEUR_MDP_MIN,
+        "current_user": utilisateur, "active_nav": "mon_compte",
+    })
+
+
+@app.post("/admin/mon-compte")
+async def admin_mon_compte_save(
+    request: Request, db: Session = Depends(get_db),
+    prenom: str = Form(""), nom: str = Form(""), email: str = Form(...),
+    mot_de_passe_actuel: str = Form(""),
+):
+    retour = "/admin/mon-compte"
+    session_user = utilisateur_courant(request, db)
+    # L'objet du middleware est détaché de la session : on relit le compte.
+    user = db.query(Utilisateur).filter(Utilisateur.id == session_user.id).first()
+
+    email = email.strip().lower()
+    if not MOTIF_EMAIL.match(email):
+        return redirect_flash(retour, "Adresse de courriel invalide.", "danger")
+
+    change_email = email != user.email
+    if change_email:
+        # Le courriel sert d'identifiant et reçoit les liens de
+        # réinitialisation : le changer revient à pouvoir prendre le
+        # compte. On exige donc le mot de passe actuel.
+        if not verify_password(mot_de_passe_actuel, user.mot_de_passe_hash):
+            return redirect_flash(
+                retour,
+                "Pour changer d'adresse de courriel, saisissez votre mot de passe actuel.",
+                "danger",
+            )
+        if db.query(Utilisateur).filter(
+            Utilisateur.email == email, Utilisateur.id != user.id
+        ).first():
+            return redirect_flash(retour, "Cette adresse est déjà utilisée par un autre compte.", "danger")
+
+    user.prenom = prenom.strip()[:100] or None
+    user.nom = nom.strip()[:100] or None
+    user.email = email
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        return redirect_flash(retour, "Enregistrement impossible.", "danger")
+
+    reponse = redirect_flash(
+        retour,
+        f"Informations enregistrées. Connectez-vous désormais avec {email}."
+        if change_email else "Informations enregistrées.",
+        "success",
+    )
+    if change_email:
+        # Le jeton de session porte l'ancien courriel : sans un nouveau
+        # jeton, l'utilisateur serait déconnecté à la page suivante.
+        poser_session(reponse, user)
+    return reponse
+
+
+@app.post("/admin/mon-compte/mot-de-passe")
+async def admin_mon_compte_mot_de_passe(
+    request: Request, db: Session = Depends(get_db),
+    mot_de_passe_actuel: str = Form(...), nouveau: str = Form(...),
+    confirmation: str = Form(...),
+):
+    retour = "/admin/mon-compte"
+    session_user = utilisateur_courant(request, db)
+    user = db.query(Utilisateur).filter(Utilisateur.id == session_user.id).first()
+
+    if not verify_password(mot_de_passe_actuel, user.mot_de_passe_hash):
+        return redirect_flash(retour, "Le mot de passe actuel est incorrect.", "danger")
+    if nouveau != confirmation:
+        return redirect_flash(retour, "Les deux saisies du nouveau mot de passe diffèrent.", "danger")
+    if nouveau == mot_de_passe_actuel:
+        return redirect_flash(retour, "Le nouveau mot de passe doit être différent de l'actuel.", "danger")
+    erreur = erreur_mot_de_passe(nouveau, user.email)
+    if erreur:
+        return redirect_flash(retour, erreur, "danger")
+
+    user.mot_de_passe_hash = hash_password(nouveau)
+    user.mdp_modifie_le = maintenant_utc()
+    db.commit()
+
+    reponse = redirect_flash(
+        retour,
+        "Mot de passe modifié. Vos autres sessions ouvertes ont été fermées.",
+        "success",
+    )
+    # Les jetons émis avant le changement sont désormais refusés,
+    # y compris celui de cette session : on en émet un nouveau.
+    poser_session(reponse, user)
+    return reponse
+
 
 @app.get("/admin/acces", response_class=HTMLResponse)
 async def admin_acces(
@@ -2306,10 +2436,19 @@ async def admin_connexion_post(
     db.commit()
 
     expires = 60 * 24 * 30 if remember else settings.ACCESS_TOKEN_EXPIRE_MINUTES
-    token = create_token({"sub": user.email, "role": user.role}, expires_minutes=expires)
-
-    redirect_url = next if next.startswith("/admin") else "/admin"
+    # « //site.tld » commence aussi par « / » : on n'accepte qu'un
+    # chemin de l'administration, jamais une adresse externe.
+    redirect_url = next if next.startswith("/admin") and not next.startswith("//") else "/admin"
     response = RedirectResponse(redirect_url, status_code=303)
+    poser_session(response, user, expires)
+    return response
+
+
+def poser_session(response, user, expires_minutes: int = None):
+    """Émet le cookie de session. Réutilisé après un changement de
+    courriel ou de mot de passe, pour ne pas déconnecter l'auteur."""
+    expires = expires_minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES
+    token = create_token({"sub": user.email, "role": user.role}, expires_minutes=expires)
     response.set_cookie(
         key="scholarsync_session",
         value=token,
@@ -2379,9 +2518,24 @@ async def admin_reset_post(
             "request": request, "params": params,
             "erreur": "Les mots de passe ne correspondent pas.", "token": token,
         })
+    # La longueur minimale n'était pas vérifiée ici : le lien de
+    # réinitialisation permettait de choisir un mot de passe d'un caractère.
+    erreur = erreur_mot_de_passe(password, payload.get("sub") or "")
+    if erreur:
+        return templates.TemplateResponse("admin/reset_password.html", {
+            "request": request, "params": params, "erreur": erreur, "token": token,
+        })
     user = db.query(Utilisateur).filter(Utilisateur.email == payload.get("sub")).first()
+    # Lien à usage unique : une fois le mot de passe changé, le même lien
+    # (resté dans la boîte de courriel) ne sert plus.
+    if user and jeton_perime(payload, user):
+        return templates.TemplateResponse("admin/reset_password.html", {
+            "request": request, "params": params,
+            "erreur": "Ce lien a déjà servi. Demandez-en un nouveau.", "token": "",
+        })
     if user:
         user.mot_de_passe_hash = hash_password(password)
+        user.mdp_modifie_le = maintenant_utc()
         db.commit()
     return RedirectResponse("/admin/connexion?message=Mot+de+passe+modifié", status_code=303)
 

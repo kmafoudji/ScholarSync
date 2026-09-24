@@ -77,3 +77,12 @@ def test_perimetre():
     assert p.perimetre(ANCIEN) == "UGB"
     # Sans établissement rattaché : rien, et surtout pas tout
     assert p.perimetre(ORPHELIN) == p.AUCUN
+
+
+def test_chacun_gere_son_compte():
+    for u in (SUPER, ADMIN, ANCIEN, LECTEUR, ORPHELIN):
+        assert p.autorise(u, "GET", "/admin/mon-compte")
+        assert p.autorise(u, "POST", "/admin/mon-compte")
+        assert p.autorise(u, "POST", "/admin/mon-compte/mot-de-passe")
+    assert not p.autorise(INCONNU, "GET", "/admin/mon-compte")
+    assert not p.autorise(LECTEUR, "POST", "/admin/mon-compte/autre-chose")

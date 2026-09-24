@@ -1,0 +1,167 @@
+{% extends "admin/base.html" %}
+{% block title %}Mon compte{% endblock %}
+{% block page_title %}Mon compte{% endblock %}
+
+{% block content %}
+<div class="mon-etab">
+
+  <div class="card compte-entete">
+    <div class="compte-entete__initiales" aria-hidden="true">
+      {{ ((utilisateur.prenom or '')[:1] ~ (utilisateur.nom or '')[:1])|upper or utilisateur.email[:2]|upper }}
+    </div>
+    <div class="compte-entete__texte">
+      <strong>{{ ((utilisateur.prenom or '') ~ ' ' ~ (utilisateur.nom or ''))|trim or utilisateur.email }}</strong>
+      <span>{{ role_libelle }}{% if etab %} · {{ etab.nom }}{% endif %}</span>
+      {% if utilisateur.derniere_connexion %}
+      <span>Dernière connexion : {{ utilisateur.derniere_connexion|format_datetime }}</span>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Informations personnelles ───────────────────────────────── #}
+  <form method="post" action="/admin/mon-compte" class="card card--lg" id="formInfos">
+    <h2 class="mon-etab__titre"><i class="ti ti-user" aria-hidden="true"></i> Informations personnelles</h2>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label" for="f-prenom">Prénom</label>
+        <input id="f-prenom" type="text" name="prenom" class="form-control"
+               value="{{ utilisateur.prenom or '' }}" maxlength="100" autocomplete="given-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="f-nom">Nom</label>
+        <input id="f-nom" type="text" name="nom" class="form-control"
+               value="{{ utilisateur.nom or '' }}" maxlength="100" autocomplete="family-name">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="f-email">Adresse de courriel <span class="required">*</span></label>
+      <input id="f-email" type="email" name="email" class="form-control" required
+             value="{{ utilisateur.email }}" data-initial="{{ utilisateur.email }}" autocomplete="email">
+      <div class="form-hint">Elle sert à vous connecter et à recevoir les liens de réinitialisation.</div>
+    </div>
+    <div class="form-group" id="blocConfirmEmail" hidden>
+      <label class="form-label" for="f-mdp-email">Mot de passe actuel <span class="required">*</span></label>
+      <input id="f-mdp-email" type="password" name="mot_de_passe_actuel" class="form-control"
+             autocomplete="current-password">
+      <div class="form-hint">Obligatoire pour changer d'adresse de courriel.</div>
+    </div>
+    <div class="form-group">
+      <span class="form-label">Rôle et établissement</span>
+      <p class="compte-fixe">
+        {{ role_libelle }}{% if etab %} — {{ etab.nom }} ({{ etab.code }}){% endif %}
+        <br><span>Seul le super administrateur peut les modifier.</span>
+      </p>
+    </div>
+    <div class="mon-etab__actions">
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-check" aria-hidden="true"></i> Enregistrer
+      </button>
+    </div>
+  </form>
+
+  {# ── Mot de passe ─────────────────────────────────────────────── #}
+  <form method="post" action="/admin/mon-compte/mot-de-passe" class="card card--lg" id="formMdp">
+    <h2 class="mon-etab__titre"><i class="ti ti-lock" aria-hidden="true"></i> Mot de passe</h2>
+    {# Champ caché pour les gestionnaires de mots de passe : il leur dit
+       à quel compte associer le nouveau mot de passe. #}
+    <input type="text" name="username" value="{{ utilisateur.email }}" autocomplete="username"
+           class="sr-only" tabindex="-1" aria-hidden="true" readonly>
+    <div class="form-group">
+      <label class="form-label" for="m-actuel">Mot de passe actuel <span class="required">*</span></label>
+      <div class="champ-mdp">
+        <input id="m-actuel" type="password" name="mot_de_passe_actuel" class="form-control"
+               required autocomplete="current-password">
+        <button type="button" class="champ-mdp__voir" data-voir="m-actuel" aria-label="Afficher le mot de passe">
+          <i class="ti ti-eye" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label" for="m-nouveau">Nouveau mot de passe <span class="required">*</span></label>
+        <div class="champ-mdp">
+          <input id="m-nouveau" type="password" name="nouveau" class="form-control" required
+                 minlength="{{ longueur_mdp_min }}" autocomplete="new-password"
+                 aria-describedby="m-regles">
+          <button type="button" class="champ-mdp__voir" data-voir="m-nouveau" aria-label="Afficher le mot de passe">
+            <i class="ti ti-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="m-confirmation">Confirmer <span class="required">*</span></label>
+        <div class="champ-mdp">
+          <input id="m-confirmation" type="password" name="confirmation" class="form-control" required
+                 autocomplete="new-password">
+          <button type="button" class="champ-mdp__voir" data-voir="m-confirmation" aria-label="Afficher le mot de passe">
+            <i class="ti ti-eye" aria-hidden="true"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+    <ul class="regles-mdp" id="m-regles" aria-live="polite">
+      <li data-regle="longueur">Au moins {{ longueur_mdp_min }} caractères</li>
+      <li data-regle="different">Différent du mot de passe actuel</li>
+      <li data-regle="identique">Les deux saisies sont identiques</li>
+    </ul>
+    <p class="mon-etab__note">
+      Une phrase de plusieurs mots est plus sûre et plus facile à retenir
+      qu'un mot compliqué. Après le changement, vos sessions ouvertes sur
+      d'autres appareils sont fermées.
+    </p>
+    <div class="mon-etab__actions">
+      <button type="submit" class="btn btn--primary">
+        <i class="ti ti-key" aria-hidden="true"></i> Changer le mot de passe
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  // Mot de passe demandé seulement si le courriel change
+  var email = document.getElementById('f-email');
+  var bloc = document.getElementById('blocConfirmEmail');
+  var mdpEmail = document.getElementById('f-mdp-email');
+  function majEmail() {
+    var change = email.value.trim().toLowerCase() !== email.dataset.initial;
+    bloc.hidden = !change;
+    mdpEmail.required = change;
+  }
+  email.addEventListener('input', majEmail);
+
+  // Afficher / masquer
+  document.querySelectorAll('[data-voir]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var champ = document.getElementById(b.dataset.voir);
+      var visible = champ.type === 'text';
+      champ.type = visible ? 'password' : 'text';
+      b.setAttribute('aria-label', visible ? 'Afficher le mot de passe' : 'Masquer le mot de passe');
+      b.querySelector('i').className = 'ti ' + (visible ? 'ti-eye' : 'ti-eye-off');
+    });
+  });
+
+  // Règles vérifiées pendant la saisie
+  var actuel = document.getElementById('m-actuel');
+  var nouveau = document.getElementById('m-nouveau');
+  var confirmation = document.getElementById('m-confirmation');
+  var min = {{ longueur_mdp_min }};
+  function regle(nom, ok) {
+    var li = document.querySelector('[data-regle="' + nom + '"]');
+    li.classList.toggle('ok', ok);
+  }
+  function majMdp() {
+    regle('longueur', nouveau.value.length >= min);
+    regle('different', nouveau.value.length > 0 && nouveau.value !== actuel.value);
+    var identiques = confirmation.value.length > 0 && confirmation.value === nouveau.value;
+    regle('identique', identiques);
+    confirmation.setCustomValidity(
+      confirmation.value && !identiques ? 'Les deux saisies diffèrent.' : ''
+    );
+  }
+  [actuel, nouveau, confirmation].forEach(function (c) { c.addEventListener('input', majMdp); });
+})();
+</script>
+{% endblock %}

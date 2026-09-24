@@ -51,6 +51,14 @@ ROUTES_ETABLISSEMENT = [
 ]
 _COMPILEES = [(m, re.compile(rf"^{motif}/?$")) for m, motif in ROUTES_ETABLISSEMENT]
 
+# Ouvertes à tout compte connecté, lecteur compris : chacun gère son
+# propre compte (identité, courriel, mot de passe).
+ROUTES_PERSONNELLES = [
+    ({"GET", "POST"}, r"/admin/mon-compte"),
+    ({"POST"}, r"/admin/mon-compte/mot-de-passe"),
+]
+_PERSONNELLES = [(m, re.compile(rf"^{motif}/?$")) for m, motif in ROUTES_PERSONNELLES]
+
 # Routes d'administration accessibles sans être connecté
 ROUTES_PUBLIQUES = {
     "/admin/connexion", "/admin/setup",
@@ -97,6 +105,8 @@ def autorise(utilisateur, methode: str, chemin: str) -> bool:
     methode = methode.upper()
     if methode == "HEAD":
         methode = "GET"
+    if any(methode in m and motif.match(chemin) for m, motif in _PERSONNELLES):
+        return True
     if role == LECTEUR and methode != "GET":
         return False
     return any(methode in m and motif.match(chemin) for m, motif in _COMPILEES)

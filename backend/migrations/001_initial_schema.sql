@@ -180,6 +180,7 @@ CREATE TABLE utilisateurs (
     etablissement_code  VARCHAR(10) REFERENCES etablissements(code),
     actif               BOOLEAN DEFAULT true,
     derniere_connexion  TIMESTAMPTZ,
+    mdp_modifie_le      TIMESTAMPTZ,
     created_at          TIMESTAMPTZ DEFAULT now(),
     CONSTRAINT utilisateurs_role_valide CHECK (
         role IN ('super_admin','admin_etablissement','lecteur')

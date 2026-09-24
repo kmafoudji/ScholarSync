@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
 import bcrypt
+import time
 from fastapi import Request, Depends
 from sqlalchemy.orm import Session
 from app.core.config import settings
@@ -21,8 +22,23 @@ def create_token(data: dict, expires_minutes: int = None) -> str:
     expire = datetime.utcnow() + timedelta(
         minutes=expires_minutes or settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
-    to_encode.update({"exp": expire})
+    # iat : date d'émission, comparée à mdp_modifie_le (jeton_perime)
+    to_encode.update({"exp": expire, "iat": int(time.time())})
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+
+
+def jeton_perime(payload: dict, utilisateur) -> bool:
+    """Le jeton date-t-il d'avant le dernier changement de mot de passe ?
+
+    Changer son mot de passe doit fermer les sessions ouvertes ailleurs
+    (poste partagé, ordinateur perdu) et rendre inutilisable un lien de
+    réinitialisation déjà servi. Un jeton sans iat (émis avant cette
+    règle) est périmé dès que le mot de passe a changé.
+    """
+    change = getattr(utilisateur, "mdp_modifie_le", None)
+    if change is None:
+        return False
+    return int(payload.get("iat") or 0) < int(change.timestamp())
 
 def decode_token(token: str) -> Optional[dict]:
     try:
@@ -36,12 +52,15 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not token:
         return None
     payload = decode_token(token)
-    if not payload:
+    if not payload or payload.get("type") == "reset":
         return None
-    return db.query(Utilisateur).filter(
+    user = db.query(Utilisateur).filter(
         Utilisateur.email == payload.get("sub"),
         Utilisateur.actif == True
     ).first()
+    if user is not None and jeton_perime(payload, user):
+        return None
+    return user
 
 def require_auth(request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)

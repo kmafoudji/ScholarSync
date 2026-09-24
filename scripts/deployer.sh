@@ -90,6 +90,25 @@ info "Reconstruction de l'image"
 $COMPOSE build scholarsync-app
 ok "Image construite"
 
+info "Dossier des téléversements"
+# Le conteneur tourne sous l'UID 1000 (utilisateur scholarsync) et écrit
+# les logos dans ./uploads, monté depuis l'hôte. Un dossier créé par
+# root — ou par Docker lui-même au premier montage — lui est interdit
+# en écriture : chaque téléversement de logo échouait alors. On le
+# remet d'aplomb à chaque déploiement plutôt que de compter sur une
+# commande manuelle oubliée.
+UID_APP=1000
+mkdir -p uploads
+if [ "$(id -u)" = "0" ]; then
+  chown -R "${UID_APP}:${UID_APP}" uploads
+  ok "uploads appartient à l'UID ${UID_APP}"
+elif [ "$(stat -c %u uploads)" != "${UID_APP}" ]; then
+  avert "uploads n'appartient pas à l'UID ${UID_APP} : les logos ne pourront pas être enregistrés."
+  avert "Corrigez avec : sudo chown -R ${UID_APP}:${UID_APP} $(pwd)/uploads"
+else
+  ok "uploads accessible en écriture"
+fi
+
 info "Redémarrage"
 $COMPOSE up -d
 ok "Conteneurs relancés"

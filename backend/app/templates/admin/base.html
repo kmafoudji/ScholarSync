@@ -109,6 +109,10 @@
     </nav>
 
     <div class="admin-footer-nav">
+      <a href="/admin/mon-compte" class="{{ 'active' if active_nav == 'mon_compte' }}">
+        <i class="ti ti-user"></i>
+        {{ ((current_user.prenom or '') ~ ' ' ~ (current_user.nom or ''))|trim or 'Mon compte' }}
+      </a>
       <a href="/" target="_blank">
         <i class="ti ti-external-link"></i> Voir le site
       </a>
