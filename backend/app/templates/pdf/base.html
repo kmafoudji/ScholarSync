@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>{% block titre %}{% endblock %}</title>
+<link rel="stylesheet" href="static/vendor/polices/plus-jakarta-sans.css">
+<style>
+  @page {
+    size: A4 {% block orientation %}portrait{% endblock %};
+    margin: 18mm 15mm 20mm 15mm;
+    @bottom-left {
+      content: "{{ params.nom_outil }} — {{ genere_le }}";
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: 8pt; color: #6b6864;
+    }
+    @bottom-right {
+      content: "Page " counter(page) " / " counter(pages);
+      font-family: 'Plus Jakarta Sans', sans-serif; font-size: 8pt; color: #6b6864;
+    }
+  }
+  :root { --primary: {{ params.couleur_principale or '#1a3a5c' }}; --secondary: {{ params.couleur_secondaire or '#8b1a2e' }}; }
+  * { box-sizing: border-box; }
+  body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10pt; color: #1f1d1b; line-height: 1.45; margin: 0; }
+  h1 { font-size: 20pt; margin: 0 0 2mm; color: var(--primary); letter-spacing: -.01em; }
+  h2 { font-size: 12.5pt; margin: 8mm 0 3mm; color: var(--primary); padding-bottom: 1.5mm; border-bottom: .6pt solid #d8d4ce; page-break-after: avoid; }
+  .entete { display: flex; align-items: center; gap: 6mm; padding-bottom: 5mm; border-bottom: 2pt solid var(--primary); margin-bottom: 6mm; }
+  .entete img { max-height: 16mm; max-width: 45mm; object-fit: contain; }
+  .entete__texte { flex: 1; }
+  .entete__sous { color: #5a5754; font-size: 10pt; }
+  .entete__perimetre { text-align: right; font-size: 9pt; color: #5a5754; }
+  .entete__perimetre strong { display: block; font-size: 11pt; color: #1f1d1b; }
+  table { width: 100%; border-collapse: collapse; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th { text-align: left; font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; color: #5a5754; background: #f0ede8; padding: 2mm 2.5mm; }
+  td { padding: 2mm 2.5mm; border-bottom: .5pt solid #e6e2dc; vertical-align: top; }
+  td.nombre, th.nombre { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .barre { height: 3mm; background: #ece8e2; border-radius: 1mm; overflow: hidden; min-width: 30mm; }
+  .barre span { display: block; height: 3mm; background: var(--primary); }
+  .barre--double span { float: left; }
+  .barre span.sec { background: var(--secondary); }
+  .muet { color: #6b6864; }
+  .petit { font-size: 8.5pt; }
+</style>
+</head>
+<body>
+<div class="entete">
+  {% if logo_outil %}<img src="{{ logo_outil }}" alt="">{% endif %}
+  <div class="entete__texte">
+    <h1>{% block h1 %}{% endblock %}</h1>
+    <div class="entete__sous">{{ params.nom_outil }}{% if params.institution_nom %} · {{ params.institution_nom }}{% endif %}</div>
+  </div>
+  <div class="entete__perimetre">
+    {% if etablissement %}
+      {% if logo_etab %}<img src="{{ logo_etab }}" alt="" style="max-height:12mm;max-width:30mm;"><br>{% endif %}
+      <strong>{{ etablissement.nom }}</strong>{{ etablissement.code }}
+    {% else %}
+      <strong>Périmètre national</strong>Tous les établissements
+    {% endif %}
+    <br>Généré le {{ genere_le }}
+  </div>
+</div>
+{% block contenu %}{% endblock %}
+</body>
+</html>

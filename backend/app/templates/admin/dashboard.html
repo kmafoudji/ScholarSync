@@ -3,7 +3,7 @@
 {% block page_title %}{{ ('Tableau de bord — ' ~ mon_etablissement.code) if mon_etablissement else 'Tableau de bord' }}{% endblock %}
 
 {% block topbar_actions %}
-<a href="/admin/exports?format=pdf&scope=global" class="btn btn--ghost btn--sm">
+<a href="/admin/exports/rapport" class="btn btn--ghost btn--sm">
   <i class="ti ti-download"></i> Rapport PDF
 </a>
 {% if current_user.role == 'super_admin' %}
@@ -107,7 +107,7 @@
   <!-- Par établissement -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h2>Documents par établissement</h2>
+      <h2>{{ 'Documents par faculté / école doctorale' if mon_etablissement else 'Documents par établissement' }}</h2>
       <button data-export-chart="chartEtab" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>

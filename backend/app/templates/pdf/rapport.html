@@ -1,0 +1,108 @@
+{% extends "pdf/base.html" %}
+{% block titre %}Rapport d'activité — {{ params.nom_outil }}{% endblock %}
+{% block h1 %}Rapport d'activité{% endblock %}
+{% block contenu %}
+<style>
+  .chiffres { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; }
+  .chiffre { border: .6pt solid #d8d4ce; border-radius: 2mm; padding: 3mm 3.5mm; }
+  .chiffre__valeur { font-size: 18pt; font-weight: 700; color: var(--primary); line-height: 1.1; }
+  .chiffre__libelle { font-size: 8.5pt; color: #5a5754; }
+  .chiffre--accent { border-left: 2.5pt solid var(--secondary); }
+</style>
+
+<div class="chiffres">
+  {% for valeur, libelle in [
+       (stats.total, 'Documents signalés'), (stats.nb_theses, 'Thèses de doctorat'),
+       (stats.nb_memoires, 'Mémoires de master'), (stats.nb_soutenus, 'Travaux soutenus'),
+       (stats.nb_en_preparation, 'En préparation'), (nb_restreints, 'En accès restreint'),
+       (nb_etablissements, 'Établissements' if not etablissement else 'Facultés / écoles'),
+       (nb_ajouts_30j, 'Ajouts sur 30 jours')] %}
+  <div class="chiffre {{ 'chiffre--accent' if loop.first }}">
+    <div class="chiffre__valeur">{{ valeur|format_number }}</div>
+    <div class="chiffre__libelle">{{ libelle }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{% if lignes_repartition %}
+<h2>{{ 'Répartition par établissement' if not etablissement else 'Répartition par faculté / école doctorale' }}</h2>
+<table>
+  <thead><tr>
+    <th>{{ 'Établissement' if not etablissement else 'Faculté / école doctorale' }}</th>
+    <th class="nombre">Thèses</th><th class="nombre">Mémoires</th><th class="nombre">Total</th>
+    <th style="width:32%;">Part</th>
+  </tr></thead>
+  <tbody>
+  {% for l in lignes_repartition %}
+  <tr>
+    <td>{% if l.code %}<strong>{{ l.code }}</strong> <span class="muet petit">{{ l.nom }}</span>{% else %}{{ l.nom }}{% endif %}</td>
+    <td class="nombre">{{ l.theses|format_number }}</td>
+    <td class="nombre">{{ l.memoires|format_number }}</td>
+    <td class="nombre"><strong>{{ l.total|format_number }}</strong></td>
+    <td><div class="barre"><span style="width:{{ (100 * l.total / max_repartition)|round(1) if max_repartition else 0 }}%"></span></div></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if lignes_annees %}
+<h2>Évolution par année de soutenance</h2>
+<table>
+  <thead><tr><th>Année</th><th class="nombre">Thèses</th><th class="nombre">Mémoires</th><th class="nombre">Total</th><th style="width:40%;">Volume</th></tr></thead>
+  <tbody>
+  {% for l in lignes_annees %}
+  <tr>
+    <td>{{ l.annee }}</td>
+    <td class="nombre">{{ l.theses|format_number }}</td>
+    <td class="nombre">{{ l.memoires|format_number }}</td>
+    <td class="nombre"><strong>{{ (l.theses + l.memoires)|format_number }}</strong></td>
+    <td><div class="barre barre--double">
+      <span style="width:{{ (100 * l.theses / max_annee)|round(1) if max_annee else 0 }}%"></span>
+      <span class="sec" style="width:{{ (100 * l.memoires / max_annee)|round(1) if max_annee else 0 }}%"></span>
+    </div></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p class="petit muet">Barre foncée : thèses · barre claire : mémoires.</p>
+{% endif %}
+
+{% if lignes_domaines %}
+<h2>Principaux domaines</h2>
+<table>
+  <thead><tr><th>Domaine</th><th class="nombre">Documents</th><th style="width:40%;">Part</th></tr></thead>
+  <tbody>
+  {% for l in lignes_domaines %}
+  <tr>
+    <td>{{ l.domaine }}</td>
+    <td class="nombre">{{ l.count|format_number }}</td>
+    <td><div class="barre"><span style="width:{{ (100 * l.count / max_domaine)|round(1) if max_domaine else 0 }}%"></span></div></td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<h2>Dernières synchronisations</h2>
+{% if logs %}
+<table>
+  <thead><tr><th>Établissement</th><th>Date</th><th class="nombre">Ajoutés</th><th class="nombre">Modifiés</th><th class="nombre">Retirés</th><th class="nombre">Erreurs</th><th>Statut</th></tr></thead>
+  <tbody>
+  {% for log in logs %}
+  <tr>
+    <td>{{ log.etablissement_code }}</td>
+    <td>{{ log.debut|format_datetime }}</td>
+    <td class="nombre">{{ log.documents_ajoutes or 0 }}</td>
+    <td class="nombre">{{ log.documents_modifies or 0 }}</td>
+    <td class="nombre">{{ log.documents_supprimes or 0 }}</td>
+    <td class="nombre">{{ log.documents_erreur or 0 }}</td>
+    <td>{{ log.statut|libelle_statut }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muet">Aucune synchronisation enregistrée.</p>
+{% endif %}
+{% endblock %}

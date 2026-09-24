@@ -1,0 +1,27 @@
+{% extends "pdf/base.html" %}
+{% block orientation %}landscape{% endblock %}
+{% block titre %}Liste des documents — {{ params.nom_outil }}{% endblock %}
+{% block h1 %}Liste des documents{% endblock %}
+{% block contenu %}
+<p class="muet">{{ docs|length|format_number }} document(s){% if filtres %} — {{ filtres }}{% endif %}.</p>
+<table>
+  <thead><tr>
+    <th style="width:14%;">Numéro national</th><th style="width:34%;">Titre</th><th style="width:15%;">Auteur</th>
+    <th>Type</th><th>Statut</th><th class="nombre">Année</th><th>Étab.</th><th>Accès</th>
+  </tr></thead>
+  <tbody>
+  {% for d in docs %}
+  <tr>
+    <td class="petit" style="font-variant-numeric:tabular-nums;">{{ d.numero_national or '—' }}</td>
+    <td>{{ d.titre }}{% if d.sous_entite_nom %}<br><span class="muet petit">{{ d.sous_entite_nom }}</span>{% endif %}</td>
+    <td class="petit">{{ d.auteur }}</td>
+    <td class="petit">{{ 'Thèse' if d.type == 'these' else 'Mémoire' }}</td>
+    <td class="petit">{{ 'Soutenu' if d.statut == 'soutenu' else 'En préparation' }}</td>
+    <td class="nombre">{{ d.annee }}</td>
+    <td class="petit">{{ d.etablissement_code }}</td>
+    <td class="petit">{{ 'Public' if d.acces == 'public' else 'Restreint' }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

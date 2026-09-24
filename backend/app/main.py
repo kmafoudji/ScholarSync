@@ -1054,14 +1054,24 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
                     db.query(Document.domaine, func.count().label("count")), utilisateur)
                    .group_by(Document.domaine).order_by(func.count().desc()).limit(8).all()
     ]
-    stats_etabs = [
-        {"code": r[0], "count": r[1]}
-        for r in filtrer_documents(
-                    db.query(Document.etablissement_code, func.count().label("count")),
-                    utilisateur)
-                   .group_by(Document.etablissement_code)
-                   .order_by(func.count().desc()).all()
-    ]
+    # Un établissement n'a qu'une barre dans « par établissement » : on
+    # lui montre plutôt la répartition entre ses facultés et écoles.
+    if code is None:
+        stats_etabs = [
+            {"code": r[0], "count": r[1]}
+            for r in db.query(Document.etablissement_code, func.count().label("count"))
+                       .group_by(Document.etablissement_code)
+                       .order_by(func.count().desc()).all()
+        ]
+    else:
+        stats_etabs = [
+            {"code": r[0] or "Non renseigné", "count": r[1]}
+            for r in filtrer_documents(
+                        db.query(Document.sous_entite_nom, func.count().label("count")),
+                        utilisateur)
+                       .group_by(Document.sous_entite_nom)
+                       .order_by(func.count().desc()).limit(10).all()
+        ]
     derniers_logs = (
         filtrer_logs(db, db.query(SyncLog), utilisateur)
         .order_by(SyncLog.debut.desc()).limit(5).all()
@@ -2467,30 +2477,42 @@ async def admin_exports_documents(
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             headers={"Content-Disposition": "attachment; filename=scholarsync-documents.xlsx"})
 
+    elif format == "pdf":
+        from app.services import rapports
+        code = permissions.perimetre(utilisateur_courant(request, db))
+        details = [x for x in (
+            f"établissement {etablissement}" if etablissement else "",
+            {"these": "thèses", "memoire": "mémoires"}.get(type, ""),
+        ) if x]
+        try:
+            pdf = rapports.liste_documents(
+                templates.env, db, get_params_with_defaults(db), docs,
+                code if code != permissions.AUCUN else None, ", ".join(details),
+            )
+        except Exception:
+            logging.getLogger("scholarsync").exception("Export PDF")
+            return redirect_flash("/admin/exports", "L'export PDF n'a pas pu être produit.", "danger")
+        return Response(pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": 'attachment; filename="scholarsync-documents.pdf"'})
+
     return JSONResponse({"error": "Format non supporté"}, status_code=400)
 
 @app.get("/admin/exports/rapport")
 async def admin_exports_rapport(request: Request, db: Session = Depends(get_db)):
+    """Rapport d'activité en PDF, limité au périmètre de l'utilisateur."""
+    from app.services import rapports
     code = permissions.perimetre(utilisateur_courant(request, db))
-    stats = get_stats(db, code)
-    from fastapi.responses import HTMLResponse
-    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>body{{font-family:Arial,sans-serif;padding:2rem;}}
-    h1{{color:#1a3a5c;}} table{{width:100%;border-collapse:collapse;}}
-    th{{background:#1a3a5c;color:white;padding:8px;}} td{{padding:8px;border:1px solid #ddd;}}
-    </style></head><body>
-    <h1>Rapport ScholarSync{(" — " + code) if code and code != permissions.AUCUN else ""}</h1>
-    <p>Généré le {datetime.now().strftime('%d/%m/%Y à %H:%M')}</p>
-    <h2>Statistiques générales</h2>
-    <table><tr><th>Indicateur</th><th>Valeur</th></tr>
-    <tr><td>Total documents</td><td>{stats['total']}</td></tr>
-    <tr><td>Thèses</td><td>{stats['nb_theses']}</td></tr>
-    <tr><td>Mémoires</td><td>{stats['nb_memoires']}</td></tr>
-    <tr><td>Soutenus</td><td>{stats['nb_soutenus']}</td></tr>
-    <tr><td>En préparation</td><td>{stats['nb_preparation']}</td></tr>
-    <tr><td>Établissements</td><td>{stats['nb_etablissements']}</td></tr>
-    </table></body></html>"""
-    return HTMLResponse(content=html)
+    if code == permissions.AUCUN:
+        return redirect_flash("/admin", "Aucun établissement n'est rattaché à votre compte.", "danger")
+    params = get_params_with_defaults(db)
+    try:
+        pdf = rapports.rapport_activite(templates.env, db, params, get_stats(db, code), code)
+    except Exception:
+        logging.getLogger("scholarsync").exception("Rapport PDF")
+        return redirect_flash("/admin/exports", "Le rapport PDF n'a pas pu être produit.", "danger")
+    nom = f"rapport-{(code or 'national').lower()}-{datetime.now():%Y%m%d}.pdf"
+    return Response(pdf, media_type="application/pdf",
+                    headers={"Content-Disposition": f'attachment; filename="{nom}"'})
 
 @app.post("/admin/parametres/partenaires/ajouter")
 async def admin_partenaires_ajouter(
