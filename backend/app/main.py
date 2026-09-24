@@ -1736,6 +1736,81 @@ async def admin_mon_etablissement(request: Request, db: Session = Depends(get_db
     })
 
 
+def _tester_zotero(zotero_type: str, zotero_id: str, api_key: str):
+    """(ok, message) — lecture d'une notice pour vérifier les accès."""
+    try:
+        from pyzotero import zotero
+        zot = zotero.Zotero(zotero_id, zotero_type, api_key)
+        zot.top(limit=1)
+        return True, "Connexion réussie : la bibliothèque est accessible."
+    except Exception as e:
+        texte = str(e)
+        if "403" in texte:
+            return False, "Accès refusé : la clé API ne donne pas accès à cette bibliothèque."
+        if "404" in texte:
+            return False, "Bibliothèque introuvable : vérifiez l'identifiant et le type."
+        return False, f"Échec : {texte[:120]}"
+
+
+@app.post("/admin/mon-etablissement/zotero/tester")
+async def admin_mon_zotero_tester(
+    request: Request, db: Session = Depends(get_db),
+    zotero_type: str = Form(...), zotero_id: str = Form(...), api_key: str = Form(""),
+):
+    """Teste les paramètres saisis ; clé vide = clé déjà enregistrée."""
+    utilisateur = utilisateur_courant(request, db)
+    source = sources_visibles(db, utilisateur).first()
+    cle = api_key.strip() or (source.api_key if source else "")
+    if zotero_type not in ("user", "group") or not zotero_id.strip() or not cle:
+        return JSONResponse({"ok": False, "message": "Type, identifiant et clé API sont nécessaires."})
+    ok, message = _tester_zotero(zotero_type, zotero_id.strip(), cle)
+    return JSONResponse({"ok": ok, "message": message})
+
+
+@app.post("/admin/mon-etablissement/zotero")
+async def admin_mon_zotero_save(
+    request: Request, db: Session = Depends(get_db),
+    zotero_type: str = Form(...), zotero_id: str = Form(...),
+    api_key: str = Form(""), label: str = Form(""),
+):
+    """L'établissement tient lui-même sa source Zotero : identifiant de la
+    bibliothèque et clé API. La clé n'est jamais réaffichée ; laissée
+    vide, elle ne change pas. Rien n'est enregistré si la connexion
+    échoue : une source cassée arrêterait ses synchronisations."""
+    retour = "/admin/mon-etablissement"
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    etab = db.query(Etablissement).filter(Etablissement.code == code).first() if code else None
+    if etab is None:
+        return redirect_flash(retour, "Aucun établissement n'est rattaché à votre compte.", "danger")
+    zotero_id = zotero_id.strip()
+    if zotero_type not in ("user", "group") or not re.match(r"^\d{1,12}$", zotero_id):
+        return redirect_flash(
+            retour, "Identifiant Zotero invalide : c'est un nombre (ex. 5123456).", "danger")
+    source = db.query(ZoteroSource).filter(ZoteroSource.etablissement_id == etab.id).first()
+    cle = api_key.strip() or (source.api_key if source else "")
+    if not cle:
+        return redirect_flash(retour, "La clé API Zotero est obligatoire.", "danger")
+    ok, message = _tester_zotero(zotero_type, zotero_id, cle)
+    if not ok:
+        return redirect_flash(retour, f"Source non enregistrée. {message}", "danger")
+
+    if source is None:
+        source = ZoteroSource(etablissement_id=etab.id, zotero_type=zotero_type,
+                              zotero_id=zotero_id, api_key=cle, label=label.strip() or None)
+        db.add(source)
+    else:
+        if source.zotero_id != zotero_id or source.zotero_type != zotero_type:
+            # Autre bibliothèque : le curseur de version ne vaut plus rien
+            source.zotero_version = 0
+        source.zotero_type, source.zotero_id = zotero_type, zotero_id
+        source.api_key, source.label = cle, label.strip() or None
+    db.commit()
+    return redirect_flash(
+        retour, "Source Zotero enregistrée et vérifiée. Lancez une synchronisation "
+        "pour importer la collection.", "success")
+
+
 @app.post("/admin/mon-etablissement")
 async def admin_mon_etablissement_save(
     request: Request, db: Session = Depends(get_db),
@@ -2233,8 +2308,41 @@ async def admin_acces(
                                 Document.sous_entite_nom.isnot(None))
                         .distinct().order_by(Document.sous_entite_nom)]
 
+    # Accès par collection, toujours visible pour un établissement : ses
+    # deux collections et chacune de ses facultés / écoles, avec l'état
+    # de la règle et le nombre de documents concernés.
+    blocs_collection = []
+    if code is not None:
+        regles_etab_perimetre = {
+            (r.niveau, r.reference.upper()): r
+            for r in db.query(AccesException).filter(
+                AccesException.niveau.in_(["collection", "sous_collection"]),
+                func.upper(AccesException.reference).like(f"{code}/%"),
+            )
+        }
+        comptes_type = dict(db.query(Document.type, func.count())
+                            .filter(Document.etablissement_code == code)
+                            .group_by(Document.type).all())
+        for type_doc, nom in (("these", "Thèses"), ("memoire", "Mémoires")):
+            regle = regles_etab_perimetre.get(("collection", f"{code}/{nom}".upper()))
+            blocs_collection.append({
+                "niveau": "collection", "nom": nom, "reference": nom,
+                "regle": regle, "nb": comptes_type.get(type_doc, 0),
+            })
+        comptes_sous = dict(db.query(Document.sous_entite_nom, func.count())
+                            .filter(Document.etablissement_code == code,
+                                    Document.sous_entite_nom.isnot(None))
+                            .group_by(Document.sous_entite_nom).all())
+        for nom in sous_entites:
+            regle = regles_etab_perimetre.get(("sous_collection", f"{code}/{nom}".upper()))
+            blocs_collection.append({
+                "niveau": "sous_collection", "nom": nom, "reference": nom,
+                "regle": regle, "nb": comptes_sous.get(nom, 0),
+            })
+
     return templates.TemplateResponse("admin/acces.html", {
         "request": request, "params": params, "exceptions": exceptions,
+        "blocs_collection": blocs_collection,
         "etablissements": etabs.all(), "regles_etab": regles_etab,
         "pagination": pagination, "tri": etat_tri,
         "super_admin": code is None, "code_etab": code, "sous_entites": sous_entites,

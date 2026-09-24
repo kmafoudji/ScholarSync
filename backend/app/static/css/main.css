@@ -3070,3 +3070,4 @@ td.col-numero {
    latéralement. */
 .table-wrap { position: relative; }
 .fiche-numero__attente { display: block; font-size: var(--fs-sm); color: var(--text-2); margin-top: .25rem; }
+.mon-etab__zotero { margin-top: 1rem; }

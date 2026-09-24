@@ -48,6 +48,8 @@ ROUTES_ETABLISSEMENT = [
     ({"GET"}, r"/admin/exports/rapport"),
     ({"GET"}, r"/admin/mon-etablissement"),
     ({"POST"}, r"/admin/mon-etablissement"),
+    ({"POST"}, r"/admin/mon-etablissement/zotero"),
+    ({"POST"}, r"/admin/mon-etablissement/zotero/tester"),
     # Contrôle d'accès : limité à son établissement dans les routes
     # (acces_docs.dans_perimetre, reference_pour_etablissement)
     ({"GET"}, r"/admin/acces"),

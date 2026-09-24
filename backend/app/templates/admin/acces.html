@@ -95,6 +95,67 @@
   {{ t.pagination(pagination, 'bas') }}
 </div>
 
+{% if blocs_collection %}
+<div class="card card--lg" style="margin-bottom:1rem;">
+  <div class="acces-rapide__entete">
+    <h2>Accès par collection</h2>
+    <p>
+      Restreignez une collection ou une faculté / école doctorale de {{ code_etab }} en un clic.
+      Une règle posée sur un document précis (page Mes documents) reste prioritaire.
+    </p>
+  </div>
+  <div class="acces-rapide">
+    {% for b in blocs_collection %}
+    {% set valeur_regle = b.regle.acces if b.regle else None %}
+    <div class="acces-carte {{ 'acces-carte--restreint' if valeur_regle == 'restreint' }}">
+      <div class="acces-carte__titre">
+        <span class="acces-carte__initiales" aria-hidden="true">
+          <i class="ti ti-{{ 'books' if b.niveau == 'collection' else 'school' }}"></i>
+        </span>
+        <span class="acces-carte__code">{{ b.nom }}</span>
+      </div>
+      <p class="acces-carte__nom">
+        {{ 'Collection' if b.niveau == 'collection' else 'Faculté / école doctorale' }}
+        · {{ b.nb }} document{{ 's' if b.nb != 1 }}
+      </p>
+      {% if current_user.role != 'lecteur' %}
+      <div class="acces-choix" role="group" aria-label="Accès de {{ b.nom }}">
+        {% for valeur, libelle, icone in [('public', 'Public', 'lock-open'), ('restreint', 'Restreint', 'lock')] %}
+        <form method="post" action="/admin/acces/definir">
+          <input type="hidden" name="niveau" value="{{ b.niveau }}">
+          <input type="hidden" name="reference" value="{{ b.reference }}">
+          <input type="hidden" name="acces" value="{{ valeur }}">
+          <button type="submit"
+                  class="acces-choix__btn acces-choix__btn--{{ valeur }} {{ 'is-actif' if valeur_regle == valeur }}"
+                  aria-pressed="{{ 'true' if valeur_regle == valeur else 'false' }}">
+            <i class="ti ti-{{ icone }}" aria-hidden="true"></i><span>{{ libelle }}</span>
+          </button>
+        </form>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <p class="acces-carte__etat">
+        {% if valeur_regle == 'restreint' %}
+        <i class="ti ti-alert-circle" aria-hidden="true"></i> Restreinte
+        {% elif valeur_regle == 'public' %}
+        <i class="ti ti-circle-check" aria-hidden="true"></i> Publique
+        {% else %}
+        <i class="ti ti-minus" aria-hidden="true"></i> Aucune règle — suit l'établissement
+        {% endif %}
+      </p>
+      {% if b.regle and current_user.role != 'lecteur' %}
+      <form method="post" action="/admin/acces/{{ b.regle.id }}/supprimer">
+        <button type="submit" class="btn btn--ghost btn--sm">
+          <i class="ti ti-arrow-back-up" aria-hidden="true"></i> Retirer la règle
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <div class="card card--lg">
   <div class="acces-rapide__entete">
     <h2>{{ 'Accès rapide par établissement' if super_admin else 'Accès de tout mon fonds' }}</h2>

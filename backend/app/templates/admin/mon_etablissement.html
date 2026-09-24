@@ -30,7 +30,7 @@
     {% if source %}
     <div class="stat-card__sub"><a href="/admin/sync">Synchroniser maintenant</a></div>
     {% else %}
-    <div class="stat-card__sub">Aucune source Zotero : contactez le super administrateur.</div>
+    <div class="stat-card__sub"><a href="#zotero">Configurer la source Zotero</a></div>
     {% endif %}
   </div>
 </div>
@@ -138,9 +138,84 @@
   {% endif %}
   </fieldset>
 </form>
+
+{# ── Source Zotero ─────────────────────────────────────────────
+   Formulaire séparé : une erreur de clé API ne doit pas faire perdre
+   les modifications de la fiche, ni l'inverse. #}
+<form method="post" action="/admin/mon-etablissement/zotero" class="card card--lg mon-etab__zotero" id="zotero">
+  <fieldset {{ 'disabled' if not peut_modifier }} class="mon-etab__fieldset">
+  <h2 class="mon-etab__titre"><i class="ti ti-plug" aria-hidden="true"></i> Source Zotero</h2>
+  <p class="mon-etab__note" style="margin-top:0;">
+    La bibliothèque Zotero où vos bibliothécaires cataloguent thèses et mémoires.
+    Elle doit contenir une collection « Thèses » et/ou « Mémoires » à la racine.
+    {% if source %}Dernière synchronisation : {{ source.derniere_sync|format_datetime if source.derniere_sync else 'jamais' }}.{% endif %}
+  </p>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label" for="z-type">Type de bibliothèque</label>
+      <select id="z-type" name="zotero_type" class="form-control">
+        <option value="group" {{ 'selected' if not source or source.zotero_type == 'group' }}>Groupe (recommandé)</option>
+        <option value="user" {{ 'selected' if source and source.zotero_type == 'user' }}>Bibliothèque personnelle</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="z-id">Identifiant <span class="required">*</span></label>
+      <input id="z-id" type="text" name="zotero_id" class="form-control" required inputmode="numeric"
+             pattern="[0-9]{1,12}" value="{{ source.zotero_id if source else '' }}" placeholder="5123456">
+      <div class="form-hint">Nombre visible dans l'adresse du groupe sur zotero.org (…/groups/<strong>5123456</strong>/…).</div>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="z-cle">Clé API {% if not source %}<span class="required">*</span>{% endif %}</label>
+    <input id="z-cle" type="password" name="api_key" class="form-control" autocomplete="off"
+           {{ 'required' if not source }} placeholder="{{ 'Laisser vide pour conserver la clé actuelle' if source else 'Clé créée sur zotero.org → Paramètres → Clés' }}">
+    <div class="form-hint">Créez-la sur zotero.org (Paramètres → Sécurité → Clés), en lecture seule sur le groupe. Elle n'est jamais réaffichée.</div>
+  </div>
+  <div class="form-group">
+    <label class="form-label" for="z-label">Libellé</label>
+    <input id="z-label" type="text" name="label" class="form-control" maxlength="100"
+           value="{{ source.label or '' if source else '' }}" placeholder="Bibliothèque universitaire">
+  </div>
+  <div class="logo-televersement__retour" id="zRetour" aria-live="polite"></div>
+  {% if peut_modifier %}
+  <div class="mon-etab__actions" style="gap:.5rem;">
+    <button type="button" class="btn btn--outline" id="zTester">
+      <i class="ti ti-plug-connected" aria-hidden="true"></i> Tester la connexion
+    </button>
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check" aria-hidden="true"></i> Enregistrer la source
+    </button>
+  </div>
+  {% endif %}
+  </fieldset>
+</form>
 {% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script src="{{ static_url('js/logo.js') }}"></script>
+<script>
+(function () {
+  var bouton = document.getElementById('zTester');
+  if (!bouton) return;
+  var zone = document.getElementById('zRetour');
+  bouton.addEventListener('click', function () {
+    var f = bouton.form, donnees = new FormData(f);
+    zone.className = 'logo-televersement__retour';
+    zone.textContent = 'Test en cours…';
+    bouton.disabled = true;
+    fetch('/admin/mon-etablissement/zotero/tester', { method: 'POST', body: donnees })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        zone.className = 'logo-televersement__retour logo-televersement__retour--' + (d.ok ? 'ok' : 'erreur');
+        zone.textContent = d.message;
+      })
+      .catch(function () {
+        zone.className = 'logo-televersement__retour logo-televersement__retour--erreur';
+        zone.textContent = 'Test impossible : le serveur ne répond pas.';
+      })
+      .finally(function () { bouton.disabled = false; });
+  });
+})();
+</script>
 {% endblock %}
