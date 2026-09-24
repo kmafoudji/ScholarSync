@@ -87,7 +87,7 @@ CREATE TABLE numerotation_compteurs (
 -- ============================================================
 CREATE TABLE documents (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    numero_national     CHAR(17) UNIQUE NOT NULL,
+    numero_national     VARCHAR(20) UNIQUE NOT NULL,
     -- Format : SN-UC-T-S-2024-0012-47 (17 chars avec tirets)
 
     -- Identification principale

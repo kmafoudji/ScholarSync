@@ -226,10 +226,22 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
                 log.documents_erreur = errors
                 db.commit()
 
-        try:
-            source.zotero_version = zot.last_modified_version()
-        except Exception:
-            logger.warning("Version Zotero non récupérée pour la source %s", source.id)
+        # La sync est incrémentale (items modifiés depuis zotero_version) :
+        # avancer la version malgré des notices en erreur les ferait
+        # disparaître des syncs suivantes, sans que personne ne le voie.
+        # On ne l'avance donc que si tout est passé ; sinon la prochaine
+        # sync reprend les mêmes items (les réussis sont mis à jour, pas
+        # dupliqués).
+        if errors == 0:
+            try:
+                source.zotero_version = zot.last_modified_version()
+            except Exception:
+                logger.warning("Version Zotero non récupérée pour la source %s", source.id)
+        else:
+            log.message_erreur = (
+                f"{errors} notice(s) en erreur — elles seront retentées à la "
+                "prochaine synchronisation. Détail dans les journaux du serveur."
+            )
 
         source.derniere_sync = datetime.now()
         log.statut = "succes"
