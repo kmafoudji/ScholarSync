@@ -53,6 +53,18 @@ RATTRAPAGES = [
     "ALTER TABLE documents ALTER COLUMN numero_national DROP NOT NULL",
     "UPDATE documents SET numero_national = NULL WHERE statut = 'en_preparation' "
     "AND substring(numero_national from 6 for 1) = 'P'",
+    # Numéro national à 15 caractères, préfixe SN : la lettre de statut
+    # (6e position, toujours S depuis que seuls les travaux soutenus sont
+    # numérotés) est retirée et SC devient SN. SCUCTS2016000192 →
+    # SNUCT2016000192 : même rang, même clé (la clé ne porte que sur les
+    # chiffres). Vient après l'effacement des numéros en P ci-dessus, et
+    # ne touche plus rien une fois appliqué (le motif exige le préfixe SC).
+    "UPDATE documents SET numero_national = regexp_replace(numero_national, "
+    "'^SC([A-Z0-9]{2}[TMX])[SP]?([0-9]{10})$', 'SN\\1\\2') "
+    "WHERE numero_national ~ '^SC[A-Z0-9]{2}[TMX][SP]?[0-9]{10}$'",
+    "UPDATE documents_retires SET numero_national = regexp_replace(numero_national, "
+    "'^SC([A-Z0-9]{2}[TMX])[SP]?([0-9]{10})$', 'SN\\1\\2') "
+    "WHERE numero_national ~ '^SC[A-Z0-9]{2}[TMX][SP]?[0-9]{10}$'",
     # Codes de numérotation : repris de l'ancienne table écrite dans le
     # code, sinon les deux premiers caractères du code — exactement ce
     # que produisait l'ancien calcul, pour que les numéros existants

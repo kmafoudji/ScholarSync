@@ -14,25 +14,43 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from app.services import numerotation as num  # noqa: E402
 
 
-# Numéros réellement attribués en production (septembre 2026)
-NUMEROS_PRODUCTION = ["SCUCMS2007000176", "SCUCTS2016000192", "SCUCTS2026000102"]
+# Numéros attribués en production (septembre 2026), à l'ancienne forme
+# (16 caractères, lettre de statut S) puis convertis au démarrage.
+NUMEROS_PRODUCTION_ANCIENS = ["SCUCMS2007000176", "SCUCTS2016000192", "SCUCTS2026000102"]
+NUMEROS_PRODUCTION = ["SNUCM2007000176", "SNUCT2016000192", "SNUCT2026000102"]
 
 
-def test_les_numeros_existants_restent_valides():
+def test_les_numeros_convertis_restent_valides():
     for n in NUMEROS_PRODUCTION:
         assert num.valider_numero(n), n
 
 
-def test_format_16_caracteres_compatible_avec_la_colonne():
-    n = num.composer_numero("UC", "these", "soutenu", 2016, 1)
-    assert n == "SCUCTS2016000192"
-    assert len(n) == num.LONGUEUR == 16
+def test_conversion_garde_rang_et_cle():
+    """Même transformation que le rattrapage SQL de core/schema.py."""
+    for ancien, nouveau in zip(NUMEROS_PRODUCTION_ANCIENS, NUMEROS_PRODUCTION):
+        assert "SN" + ancien[2:5] + ancien[6:] == nouveau
+        assert num.normaliser(ancien) == nouveau
+        assert not num.valider_numero(ancien)  # plus accepté tel quel
+
+
+def test_normaliser():
+    assert num.normaliser(" snuct2016000192 ") == "SNUCT2016000192"
+    assert num.normaliser("SC-UC-T-S-2016-0001-92") == "SNUCT2016000192"
+    assert num.normaliser("SCUCTP2016000192") == "SNUCT2016000192"
+    assert num.normaliser("SNUCT2016000192") == "SNUCT2016000192"
+    assert num.normaliser("irrigation") == "IRRIGATION"
+
+
+def test_format_15_caracteres_compatible_avec_la_colonne():
+    n = num.composer_numero("UC", "these", 2016, 1)
+    assert n == "SNUCT2016000192"
+    assert len(n) == num.LONGUEUR == 15
     assert len(n) <= 20  # documents.numero_national VARCHAR(20)
 
 
 def test_cle_detecte_une_faute_de_frappe():
-    assert not num.valider_numero("SCUCTS2016000193")  # clé fausse
-    assert not num.valider_numero("SCUCTS2016000292")  # rang modifié
+    assert not num.valider_numero("SNUCT2016000193")  # clé fausse
+    assert not num.valider_numero("SNUCT2016000292")  # rang modifié
     assert not num.valider_numero("SC-UC-T-S-2016-0001-92")  # ancien format
     assert not num.valider_numero("")
 
@@ -84,14 +102,14 @@ class _Session:
 def test_premier_numero_sans_compteur_ni_document():
     db = _Session()
     n = num.generer_numero(db, "UCAD", "these", "soutenu", 2030)
-    assert n[10:14] == "0001" and num.valider_numero(n)
+    assert n[num.ORDRE] == "0001" and num.valider_numero(n)
 
 
 def test_compteur_absent_mais_numeros_existants_pas_de_doublon():
     """Cas de la production : 4 documents, compteurs peut-être vides."""
-    db = _Session(numeros=["SCUCTS2026000102"])
+    db = _Session(numeros=["SNUCT2026000102"])
     n = num.generer_numero(db, "UCAD", "these", "soutenu", 2026)
-    assert n[10:14] == "0002"
+    assert n[num.ORDRE] == "0002"
     assert n not in NUMEROS_PRODUCTION
 
 
@@ -99,9 +117,9 @@ def test_compteur_en_retard_sur_la_base():
     compteur = num.NumerotationCompteur(
         etablissement_code="UCAD", type="these", annee=2026, compteur=0
     )
-    db = _Session(compteur=compteur, numeros=["SCUCTS2026000102"])
+    db = _Session(compteur=compteur, numeros=["SNUCT2026000102"])
     n = num.generer_numero(db, "UCAD", "these", "soutenu", 2026)
-    assert n.startswith("SCUCTS20260002")
+    assert n.startswith("SNUCT20260002")
     assert compteur.compteur == 2
 
 
@@ -123,7 +141,7 @@ def test_code_numero_gere_en_base():
                 return _Requete(Etab())
             return super().query(cible)
     n = num.generer_numero(Session2(), "NOUVELLE", "these", "soutenu", 2030)
-    assert n.startswith("SCK7TS2030") and num.valider_numero(n)
+    assert n.startswith("SNK7T2030") and num.valider_numero(n)
 
 
 def test_code_par_defaut():

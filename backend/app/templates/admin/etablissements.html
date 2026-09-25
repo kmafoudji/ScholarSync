@@ -181,7 +181,7 @@
                style="text-transform:uppercase;width:6rem;">
         <div class="form-hint">
           Deux caractères qui représentent l'établissement dans le numéro national
-          (UC dans SC<strong>UC</strong>TS2016000192). Laissé vide : les deux premières
+          (UC dans SN<strong>UC</strong>T2016000192). Laissé vide : les deux premières
           lettres du code. Il ne pourra plus changer une fois des numéros attribués.
         </div>
       </div>
@@ -217,7 +217,7 @@
         <input id="e{{ etab.id }}-code_numero" type="text" name="code_numero" class="form-control"
                maxlength="2" pattern="[A-Za-z0-9]{2}" value="{{ etab.code_numero or '' }}"
                style="text-transform:uppercase;width:6rem;">
-        <div class="form-hint">Deux caractères, dans le numéro national (SC<strong>{{ etab.code_numero or 'UC' }}</strong>TS…). Unique.</div>
+        <div class="form-hint">Deux caractères, dans le numéro national (SN<strong>{{ etab.code_numero or 'UC' }}</strong>T2024…). Unique.</div>
         {% endif %}
       </div>
       {{ champs_etab(etab) }}

@@ -735,6 +735,14 @@ async def index(request: Request, db: Session = Depends(get_db)):
         contexte_catalogue(request, db, filtres={}, sort=TRI_DEFAUT, page=1),
     )
 
+def texte_recherche(q: str) -> str:
+    """Texte cherché. Un numéro national saisi à l'ancienne forme
+    (SCUCTS…, SCUCT…) est ramené à la forme actuelle (SNUCT…)."""
+    from app.services.numerotation import MOTIF_ANCIEN, normaliser
+    q = (q or "").strip()
+    return normaliser(q) if MOTIF_ANCIEN.match(q.upper()) else q
+
+
 @app.get("/recherche", response_class=HTMLResponse)
 async def recherche(
     request: Request, db: Session = Depends(get_db),
@@ -756,7 +764,7 @@ async def recherche(
     par_page: int = PAR_PAGE_DEFAUT,
 ):
     filtres = {k: v for k, v in {
-        "q": q.strip(), "type": type, "statut": statut,
+        "q": texte_recherche(q), "type": type, "statut": statut,
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
@@ -812,7 +820,7 @@ async def export_public(
     mime, extension = FORMATS_EXPORT_PUBLIC[format]
 
     filtres = {k: v for k, v in {
-        "q": q.strip(), "type": type, "statut": statut,
+        "q": texte_recherche(q), "type": type, "statut": statut,
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
@@ -1515,7 +1523,7 @@ async def admin_documents(
 
     query = filtrer_documents(db.query(Document), utilisateur)
     if q:
-        motif = f"%{q.strip()}%"
+        motif = f"%{texte_recherche(q)}%"
         query = query.filter(
             Document.titre.ilike(motif)
             | Document.auteur.ilike(motif)
@@ -1589,7 +1597,7 @@ async def admin_documents_retires(
     if code is not None:
         requete = requete.filter(DocumentRetire.etablissement_code == code)
     if q.strip():
-        motif = f"%{q.strip()}%"
+        motif = f"%{texte_recherche(q)}%"
         requete = requete.filter(DocumentRetire.titre.ilike(motif)
                                  | DocumentRetire.auteur.ilike(motif)
                                  | DocumentRetire.numero_national.ilike(motif))
