@@ -1,0 +1,114 @@
+{# Conteúdo da página Ajuda em português (norma europeia e africana) —
+   mesmas âncoras e mesmo plano que fr.html. #}
+
+<section class="aide-section contenu-riche" id="presentation">
+  <h2><i class="ti ti-info-circle" aria-hidden="true"></i> O que é este catálogo?</h2>
+  <p>O {{ params.nom_outil }} reúne num só lugar as <strong>teses de doutoramento</strong> e as <strong>dissertações de mestrado</strong> das instituições de ensino superior parceiras.</p>
+  <p>Cada instituição continua a catalogar os seus trabalhos na sua própria ferramenta (Zotero, catálogo da biblioteca…). Os registos chegam aqui automaticamente: o que consulta é, portanto, o registo mantido atualizado pela biblioteca da instituição.</p>
+  <p>A plataforma é um <strong>catálogo</strong>: descreve os trabalhos e, quando o texto integral está em linha, remete para o depósito da instituição.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="rechercher">
+  <h2><i class="ti ti-search" aria-hidden="true"></i> Pesquisar um documento</h2>
+  <p>Escreva uma ou mais palavras na barra de pesquisa da página inicial e clique em <strong>Pesquisar</strong>. A pesquisa abrange:</p>
+  <ul>
+    <li>o título, o autor e o orientador;</li>
+    <li>as palavras-chave, o resumo e a área;</li>
+    <li>a instituição, a escola doutoral ou a faculdade;</li>
+    <li>o número nacional.</li>
+  </ul>
+  <p><strong>Alguns conselhos:</strong></p>
+  <ul>
+    <li>Quanto mais palavras escrever, mais precisos serão os resultados: <em>irrigação arroz Senegal</em> encontra os trabalhos que tratam dos três.</li>
+    <li>Os acentos e as maiúsculas não contam, e pequenos erros de escrita são tolerados.</li>
+    <li>Para encontrar um trabalho cujo número nacional conhece, escreva-o por inteiro, sem espaços.</li>
+    <li>Para ver todo o catálogo, clique em <strong>Teses</strong> ou <strong>Dissertações</strong> no menu, sem escrever nada.</li>
+  </ul>
+  <p>Os títulos e os resumos são publicados na língua em que os trabalhos foram escritos, muitas vezes o francês: pesquisar com palavras nessa língua dá os melhores resultados.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="filtrer">
+  <h2><i class="ti ti-filter" aria-hidden="true"></i> Refinar com os filtros</h2>
+  <p>À esquerda dos resultados (botão <strong>Refinar</strong> no telemóvel), os filtros permitem reduzir a lista:</p>
+  <ul>
+    <li><strong>Instituição</strong> e <strong>Escola doutoral / Faculdade</strong>;</li>
+    <li><strong>Tipo</strong>: tese de doutoramento ou dissertação de mestrado;</li>
+    <li><strong>Estado</strong>: trabalho defendido ou em preparação;</li>
+    <li><strong>Área</strong>, <strong>Ano</strong> e <strong>Idioma</strong>.</li>
+  </ul>
+  <p>O número apresentado ao lado de cada valor indica quantos documentos lhe correspondem. Pode selecionar vários valores e combinar os filtros com uma pesquisa por palavras.</p>
+  <p>Os filtros ativos aparecem por cima dos resultados: clique num deles para o retirar, ou em <strong>Limpar tudo</strong> para recomeçar.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="trier">
+  <h2><i class="ti ti-arrows-sort" aria-hidden="true"></i> Ordenar e percorrer os resultados</h2>
+  <p>O menu <strong>Ordenar por</strong> propõe:</p>
+  <ul>
+    <li><strong>Relevância</strong>: primeiro os documentos que melhor correspondem às palavras pesquisadas (uma palavra encontrada no título conta mais do que uma encontrada no resumo);</li>
+    <li><strong>Ano</strong>, decrescente ou crescente;</li>
+    <li><strong>Título A–Z</strong>;</li>
+    <li><strong>Adicionados recentemente</strong>, para ver os últimos registos chegados.</li>
+  </ul>
+  <p>Escolha o número de resultados <strong>por página</strong> e passe de uma página para outra no fundo da lista.</p>
+  <p>O endereço da página inclui a sua pesquisa e os seus filtros: pode copiá-lo, guardá-lo nos favoritos ou enviá-lo a um colega, que verá a mesma lista.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="fiche">
+  <h2><i class="ti ti-file-text" aria-hidden="true"></i> Ler a ficha de um documento</h2>
+  <p>Clique num título para abrir a sua ficha: autor, orientação, júri (quando indicado), instituição, ano, resumo, palavras-chave e número nacional.</p>
+  <p>A caixa de acesso indica como consultar o texto:</p>
+  <ul>
+    <li><strong>Consultar o documento</strong>: o texto integral está em linha. O botão abre o depósito da instituição num novo separador.</li>
+    <li><strong>Acesso restrito</strong>: a instituição optou por não divulgar o texto em linha (confidencialidade, embargo…). Contacte a sua biblioteca para o consultar.</li>
+    <li><strong>Não disponível em linha</strong>: o trabalho está referenciado, mas o texto ainda não foi depositado.</li>
+  </ul>
+  <p>Na ficha, as ligações <strong>Explorar</strong> levam aos outros trabalhos da mesma instituição, da mesma escola doutoral ou faculdade, ou do mesmo ano.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="numero">
+  <h2><i class="ti ti-number" aria-hidden="true"></i> O número nacional</h2>
+  <p>Cada trabalho defendido recebe um número nacional único de 16 caracteres, que permite citá-lo e encontrá-lo sem ambiguidade. Por exemplo:</p>
+  <p class="aide-numero"><code>SC UC T S 2024 0042 76</code></p>
+  <ul>
+    <li><code>SC</code>: prefixo do catálogo;</li>
+    <li><code>UC</code>: código da instituição;</li>
+    <li><code>T</code>: tese (<code>M</code> para uma dissertação);</li>
+    <li><code>S</code>: trabalho defendido;</li>
+    <li><code>2024</code>: ano;</li>
+    <li><code>0042</code>: número de ordem na instituição para esse ano;</li>
+    <li><code>76</code>: chave de controlo, que deteta um erro de escrita no número.</li>
+  </ul>
+  <p>O número escreve-se sem espaços (<code>SCUCTS2024004276</code>); os espaços acima servem apenas para facilitar a leitura. É atribuído na defesa: um trabalho <strong>em preparação</strong> ainda não o tem. Nunca muda e nunca é reutilizado.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="citer">
+  <h2><i class="ti ti-quote" aria-hidden="true"></i> Citar e exportar</h2>
+  <p><strong>Um documento:</strong> na sua ficha, a caixa <strong>Citar este documento</strong> apresenta a referência no formato APA, com um botão para a copiar. Pode também descarregá-la no formato <strong>BibTeX</strong> (LaTeX, Overleaf) ou <strong>RIS</strong> (Zotero, Mendeley, EndNote).</p>
+  <p><strong>Uma lista:</strong> por cima dos resultados, o botão <strong>Exportar</strong> descarrega a lista apresentada, filtros incluídos, em folha de cálculo (CSV, para Excel ou LibreOffice), em BibTeX ou em RIS.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="questions">
+  <h2><i class="ti ti-message" aria-hidden="true"></i> Perguntas frequentes</h2>
+  <div class="aide-faq">
+    <details>
+      <summary>Não encontro um trabalho que conheço.</summary>
+      <p>Experimente menos palavras ou retire os filtros. Se o trabalho continuar a não aparecer, talvez a sua instituição ainda não o tenha catalogado: contacte a biblioteca em causa.</p>
+    </details>
+    <details>
+      <summary>Um registo contém um erro.</summary>
+      <p>Os registos são mantidos pelas instituições. Comunique o erro à biblioteca da instituição: assim que o corrigir no seu catálogo, a correção aparece aqui na sincronização seguinte, geralmente dentro de uma hora.</p>
+    </details>
+    <details>
+      <summary>Como deposito a minha tese ou dissertação?</summary>
+      <p>O depósito faz-se junto da biblioteca da sua instituição, segundo os seus procedimentos. Depois de o seu trabalho ser catalogado pela instituição, aparece automaticamente na plataforma.</p>
+    </details>
+    <details>
+      <summary>Uma página indica «Este documento foi retirado do catálogo».</summary>
+      <p>A instituição retirou o registo. O seu número nacional continua a ser apresentado e nunca é atribuído a outro trabalho. Para saber mais, contacte a biblioteca da instituição.</p>
+    </details>
+    <details>
+      <summary>Posso usar a plataforma noutra língua?</summary>
+      <p>Sim, quando são propostas várias línguas: escolha FR, EN ou PT no topo da página. A interface muda de língua; os títulos e os resumos ficam na língua em que os trabalhos foram escritos.</p>
+    </details>
+  </div>
+</section>

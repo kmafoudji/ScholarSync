@@ -1,0 +1,114 @@
+{# Contenu de la page Aide en français. Les versions anglaise et
+   portugaise (en.html, pt.html) gardent les mêmes ancres et le même
+   plan : tests/test_aide.py le vérifie. #}
+
+<section class="aide-section contenu-riche" id="presentation">
+  <h2><i class="ti ti-info-circle" aria-hidden="true"></i> Qu’est-ce que ce catalogue&nbsp;?</h2>
+  <p>{{ params.nom_outil }} rassemble en un seul endroit les <strong>thèses de doctorat</strong> et les <strong>mémoires de master</strong> des établissements d’enseignement supérieur partenaires.</p>
+  <p>Chaque établissement continue de cataloguer ses travaux dans son propre outil (Zotero, catalogue de bibliothèque…). Les notices arrivent ici automatiquement&nbsp;: ce que vous consultez est donc la notice tenue à jour par la bibliothèque de l’établissement.</p>
+  <p>La plateforme est un <strong>catalogue</strong>&nbsp;: elle décrit les travaux et renvoie, quand il est en ligne, vers le texte intégral déposé par l’établissement.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="rechercher">
+  <h2><i class="ti ti-search" aria-hidden="true"></i> Rechercher un document</h2>
+  <p>Tapez un ou plusieurs mots dans la barre de recherche de la page d’accueil, puis cliquez sur <strong>Rechercher</strong>. La recherche porte sur&nbsp;:</p>
+  <ul>
+    <li>le titre, l’auteur et le directeur de recherche&nbsp;;</li>
+    <li>les mots-clés, le résumé et le domaine&nbsp;;</li>
+    <li>l’établissement, l’école doctorale ou la faculté&nbsp;;</li>
+    <li>le numéro national.</li>
+  </ul>
+  <p><strong>Quelques conseils&nbsp;:</strong></p>
+  <ul>
+    <li>Plus vous tapez de mots, plus les résultats sont précis&nbsp;: <em>irrigation riz Sénégal</em> trouve les travaux qui parlent des trois.</li>
+    <li>Les accents et les majuscules ne comptent pas, et les petites fautes de frappe sont tolérées.</li>
+    <li>Pour retrouver un travail dont vous connaissez le numéro national, tapez-le en entier, sans espace.</li>
+    <li>Pour voir tout le catalogue, cliquez sur <strong>Thèses</strong> ou <strong>Mémoires</strong> dans le menu, sans rien taper.</li>
+  </ul>
+</section>
+
+<section class="aide-section contenu-riche" id="filtrer">
+  <h2><i class="ti ti-filter" aria-hidden="true"></i> Affiner avec les filtres</h2>
+  <p>À gauche des résultats (bouton <strong>Affiner</strong> sur téléphone), des filtres permettent de réduire la liste&nbsp;:</p>
+  <ul>
+    <li><strong>Établissement</strong> et <strong>École doctorale / Faculté</strong>&nbsp;;</li>
+    <li><strong>Type</strong>&nbsp;: thèse de doctorat ou mémoire de master&nbsp;;</li>
+    <li><strong>Statut</strong>&nbsp;: travail soutenu ou en préparation&nbsp;;</li>
+    <li><strong>Domaine</strong>, <strong>Année</strong> et <strong>Langue</strong>.</li>
+  </ul>
+  <p>Le nombre affiché à côté de chaque valeur indique combien de documents lui correspondent. Vous pouvez cocher plusieurs valeurs et combiner les filtres avec une recherche par mots.</p>
+  <p>Les filtres actifs apparaissent au-dessus des résultats&nbsp;: cliquez sur l’un d’eux pour le retirer, ou sur <strong>Tout effacer</strong> pour repartir de zéro.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="trier">
+  <h2><i class="ti ti-arrows-sort" aria-hidden="true"></i> Trier et parcourir les résultats</h2>
+  <p>Le menu <strong>Trier par</strong> propose&nbsp;:</p>
+  <ul>
+    <li><strong>Pertinence</strong>&nbsp;: les documents qui correspondent le mieux aux mots cherchés d’abord (un mot trouvé dans le titre compte plus qu’un mot trouvé dans le résumé)&nbsp;;</li>
+    <li><strong>Année</strong>, décroissante ou croissante&nbsp;;</li>
+    <li><strong>Titre A–Z</strong>&nbsp;;</li>
+    <li><strong>Ajout le plus récent</strong>, pour voir les dernières notices arrivées.</li>
+  </ul>
+  <p>Choisissez le nombre de résultats <strong>par page</strong> et passez d’une page à l’autre en bas de la liste.</p>
+  <p>L’adresse de la page reprend votre recherche et vos filtres&nbsp;: vous pouvez la copier, l’ajouter à vos favoris ou l’envoyer à un collègue, qui verra la même liste.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="fiche">
+  <h2><i class="ti ti-file-text" aria-hidden="true"></i> Lire la fiche d’un document</h2>
+  <p>Cliquez sur un titre pour ouvrir sa fiche&nbsp;: auteur, direction, jury (s’il est renseigné), établissement, année, résumé, mots-clés et numéro national.</p>
+  <p>L’encadré d’accès indique comment consulter le texte&nbsp;:</p>
+  <ul>
+    <li><strong>Consulter le document</strong>&nbsp;: le texte intégral est en ligne. Le bouton ouvre le dépôt de l’établissement, dans un nouvel onglet.</li>
+    <li><strong>Accès restreint</strong>&nbsp;: l’établissement a choisi de ne pas diffuser le texte en ligne (confidentialité, embargo…). Contactez sa bibliothèque pour le consulter.</li>
+    <li><strong>Non disponible en ligne</strong>&nbsp;: la notice est référencée, mais le texte n’a pas encore été déposé.</li>
+  </ul>
+  <p>Depuis la fiche, les liens <strong>Explorer</strong> mènent aux autres travaux du même établissement, de la même école doctorale ou faculté, ou de la même année.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="numero">
+  <h2><i class="ti ti-number" aria-hidden="true"></i> Le numéro national</h2>
+  <p>Chaque travail soutenu reçoit un numéro national unique de 16 caractères, qui permet de le citer et de le retrouver sans ambiguïté. Par exemple&nbsp;:</p>
+  <p class="aide-numero"><code>SC UC T S 2024 0042 76</code></p>
+  <ul>
+    <li><code>SC</code>&nbsp;: préfixe du catalogue&nbsp;;</li>
+    <li><code>UC</code>&nbsp;: code de l’établissement&nbsp;;</li>
+    <li><code>T</code>&nbsp;: thèse (<code>M</code> pour un mémoire)&nbsp;;</li>
+    <li><code>S</code>&nbsp;: travail soutenu&nbsp;;</li>
+    <li><code>2024</code>&nbsp;: année&nbsp;;</li>
+    <li><code>0042</code>&nbsp;: numéro d’ordre dans l’établissement pour cette année&nbsp;;</li>
+    <li><code>76</code>&nbsp;: clé de contrôle, qui détecte une faute de frappe dans le numéro.</li>
+  </ul>
+  <p>Le numéro s’écrit sans espace (<code>SCUCTS2024004276</code>)&nbsp;; les espaces ci-dessus ne servent qu’à la lecture. Il est attribué à la soutenance&nbsp;: un travail <strong>en préparation</strong> n’en a pas encore. Il ne change jamais et n’est jamais réutilisé.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="citer">
+  <h2><i class="ti ti-quote" aria-hidden="true"></i> Citer et exporter</h2>
+  <p><strong>Un document&nbsp;:</strong> sur sa fiche, l’encadré <strong>Citer ce document</strong> donne la référence au format APA, avec un bouton pour la copier. Vous pouvez aussi la télécharger au format <strong>BibTeX</strong> (LaTeX, Overleaf) ou <strong>RIS</strong> (Zotero, Mendeley, EndNote).</p>
+  <p><strong>Une liste&nbsp;:</strong> au-dessus des résultats, le bouton <strong>Exporter</strong> télécharge la liste affichée, filtres compris, en tableur (CSV, pour Excel ou LibreOffice), en BibTeX ou en RIS.</p>
+</section>
+
+<section class="aide-section contenu-riche" id="questions">
+  <h2><i class="ti ti-message" aria-hidden="true"></i> Questions fréquentes</h2>
+  <div class="aide-faq">
+    <details>
+      <summary>Je ne trouve pas un travail que je connais.</summary>
+      <p>Essayez moins de mots, ou retirez les filtres. Si le travail n’apparaît toujours pas, il n’a peut-être pas encore été catalogué par son établissement&nbsp;: contactez la bibliothèque concernée.</p>
+    </details>
+    <details>
+      <summary>Une notice contient une erreur.</summary>
+      <p>Les notices sont tenues par les établissements. Signalez l’erreur à la bibliothèque de l’établissement&nbsp;: dès qu’elle l’a corrigée dans son catalogue, la correction apparaît ici à la synchronisation suivante, en général dans l’heure.</p>
+    </details>
+    <details>
+      <summary>Comment déposer ma thèse ou mon mémoire&nbsp;?</summary>
+      <p>Le dépôt se fait auprès de la bibliothèque de votre établissement, selon ses procédures. Une fois votre travail catalogué par l’établissement, il apparaît automatiquement sur la plateforme.</p>
+    </details>
+    <details>
+      <summary>Une page indique «&nbsp;Ce document a été retiré du catalogue&nbsp;».</summary>
+      <p>L’établissement a retiré la notice. Son numéro national reste affiché et n’est jamais attribué à un autre travail. Pour en savoir plus, contactez la bibliothèque de l’établissement.</p>
+    </details>
+    <details>
+      <summary>Puis-je utiliser la plateforme dans une autre langue&nbsp;?</summary>
+      <p>Oui, si plusieurs langues sont proposées&nbsp;: choisissez FR, EN ou PT en haut de la page. L’interface change de langue&nbsp;; les titres et les résumés restent dans la langue où les travaux ont été écrits.</p>
+    </details>
+  </div>
+</section>

@@ -1,0 +1,50 @@
+{% extends "public/base.html" %}
+{% block title %}{{ _('Aide') }} — {{ params.nom_outil }}{% endblock %}
+{% block description %}{{ _("Comment rechercher, consulter, citer et exporter les thèses et mémoires du catalogue.") }}{% endblock %}
+
+{% block content %}
+<div class="aide-bandeau">
+  <div class="container-sm">
+    <h1>{{ _('Aide') }}</h1>
+    <p>{{ _("Comment rechercher, consulter, citer et exporter les thèses et mémoires du catalogue.") }}</p>
+  </div>
+</div>
+
+<div class="container-sm aide">
+  {# Sommaire : les ancres sont les mêmes dans les trois langues, un lien
+     vers /aide#citer fonctionne donc quelle que soit la langue choisie. #}
+  <nav class="aide-sommaire card" aria-labelledby="aide-sommaire-titre">
+    <h2 id="aide-sommaire-titre">{{ _('Sur cette page') }}</h2>
+    <ol>
+      {% for ancre, icone, titre in [
+           ('presentation', 'info-circle', _('Qu’est-ce que ce catalogue ?')),
+           ('rechercher', 'search', _('Rechercher un document')),
+           ('filtrer', 'filter', _('Affiner avec les filtres')),
+           ('trier', 'arrows-sort', _('Trier et parcourir les résultats')),
+           ('fiche', 'file-text', _('Lire la fiche d’un document')),
+           ('numero', 'number', _('Le numéro national')),
+           ('citer', 'quote', _('Citer et exporter')),
+           ('questions', 'message', _('Questions fréquentes'))] %}
+      <li><a href="#{{ ancre }}"><i class="ti ti-{{ icone }}" aria-hidden="true"></i> {{ titre }}</a></li>
+      {% endfor %}
+    </ol>
+  </nav>
+
+  {% include "public/aide/" ~ (lang if lang in ('fr', 'en', 'pt') else 'fr') ~ ".html" %}
+
+  <div class="aide-contact card">
+    <h2>{{ _('Besoin d’aide supplémentaire ?') }}</h2>
+    <p>{{ _("Pour une question sur un document précis, adressez-vous à la bibliothèque de l’établissement qui l’a publié. Pour une question sur la plateforme elle-même :") }}</p>
+    {% set contact = params.contact_json|fromjson %}
+    {% if contact and contact.email %}
+    <a class="btn btn--primary" href="mailto:{{ contact.email }}">
+      <i class="ti ti-mail" aria-hidden="true"></i> {{ contact.email }}
+    </a>
+    {% else %}
+    <a class="btn btn--primary" href="/a-propos">
+      <i class="ti ti-info-circle" aria-hidden="true"></i> {{ _('Voir la page À propos') }}
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

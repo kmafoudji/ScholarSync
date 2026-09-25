@@ -37,6 +37,27 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
     "Mémoires": ("Master's theses", "Dissertações"),
     "Établissements": ("Institutions", "Instituições"),
     "À propos": ("About", "Sobre"),
+    "Aide": ("Help", "Ajuda"),
+
+    # Page Aide (le contenu lui-même est dans templates/public/aide/<langue>.html)
+    "Conseils de recherche": ("Search tips", "Dicas de pesquisa"),
+    "Comment rechercher, consulter, citer et exporter les thèses et mémoires du catalogue.": (
+        "How to search, view, cite and export the theses and dissertations in the catalogue.",
+        "Como pesquisar, consultar, citar e exportar as teses e dissertações do catálogo."),
+    "Sur cette page": ("On this page", "Nesta página"),
+    "Qu’est-ce que ce catalogue ?": ("What is this catalogue?", "O que é este catálogo?"),
+    "Rechercher un document": ("Searching for a document", "Pesquisar um documento"),
+    "Affiner avec les filtres": ("Refining with filters", "Refinar com os filtros"),
+    "Trier et parcourir les résultats": ("Sorting and browsing results", "Ordenar e percorrer os resultados"),
+    "Lire la fiche d’un document": ("Reading a document record", "Ler a ficha de um documento"),
+    "Le numéro national": ("The national number", "O número nacional"),
+    "Citer et exporter": ("Citing and exporting", "Citar e exportar"),
+    "Questions fréquentes": ("Frequently asked questions", "Perguntas frequentes"),
+    "Besoin d’aide supplémentaire ?": ("Need more help?", "Precisa de mais ajuda?"),
+    "Pour une question sur un document précis, adressez-vous à la bibliothèque de l’établissement qui l’a publié. Pour une question sur la plateforme elle-même :": (
+        "For a question about a specific document, contact the library of the institution that published it. For a question about the platform itself:",
+        "Para uma questão sobre um documento específico, contacte a biblioteca da instituição que o publicou. Para uma questão sobre a própria plataforma:"),
+    "Voir la page À propos": ("See the About page", "Ver a página Sobre"),
     "Langue du site": ("Site language", "Idioma do site"),
     "Propulsé par ScholarSync": ("Powered by ScholarSync", "Com tecnologia ScholarSync"),
     "Administration": ("Administration", "Administração"),

@@ -1017,6 +1017,14 @@ async def apropos(request: Request, db: Session = Depends(get_db)):
         "lang": i18n.langue_de(request, params),
     })
 
+@app.get("/aide", response_class=HTMLResponse)
+async def aide(request: Request, db: Session = Depends(get_db)):
+    params = get_params_with_defaults(db)
+    return templates.TemplateResponse("public/aide.html", {
+        "request": request, "params": params, "active_nav": "aide",
+        "lang": i18n.langue_de(request, params),
+    })
+
 @app.get("/etablissements", response_class=HTMLResponse)
 async def etablissements_page(request: Request, db: Session = Depends(get_db)):
     params = get_params_with_defaults(db)
