@@ -6,6 +6,7 @@ Plateforme open-source de signalement et de valorisation des mémoires et thèse
 
 - **Multi-sources Zotero** — synchronisation automatique depuis les groupes Zotero des institutions
 - **Import hors Zotero** — CSV, RIS ou BibTeX (exports de Koha, PMB, EndNote, tableurs), avec aperçu avant import
+- **Moisson OAI-PMH** — synchronisation automatique d'un catalogue Koha, PMB, DSpace ou HAL (ajouts, modifications, suppressions)
 - **Numérotation nationale** — identifiant unique de 16 caractères (ex. `SCUCTS2016000192` : établissement, type, statut, année, rang) avec clé de contrôle modulo 97, attribué à la soutenance ; code établissement géré depuis l'administration
 - **Facettes avancées** — établissements, écoles doctorales, facultés, domaines CAMES, statut, année, langue
 - **White-label** — nom, logo, couleurs et contenu entièrement configurables

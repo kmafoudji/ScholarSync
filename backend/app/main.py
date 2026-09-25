@@ -29,7 +29,7 @@ from app.services import recherche as moteur_recherche
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException,
-    DocumentRetire,
+    DocumentRetire, SourceOAI,
 )
 
 # Créer les tables, puis rattraper les colonnes ajoutées après coup.
@@ -1064,12 +1064,20 @@ def sources_visibles(db: Session, utilisateur):
     return requete
 
 
+def sources_oai_visibles(db: Session, utilisateur):
+    requete = db.query(SourceOAI)
+    code = permissions.perimetre(utilisateur)
+    if code is not None:
+        requete = requete.join(Etablissement).filter(Etablissement.code == code)
+    return requete
+
+
 def filtrer_logs(db: Session, requete, utilisateur):
     """Limite une requête sur SyncLog aux sources du périmètre."""
-    if permissions.perimetre(utilisateur) is None:
+    code = permissions.perimetre(utilisateur)
+    if code is None:
         return requete
-    ids = [s.id for s in sources_visibles(db, utilisateur).all()]
-    return requete.filter(SyncLog.zotero_source_id.in_(ids or [-1]))
+    return requete.filter(SyncLog.etablissement_code == code)
 
 
 
@@ -1118,9 +1126,6 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
         filtrer_logs(db, db.query(SyncLog), utilisateur)
         .order_by(SyncLog.debut.desc()).limit(5).all()
     )
-    for log in derniers_logs:
-        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
-        log.etablissement_code = src.etablissement.code if src else "—"
     docs_recents = docs().order_by(Document.created_at.desc()).limit(6).all()
     mon_etablissement = (
         db.query(Etablissement).filter(Etablissement.code == code).first()
@@ -1277,7 +1282,8 @@ async def admin_zotero_tester_nouveau(
 async def admin_sync_lancer(db: Session = Depends(get_db)):
     from app.sync.engine import sync_all
 
-    nb_sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).count()  # noqa: E712
+    nb_sources = (db.query(ZoteroSource).filter(ZoteroSource.actif == True).count()  # noqa: E712
+                  + db.query(SourceOAI).filter(SourceOAI.actif == True).count())  # noqa: E712
     if not nb_sources:
         return redirect_flash(
             "/admin/sync",
@@ -1307,9 +1313,10 @@ async def admin_sync_etat(request: Request, db: Session = Depends(get_db)):
     utilisateur = utilisateur_courant(request, db)
     log = sync_log_actif(db, utilisateur)
     if permissions.perimetre(utilisateur) is None:
-        cles = {k for k in tasks.running_keys() if k.startswith("sync")}
+        cles = {k for k in tasks.running_keys() if k.startswith(("sync", "oai"))}
     else:
         cles = {"sync"} | {f"sync:{s.id}" for s in sources_visibles(db, utilisateur)}
+        cles |= {f"oai:{s.id}" for s in sources_oai_visibles(db, utilisateur)}
         cles &= set(tasks.running_keys())
     en_cours = log is not None or bool(cles)
     if log is None:
@@ -1332,7 +1339,7 @@ async def admin_sync_etat(request: Request, db: Session = Depends(get_db)):
         "log": {
             "id": log.id,
             "statut": log.statut,
-            "etablissement": (
+            "etablissement": log.etablissement_code or (
                 source.etablissement.code if source and source.etablissement else "—"
             ),
             "total": total,
@@ -1700,30 +1707,18 @@ async def admin_import_confirmer(
             or permissions.perimetre(utilisateur) not in (None, code)):
         return redirect_flash("/admin/import", "Aperçu expiré : relancez l'analyse du fichier.", "warning")
 
+    from app.services import notices as service_notices
     ajoutes = modifies = 0
     for n in lot["notices"]:
-        doc = db.query(Document).filter(Document.etablissement_code == code,
-                                        Document.zotero_item_key == n["cle"]).first()
-        champs = dict(
-            titre=n["titre"], auteur=n["auteur"], statut=n["statut"], annee=n["annee"],
-            directeur=n["directeur"], domaine=n["domaine"], sous_entite_nom=n["faculte"],
-            langue=n["langue"] or "français", resume=n["resume"],
-            mots_cles=n["mots_cles"] or None, url_document=n["url"],
-            synced_at=datetime.now(),
-        )
-        if doc is None:
-            doc = Document(type=n["type"], etablissement_code=code,
-                           zotero_item_key=n["cle"], **champs)
-            doc.numero_national = generer_numero(db, etablissement_code=code, type_doc=n["type"],
-                                                 statut=n["statut"], annee=n["annee"])
-            db.add(doc)
+        resultat = service_notices.enregistrer(db, code, n["cle"], n["type"], {
+            "titre": n["titre"], "auteur": n["auteur"], "statut": n["statut"],
+            "annee": n["annee"], "directeur": n["directeur"], "domaine": n["domaine"],
+            "sous_entite_nom": n["faculte"], "langue": n["langue"], "resume": n["resume"],
+            "mots_cles": n["mots_cles"], "url_document": n["url"],
+        })
+        if resultat == "ajout":
             ajoutes += 1
         else:
-            for k, v in champs.items():
-                setattr(doc, k, v)
-            if n["statut"] == "soutenu" and not doc.numero_national:
-                doc.numero_national = generer_numero(db, etablissement_code=code, type_doc=doc.type,
-                                                     statut="soutenu", annee=n["annee"])
             modifies += 1
         db.flush()
     acces_docs.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
@@ -1955,6 +1950,7 @@ async def admin_mon_etablissement(request: Request, db: Session = Depends(get_db
     return templates.TemplateResponse("admin/mon_etablissement.html", {
         "request": request, "params": get_params_with_defaults(db),
         "etab": etab, "source": source,
+        "source_oai": db.query(SourceOAI).filter(SourceOAI.etablissement_id == etab.id).first() if etab else None,
         "nb_documents": filtrer_documents(db.query(Document), utilisateur).count(),
         "peut_modifier": permissions.peut_modifier(utilisateur),
         "profil_logo": logos.PROFILS["etablissement"],
@@ -2038,6 +2034,109 @@ async def admin_mon_zotero_save(
         "pour importer la collection.", "success")
 
 
+@app.post("/admin/mon-etablissement/oai/tester")
+async def admin_mon_oai_tester(request: Request, db: Session = Depends(get_db), url: str = Form(...)):
+    """Interroge l'entrepôt (Identify, ListSets) sans rien enregistrer."""
+    from app.sync import oai
+    try:
+        info = oai.identifier(url)
+    except oai.ErreurOAI as e:
+        return JSONResponse({"ok": False, "message": str(e)})
+    message = f"Entrepôt joignable : « {info['nom'] or 'sans nom'} »."
+    if info["suppressions"] == "no":
+        message += (" Attention : il ne signale pas les suppressions ; une notice supprimée"
+                    " restera sur le portail jusqu'à son retrait manuel.")
+    return JSONResponse({"ok": True, "message": message, "ensembles": info["ensembles"]})
+
+
+@app.post("/admin/mon-etablissement/oai")
+async def admin_mon_oai_save(
+    request: Request, db: Session = Depends(get_db),
+    url: str = Form(...), ensemble: str = Form(""), type_defaut: str = Form(""),
+    label: str = Form(""), actif: str = Form(None), supprimer: str = Form(None),
+):
+    """Entrepôt OAI-PMH de l'établissement. Vérifié avant enregistrement."""
+    from app.sync import oai
+    retour = "/admin/mon-etablissement#oai"
+    utilisateur = utilisateur_courant(request, db)
+    code = permissions.perimetre(utilisateur)
+    etab = db.query(Etablissement).filter(Etablissement.code == code).first() if code else None
+    if etab is None:
+        return redirect_flash("/admin/mon-etablissement", "Aucun établissement n'est rattaché à votre compte.", "danger")
+    source = db.query(SourceOAI).filter(SourceOAI.etablissement_id == etab.id).first()
+    if supprimer:
+        if source is not None:
+            db.delete(source)
+            db.commit()
+        return redirect_flash(retour, "Entrepôt OAI retiré. Les notices déjà moissonnées restent publiées.", "success")
+    try:
+        url = oai.valider_url(url)
+        oai.identifier(url)
+    except oai.ErreurOAI as e:
+        return redirect_flash(retour, f"Entrepôt non enregistré. {e}", "danger")
+    ensemble = ensemble.strip() or None
+    if source is None:
+        source = SourceOAI(etablissement_id=etab.id, url=url)
+        db.add(source)
+    elif source.url != url or (source.ensemble or None) != ensemble:
+        source.depuis = None  # autre entrepôt ou autre ensemble : tout relire
+    source.url, source.ensemble = url, ensemble
+    source.type_defaut = type_defaut if type_defaut in ("these", "memoire") else None
+    source.label = label.strip()[:100] or None
+    source.actif = bool(actif)
+    db.commit()
+    return redirect_flash(retour, "Entrepôt OAI enregistré. Lancez une synchronisation pour moissonner.", "success")
+
+
+@app.post("/admin/sync/oai/{source_id}")
+async def admin_sync_oai(source_id: int, request: Request, db: Session = Depends(get_db)):
+    from app.sync.oai import moissonner
+    utilisateur = utilisateur_courant(request, db)
+    src = sources_oai_visibles(db, utilisateur).filter(SourceOAI.id == source_id).first()
+    if not src:
+        return redirect_flash("/admin/sync", "Entrepôt introuvable.", "danger")
+    if not src.actif:
+        return redirect_flash("/admin/sync", "Cet entrepôt est désactivé.", "warning")
+
+    def _moisson(db_bg, ident: int):
+        s = db_bg.query(SourceOAI).filter(SourceOAI.id == ident).first()
+        if s:
+            moissonner(db_bg, s, declenchement="manuel")
+
+    if not tasks.run_in_background(_moisson, src.id, key=f"oai:{src.id}"):
+        return redirect_flash("/admin/sync", "Cette moisson est déjà en cours.", "info")
+    return redirect_flash("/admin/sync", f"Moisson de l'entrepôt {src.etablissement.code} lancée.", "success")
+
+
+@app.post("/admin/documents/{doc_id}/retirer")
+async def admin_document_retirer(
+    doc_id: str, request: Request, db: Session = Depends(get_db),
+    retour: str = Form("/admin/documents"),
+):
+    """Retrait manuel d'une notice importée ou moissonnée. Une notice Zotero
+    se retire dans Zotero : retirée ici, elle reviendrait à la sync."""
+    from app.services import notices as service_notices
+    utilisateur = utilisateur_courant(request, db)
+    if not retour.startswith("/admin/documents") or retour.startswith("//"):
+        retour = "/admin/documents"
+    try:
+        uuid.UUID(doc_id)
+    except ValueError:
+        return redirect_flash(retour, "Document introuvable.", "danger")
+    doc = filtrer_documents(db.query(Document), utilisateur).filter(Document.id == doc_id).first()
+    if not doc:
+        return redirect_flash(retour, "Document introuvable.", "danger")
+    if doc.zotero_source_id is not None:
+        return redirect_flash(retour, "Cette notice vient de Zotero : supprimez-la dans Zotero, "
+                              "elle sera retirée à la prochaine synchronisation.", "warning")
+    titre = doc.titre
+    identifiant = service_notices.retirer(db, doc, "retirée manuellement")
+    db.commit()
+    moteur_recherche.retirer([identifiant])
+    moteur_recherche.vider_cache()
+    return redirect_flash(retour, f"« {titre[:60]} » retirée du portail (trace dans Retirés).", "success")
+
+
 @app.post("/admin/mon-etablissement")
 async def admin_mon_etablissement_save(
     request: Request, db: Session = Depends(get_db),
@@ -2094,14 +2193,12 @@ async def admin_sync(
 
     # Une jointure suffirait, mais le nombre de lignes affichées est borné
     # par la pagination : la lisibilité prime ici sur la micro-optimisation.
-    for log in logs:
-        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
-        log.etablissement_code = src.etablissement.code if src else "—"
 
     sources = sources_visibles(db, utilisateur).all()
     sync_intervalle = int(params.get("sync_intervalle_min", "60"))
     return templates.TemplateResponse("admin/sync.html", {
         "request": request, "params": params, "logs": logs, "sources": sources,
+        "sources_oai": sources_oai_visibles(db, utilisateur).all(),
         "pagination": pagination, "tri": etat_tri,
         "nb_syncs_total": pagination["total"],
         "sync_intervalle": sync_intervalle,

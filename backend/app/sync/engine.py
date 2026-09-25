@@ -114,6 +114,7 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
     """
     log = SyncLog(
         zotero_source_id=source.id,
+        etablissement_code=source.etablissement.code if source.etablissement else None,
         declenchement=declenchement,
         statut="en_cours",
         debut=datetime.now(),
@@ -366,7 +367,14 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
 
 
 def sync_all(db: Session, declenchement: str = "auto") -> None:
+    """Toutes les sources actives : Zotero, puis entrepôts OAI-PMH."""
+    from app.models import SourceOAI
+    from app.sync.oai import moissonner
     sources = db.query(ZoteroSource).filter(ZoteroSource.actif == True).all()  # noqa: E712
-    logger.info("Sync globale : %s source(s) active(s)", len(sources))
+    entrepots = db.query(SourceOAI).filter(SourceOAI.actif == True).all()  # noqa: E712
+    logger.info("Sync globale : %s source(s) Zotero, %s entrepôt(s) OAI",
+                len(sources), len(entrepots))
     for source in sources:
         sync_source(db, source, declenchement=declenchement)
+    for entrepot in entrepots:
+        moissonner(db, entrepot, declenchement=declenchement)

@@ -31,6 +31,8 @@ COLONNES = [
     ("utilisateurs", "mdp_modifie_le", "TIMESTAMPTZ"),
     ("sync_logs", "documents_supprimes", "INTEGER DEFAULT 0"),
     ("etablissements", "code_numero", "VARCHAR(2)"),
+    ("sync_logs", "source_oai_id", "INTEGER"),
+    ("sync_logs", "etablissement_code", "VARCHAR(10)"),
 ]
 
 # Corrections de données et de contraintes, idempotentes.
@@ -61,6 +63,10 @@ RATTRAPAGES = [
     "ELSE upper(substring(code from 1 for 2)) END WHERE code_numero IS NULL",
     "CREATE UNIQUE INDEX IF NOT EXISTS etablissements_code_numero_key "
     "ON etablissements (code_numero)",
+    # Journaux antérieurs : établissement retrouvé par leur source Zotero
+    "UPDATE sync_logs l SET etablissement_code = e.code FROM zotero_sources z "
+    "JOIN etablissements e ON e.id = z.etablissement_id "
+    "WHERE l.zotero_source_id = z.id AND l.etablissement_code IS NULL",
 ]
 
 # État partagé, lu par la sonde /sante

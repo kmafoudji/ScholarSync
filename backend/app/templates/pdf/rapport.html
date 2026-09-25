@@ -91,7 +91,7 @@
   <tbody>
   {% for log in logs %}
   <tr>
-    <td>{{ log.etablissement_code }}</td>
+    <td>{{ log.etablissement_code or '—' }}</td>
     <td>{{ log.debut|format_datetime }}</td>
     <td class="nombre">{{ log.documents_ajoutes or 0 }}</td>
     <td class="nombre">{{ log.documents_modifies or 0 }}</td>

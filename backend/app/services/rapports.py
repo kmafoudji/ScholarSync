@@ -107,13 +107,8 @@ def rapport_activite(env, db: Session, params: dict, stats: dict, code: str | No
 
     logs_q = db.query(SyncLog)
     if code:
-        ids = [s.id for s in db.query(ZoteroSource).join(Etablissement)
-               .filter(Etablissement.code == code)]
-        logs_q = logs_q.filter(SyncLog.zotero_source_id.in_(ids or [-1]))
+        logs_q = logs_q.filter(SyncLog.etablissement_code == code)
     logs = logs_q.order_by(SyncLog.debut.desc()).limit(8).all()
-    for log in logs:
-        src = db.query(ZoteroSource).filter(ZoteroSource.id == log.zotero_source_id).first()
-        log.etablissement_code = src.etablissement.code if src and src.etablissement else "—"
 
     depuis = datetime.now(timezone.utc) - timedelta(days=30)
     contexte = _contexte_commun(params, etablissement)

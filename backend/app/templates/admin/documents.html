@@ -134,6 +134,17 @@
                   </button>
                   {% endif %}
                 </form>
+                {% if doc.zotero_source_id is none %}
+                {# Notice importée ou moissonnée : on peut la retirer ici.
+                   Une notice Zotero se retire dans Zotero. #}
+                <form method="post" action="/admin/documents/{{ doc.id }}/retirer"
+                      onsubmit="return confirm('Retirer cette notice du portail ? Son numéro national restera réservé.')">
+                  <input type="hidden" name="retour" value="{{ retour }}">
+                  <button type="submit" class="btn btn--ghost btn--sm acces-doc__btn" style="color:var(--danger);">
+                    <i class="ti ti-trash" aria-hidden="true"></i> Retirer
+                  </button>
+                </form>
+                {% endif %}
                 {% if doc.regle_document_id %}
                 {# Retirer la règle propre au document : il reprend l'accès de
                    sa collection ou de son établissement. #}

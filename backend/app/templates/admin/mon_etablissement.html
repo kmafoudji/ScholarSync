@@ -189,6 +189,64 @@
   {% endif %}
   </fieldset>
 </form>
+
+{# ── Entrepôt OAI-PMH ──────────────────────────────────────────── #}
+<form method="post" action="/admin/mon-etablissement/oai" class="card card--lg mon-etab__zotero" id="oai">
+  <fieldset {{ 'disabled' if not peut_modifier }} class="mon-etab__fieldset">
+  <h2 class="mon-etab__titre"><i class="ti ti-books" aria-hidden="true"></i> Entrepôt OAI-PMH (Koha, PMB, DSpace, HAL…)</h2>
+  <p class="mon-etab__note" style="margin-top:0;">
+    Pour un catalogue qui n'est pas Zotero : ScholarSync y lit les notices ajoutées, modifiées ou
+    supprimées, à chaque synchronisation. Seules les thèses et mémoires sont retenues.
+    {% if source_oai %}Dernière moisson : {{ source_oai.derniere_sync|format_datetime if source_oai.derniere_sync else 'jamais' }}.{% endif %}
+  </p>
+  <div class="form-group">
+    <label class="form-label" for="o-url">Adresse de base de l'entrepôt <span class="required">*</span></label>
+    <input id="o-url" type="url" name="url" class="form-control" required
+           value="{{ source_oai.url if source_oai else '' }}" placeholder="https://catalogue.univ.sn/cgi-bin/koha/oai.pl">
+    <div class="form-hint">Koha : …/cgi-bin/koha/oai.pl · PMB : …/ws/oai.php · DSpace : …/oai/request</div>
+  </div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label" for="o-ensemble">Ensemble (set)</label>
+      <input id="o-ensemble" type="text" name="ensemble" class="form-control" list="o-ensembles"
+             value="{{ source_oai.ensemble or '' if source_oai else '' }}" placeholder="Tout l'entrepôt">
+      <datalist id="o-ensembles"></datalist>
+      <div class="form-hint">« Tester » propose les ensembles de l'entrepôt ; choisissez celui des thèses si possible.</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="o-type">Type si la notice ne le précise pas</label>
+      <select id="o-type" name="type_defaut" class="form-control">
+        <option value="">— ne garder que les notices typées thèse ou mémoire —</option>
+        <option value="these" {{ 'selected' if source_oai and source_oai.type_defaut == 'these' }}>Thèse</option>
+        <option value="memoire" {{ 'selected' if source_oai and source_oai.type_defaut == 'memoire' }}>Mémoire</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="logo-champ__retirer" style="font-size:var(--fs-sm);">
+      <input type="checkbox" name="actif" value="1" {{ 'checked' if not source_oai or source_oai.actif }}>
+      Moissonner automatiquement avec les synchronisations
+    </label>
+  </div>
+  <div class="logo-televersement__retour" id="oRetour" aria-live="polite"></div>
+  {% if peut_modifier %}
+  <div class="mon-etab__actions" style="gap:.5rem;flex-wrap:wrap;">
+    {% if source_oai %}
+    <button type="submit" name="supprimer" value="1" class="btn btn--ghost" formnovalidate
+            onclick="return confirm('Retirer cet entrepôt ? Les notices déjà moissonnées restent publiées.')">
+      <i class="ti ti-trash" aria-hidden="true"></i> Retirer l'entrepôt
+    </button>
+    {% endif %}
+    <button type="button" class="btn btn--outline" id="oTester">
+      <i class="ti ti-plug-connected" aria-hidden="true"></i> Tester
+    </button>
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check" aria-hidden="true"></i> Enregistrer l'entrepôt
+    </button>
+  </div>
+  {% endif %}
+  </fieldset>
+</form>
 {% endif %}
 {% endblock %}
 
@@ -196,6 +254,28 @@
 <script src="{{ static_url('js/logo.js') }}"></script>
 <script>
 (function () {
+  var bOai = document.getElementById('oTester');
+  if (bOai) bOai.addEventListener('click', function () {
+    var zone = document.getElementById('oRetour');
+    var donnees = new FormData(); donnees.append('url', document.getElementById('o-url').value);
+    zone.className = 'logo-televersement__retour'; zone.textContent = 'Interrogation de l\u2019entrepôt…';
+    bOai.disabled = true;
+    fetch('/admin/mon-etablissement/oai/tester', { method: 'POST', body: donnees })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        zone.className = 'logo-televersement__retour logo-televersement__retour--' + (d.ok ? 'ok' : 'erreur');
+        zone.textContent = d.message + (d.ok && d.ensembles && d.ensembles.length ? ' ' + d.ensembles.length + ' ensemble(s) proposé(s) dans le champ Ensemble.' : '');
+        var liste = document.getElementById('o-ensembles'); liste.textContent = '';
+        (d.ensembles || []).forEach(function (e) {
+          var o = document.createElement('option'); o.value = e.spec; o.label = e.nom || e.spec; liste.appendChild(o);
+        });
+      })
+      .catch(function () {
+        zone.className = 'logo-televersement__retour logo-televersement__retour--erreur';
+        zone.textContent = 'Test impossible : le serveur ne répond pas.';
+      })
+      .finally(function () { bOai.disabled = false; });
+  });
   var bouton = document.getElementById('zTester');
   if (!bouton) return;
   var zone = document.getElementById('zRetour');

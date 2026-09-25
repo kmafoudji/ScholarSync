@@ -55,6 +55,10 @@ ROUTES_ETABLISSEMENT = [
     ({"POST"}, r"/admin/mon-etablissement"),
     ({"POST"}, r"/admin/mon-etablissement/zotero"),
     ({"POST"}, r"/admin/mon-etablissement/zotero/tester"),
+    ({"POST"}, r"/admin/mon-etablissement/oai"),
+    ({"POST"}, r"/admin/mon-etablissement/oai/tester"),
+    ({"POST"}, r"/admin/sync/oai/\d+"),
+    ({"POST"}, rf"/admin/documents/{_UUID}/retirer"),
     # Contrôle d'accès : limité à son établissement dans les routes
     # (acces_docs.dans_perimetre, reference_pour_etablissement)
     ({"GET"}, r"/admin/acces"),

@@ -46,6 +46,26 @@ class ZoteroSource(Base):
     etablissement = relationship("Etablissement", back_populates="zotero_source")
     sync_logs     = relationship("SyncLog", back_populates="zotero_source")
 
+
+class SourceOAI(Base):
+    """Entrepôt OAI-PMH d'un établissement (Koha, PMB, DSpace, HAL…),
+    moissonné comme une source Zotero : ajouts, modifications et
+    suppressions depuis la dernière moisson."""
+    __tablename__ = "sources_oai"
+    id               = Column(Integer, primary_key=True, autoincrement=True)
+    etablissement_id = Column(Integer, ForeignKey("etablissements.id"), nullable=False, unique=True)
+    url              = Column(Text, nullable=False)         # adresse de base de l'entrepôt
+    ensemble         = Column(Text)                          # setSpec, facultatif
+    type_defaut      = Column(String(10))                    # these | memoire | vide
+    label            = Column(Text)
+    actif            = Column(Boolean, default=True)
+    # Horodatage OAI (« from ») de la dernière moisson complète
+    depuis           = Column(String(30))
+    derniere_sync    = Column(DateTime(timezone=True))
+    created_at       = Column(DateTime(timezone=True), server_default=func.now())
+
+    etablissement = relationship("Etablissement")
+
 class NumerotationCompteur(Base):
     __tablename__ = "numerotation_compteurs"
     etablissement_code = Column(String(10), primary_key=True)
@@ -118,6 +138,10 @@ class SyncLog(Base):
     __tablename__ = "sync_logs"
     id                  = Column(Integer, primary_key=True, autoincrement=True)
     zotero_source_id    = Column(Integer, ForeignKey("zotero_sources.id"))
+    source_oai_id       = Column(Integer)
+    # Établissement de la source, enregistré avec le journal : il reste
+    # lisible même si la source est supprimée, et sert au cloisonnement.
+    etablissement_code  = Column(String(10), index=True)
     declenchement       = Column(String(20), default="auto")
     statut              = Column(String(20), nullable=False)
     documents_ajoutes   = Column(Integer, default=0)

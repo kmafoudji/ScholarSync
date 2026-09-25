@@ -158,7 +158,7 @@
         <tbody>
           {% for log in derniers_logs %}
           <tr>
-            <td style="font-weight:500;">{{ log.etablissement_code }}</td>
+            <td style="font-weight:500;">{{ log.etablissement_code or '—' }}</td>
             <td style="color:var(--text-2);font-size:var(--fs-xs);">{{ log.debut|format_datetime }}</td>
             <td>
               <span class="status status--{{ 'ok' if log.statut == 'succes' else ('warn' if log.statut == 'en_cours' else 'err') }}">
