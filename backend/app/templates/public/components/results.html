@@ -120,13 +120,15 @@
   {% endfor %}
   {% for cle, libelle in [('etablissement',_('Établissement')), ('sous_entite',_('Entité')),
                           ('type',_('Type')), ('statut',_('Statut')),
-                          ('domaine',_('Domaine')), ('annee',_('Année')), ('langue',_('Langue'))] %}
+                          ('reesao',_('Domaine REESAO')),
+                          ('domaine',_('Discipline')), ('annee',_('Année')), ('langue',_('Langue'))] %}
     {% for v in (current_filters.get(cle) or []) %}
     <a href="{{ url_facette(current_filters, cle, v, sort) }}" class="filtre-actif"
        aria-label="{{ _('Retirer le filtre') }} {{ libelle }} : {{ v }}">
       <span class="filtre-actif__cle">{{ libelle }}</span>
+      {% if cle == 'reesao' %}{{ libelle_domaine(v) }}{% else %}
       {{ {'these':_('Thèse'),'memoire':_('Mémoire'),'soutenu':_('Soutenu'),
-          'en_preparation':_('En préparation')}.get(v, v) }}
+          'en_preparation':_('En préparation')}.get(v, v) }}{% endif %}
       <i class="ti ti-x" aria-hidden="true"></i>
     </a>
     {% endfor %}

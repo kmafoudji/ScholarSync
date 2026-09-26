@@ -251,6 +251,8 @@ def moissonner(db: Session, source: SourceOAI, declenchement: str = "auto",
                     db.commit()
 
         acces_docs.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
+        from app.services import domaines as domaines_reesao
+        domaines_reesao.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
         # Comme pour Zotero : la date de reprise n'avance que si tout est passé
         if erreurs == 0:
             source.depuis = debut_moisson.strftime("%Y-%m-%d")

@@ -27,6 +27,7 @@ from app.core import i18n
 from app.services import acces as acces_docs
 from app.services import recherche as moteur_recherche
 from app.services import recherche_avancee as rech_avancee
+from app.services import domaines as domaines_reesao
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException,
@@ -48,6 +49,8 @@ def _appliquer_regles_acces_au_demarrage():
     try:
         from app.services import acces as _acces
         changes = _acces.recalculer(db)
+        from app.services import domaines as _domaines
+        _domaines.recalculer(db)
         db.commit()
         if changes:
             logging.getLogger("scholarsync").info(
@@ -362,6 +365,17 @@ templates.env.globals["static_url"] = static_url
 
 
 @pass_context
+def _libelle_domaine(contexte, code):
+    """Intitulé d'un domaine REESAO dans la langue de la page."""
+    return domaines_reesao.libelle(code, contexte.get("lang") or i18n.LANGUE_DEFAUT)
+
+
+templates.env.globals["libelle_domaine"] = _libelle_domaine
+templates.env.globals["DOMAINES_REESAO"] = domaines_reesao.DOMAINES
+templates.env.globals["DOMAINES_COURTS"] = domaines_reesao.COURTS
+
+
+@pass_context
 def _traduire_gabarit(contexte, texte, **valeurs):
     """`_()` des gabarits : traduit dans la langue de la page."""
     langue = contexte.get("lang")
@@ -450,6 +464,7 @@ CHAMPS_FACETTES = {
     "etablissement": Document.etablissement_code,
     "domaine": Document.domaine,
     "sous_entite": Document.sous_entite_nom,
+    "reesao": Document.domaine_reesao,
 }
 
 
@@ -574,6 +589,7 @@ def get_facettes(db: Session, filtres: dict = None) -> dict:
         "langues":        _compter(db, Document.langue, filtres, "langue"),
         "annees":         _compter(db, Document.annee, filtres, "annee", trier_par_compte=False),
         "sous_entites":   [],
+        "reesao":         _compter(db, Document.domaine_reesao, filtres, "reesao"),
     }
 
     # Les sous-entités n'ont de sens qu'une fois un établissement choisi :
@@ -818,6 +834,7 @@ async def recherche(
     annee: List[str] = Query(default=[]),
     langue: List[str] = Query(default=[]),
     sous_entite: List[str] = Query(default=[]),
+    reesao: List[str] = Query(default=[]),
     # Recherche avancée : critères « champ + terme », reliés par op
     champ: List[str] = Query(default=[]),
     terme: List[str] = Query(default=[]),
@@ -834,6 +851,7 @@ async def recherche(
         "q": texte_recherche(q), "type": type, "statut": statut,
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
+        "reesao": [c for c in reesao if c in domaines_reesao.DOMAINES],
     }.items() if v}
     filtres.update(rech_avancee.vers_filtres(*rech_avancee.lire(champ, terme, op)))
 
@@ -876,6 +894,7 @@ async def export_public(
     annee: List[str] = Query(default=[]),
     langue: List[str] = Query(default=[]),
     sous_entite: List[str] = Query(default=[]),
+    reesao: List[str] = Query(default=[]),
     champ: List[str] = Query(default=[]),
     terme: List[str] = Query(default=[]),
     op: str = "",
@@ -896,6 +915,7 @@ async def export_public(
         "q": texte_recherche(q), "type": type, "statut": statut,
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
+        "reesao": [c for c in reesao if c in domaines_reesao.DOMAINES],
     }.items() if v}
     filtres.update(rech_avancee.vers_filtres(*rech_avancee.lire(champ, terme, op)))
 
@@ -921,7 +941,7 @@ async def export_public(
         graveur = csv.writer(tampon, delimiter=";", quoting=csv.QUOTE_MINIMAL)
         graveur.writerow([
             "Numero national", "Titre", "Auteur", "Type", "Statut", "Annee",
-            "Etablissement", "Ecole doctorale / Faculte", "Domaine", "Langue",
+            "Etablissement", "Ecole doctorale / Faculte", "Domaine REESAO", "Discipline", "Langue",
             "Direction", "Mots-cles", "Acces", "URL du document", "URL de la notice",
         ])
         for d in docs:
@@ -931,7 +951,9 @@ async def export_public(
                 "Soutenu" if d.statut == "soutenu" else "En preparation",
                 d.annee,
                 noms_etabs.get(d.etablissement_code, d.etablissement_code),
-                d.sous_entite_nom or "", d.domaine or "", d.langue or "",
+                d.sous_entite_nom or "",
+                domaines_reesao.libelle(d.domaine_reesao) if d.domaine_reesao else "",
+                d.domaine or "", d.langue or "",
                 d.directeur or "",
                 "; ".join(d.mots_cles) if d.mots_cles else "",
                 "Public" if d.acces == "public" else "Restreint",
@@ -1189,11 +1211,17 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
                    .distinct().order_by(Document.annee).all()
     ]
     stats_domaines = [
-        {"domaine": r[0] or "Non défini", "count": r[1]}
+        {"domaine": domaines_reesao.libelle(r[0]) if r[0] else "Non classé", "count": r[1]}
         for r in filtrer_documents(
-                    db.query(Document.domaine, func.count().label("count")), utilisateur)
-                   .group_by(Document.domaine).order_by(func.count().desc()).limit(8).all()
+                    db.query(Document.domaine_reesao, func.count().label("count")), utilisateur)
+                   .group_by(Document.domaine_reesao).order_by(func.count().desc()).all()
     ]
+    # Facultés et écoles doctorales encore sans domaine : avertissement
+    entites_a_rattacher = (
+        sum(1 for e in domaines_reesao.entites_etablissement(db, code)
+            if e["documents"] and not e["domaine"])
+        if code and code != permissions.AUCUN else 0
+    )
     # Un établissement n'a qu'une barre dans « par établissement » : on
     # lui montre plutôt la répartition entre ses facultés et écoles.
     if code is None:
@@ -1224,6 +1252,7 @@ async def admin_dashboard(request: Request, db: Session = Depends(get_db)):
 
     return templates.TemplateResponse("admin/dashboard.html", {
         "request": request, "params": params, "stats": stats,
+        "entites_a_rattacher": entites_a_rattacher,
         # Structures Python transmises telles quelles : le gabarit les
         # sérialise une seule fois, dans un bloc JSON. Elles étaient
         # passées déjà encodées par json.dumps puis ré-encodées par le
@@ -1590,12 +1619,16 @@ async def admin_documents(
     request: Request, db: Session = Depends(get_db),
     q: str = "", page: int = 1, par_page: int = PAR_PAGE_DEFAUT,
     type: str = "", statut: str = "", etablissement: str = "",
-    tri: str = "", sens: str = "", acces: str = "",
+    tri: str = "", sens: str = "", acces: str = "", domaine: str = "",
 ):
     utilisateur = utilisateur_courant(request, db)
     params = get_params_with_defaults(db)
 
     query = filtrer_documents(db.query(Document), utilisateur)
+    if domaine == "aucun":
+        query = query.filter(Document.domaine_reesao.is_(None))
+    elif domaine in domaines_reesao.DOMAINES:
+        query = query.filter(Document.domaine_reesao == domaine)
     if q:
         motif = f"%{texte_recherche(q)}%"
         query = query.filter(
@@ -1650,6 +1683,7 @@ async def admin_documents(
         "pagination": pagination, "tri": etat_tri, "q": q,
         "filtre_type": type, "filtre_statut": statut,
         "filtre_etablissement": etablissement, "filtre_acces": acces,
+        "filtre_domaine": domaine,
         "retour": str(request.url.path) + (f"?{request.url.query}" if request.url.query else ""),
         "etablissements": (
             db.query(Etablissement).order_by(Etablissement.code).all()
@@ -1812,6 +1846,7 @@ async def admin_import_confirmer(
             modifies += 1
         db.flush()
     acces_docs.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
+    domaines_reesao.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
     db.commit()
     moteur_recherche.indexer(db, db.query(Document).filter(
         Document.etablissement_code == code,
@@ -2829,6 +2864,135 @@ async def admin_parametres_general(request: Request, db: Session = Depends(get_d
         "request": request, "params": params,
         "current_user": require_auth(request, db), "active_nav": "general",
     })
+
+# ─── DOMAINES REESAO ─────────────────────────────────────────────
+
+def _code_domaines(utilisateur, db: Session, etab: str = ""):
+    """Établissement dont on gère les rattachements : le sien, ou pour le
+    super administrateur celui choisi (à défaut le premier qui a des
+    documents)."""
+    code = permissions.perimetre(utilisateur)
+    if code is not None:
+        return None if code == permissions.AUCUN else code
+    if etab and db.query(Etablissement.id).filter(Etablissement.code == etab).first():
+        return etab
+    premier = (db.query(Document.etablissement_code, func.count())
+               .group_by(Document.etablissement_code).order_by(func.count().desc()).first())
+    return premier[0] if premier else None
+
+
+@app.get("/admin/domaines", response_class=HTMLResponse)
+async def admin_domaines(request: Request, db: Session = Depends(get_db), etab: str = ""):
+    utilisateur = utilisateur_courant(request, db)
+    code = _code_domaines(utilisateur, db, etab)
+    super_admin = permissions.est_super_admin(utilisateur)
+    entites = domaines_reesao.entites_etablissement(db, code) if code else []
+    requete = db.query(Document.domaine_reesao, func.count()).filter(
+        Document.etablissement_code == code) if code else None
+    repartition = dict(requete.group_by(Document.domaine_reesao).all()) if code else {}
+    from app.models import CorrespondanceDomaine
+    return templates.TemplateResponse("admin/domaines.html", {
+        "request": request, "params": get_params_with_defaults(db),
+        "code": code, "entites": entites, "repartition": repartition,
+        "domaines": domaines_reesao.DOMAINES, "MULTI": domaines_reesao.MULTI,
+        "a_classer": domaines_reesao.valeurs_a_classer(db, None if super_admin else code),
+        "correspondances": (db.query(CorrespondanceDomaine).order_by(CorrespondanceDomaine.valeur).all()
+                            if super_admin else []),
+        "etablissements": (db.query(Etablissement).order_by(Etablissement.code).all()
+                           if super_admin else []),
+        "peut_modifier": permissions.peut_modifier(utilisateur),
+        "current_user": utilisateur, "active_nav": "domaines",
+    })
+
+
+@app.post("/admin/domaines/rattacher")
+async def admin_domaines_rattacher(request: Request, db: Session = Depends(get_db)):
+    """Enregistre les rattachements facultés → domaines d'un établissement.
+
+    Formulaire : etab, puis des paires nom / domaine (même rang). Un
+    domaine vide retire le rattachement. « propositions » applique les
+    propositions automatiques aux entités encore non rattachées.
+    """
+    from app.models import RattachementDomaine
+    utilisateur = utilisateur_courant(request, db)
+    form = await request.form()
+    code = _code_domaines(utilisateur, db, form.get("etab", ""))
+    retour = "/admin/domaines" + (f"?etab={code}" if permissions.est_super_admin(utilisateur) and code else "")
+    if not code:
+        return redirect_flash("/admin/domaines", "Établissement introuvable.", "danger")
+    valides = set(domaines_reesao.DOMAINES) | {domaines_reesao.MULTI}
+    existants = {r.sous_entite_nom: r for r in db.query(RattachementDomaine)
+                 .filter(RattachementDomaine.etablissement_code == code)}
+    connus = {e["nom"]: e for e in domaines_reesao.entites_etablissement(db, code)}
+
+    choix = {}
+    if form.get("propositions"):
+        for nom, e in connus.items():
+            if not e["domaine"] and e["proposition"]:
+                choix[nom] = e["proposition"]
+    else:
+        for nom, dom in zip(form.getlist("nom"), form.getlist("domaine")):
+            if nom in connus:
+                choix[nom] = dom if dom in valides else ""
+
+    for nom, dom in choix.items():
+        ligne = existants.get(nom)
+        if not dom:
+            if ligne:
+                db.delete(ligne)
+        elif ligne:
+            ligne.domaine = dom
+        else:
+            db.add(RattachementDomaine(etablissement_code=code, sous_entite_nom=nom, domaine=dom))
+    db.flush()
+    changes = domaines_reesao.recalculer(db, db.query(Document).filter(Document.etablissement_code == code))
+    db.commit()
+    return redirect_flash(retour, f"Rattachements enregistrés — {changes} document(s) reclassé(s).")
+
+
+@app.post("/admin/domaines/correspondance")
+async def admin_domaines_correspondance(
+    request: Request, db: Session = Depends(get_db),
+    valeur: str = Form(...), domaine: str = Form(""), etab: str = Form(""),
+):
+    """Valeur libre de métadonnée → domaine (super administrateur)."""
+    from app.models import CorrespondanceDomaine
+    retour = "/admin/domaines" + (f"?etab={etab}" if etab else "")
+    cle = domaines_reesao.normaliser(valeur)
+    if not cle:
+        return redirect_flash(retour, "Valeur vide.", "danger")
+    ligne = db.get(CorrespondanceDomaine, cle)
+    if domaine not in domaines_reesao.DOMAINES:
+        if ligne:
+            db.delete(ligne)
+    elif ligne:
+        ligne.domaine = domaine
+    else:
+        db.add(CorrespondanceDomaine(valeur=cle, domaine=domaine))
+    db.flush()
+    changes = domaines_reesao.recalculer(db)
+    db.commit()
+    return redirect_flash(retour, f"Correspondance enregistrée — {changes} document(s) reclassé(s).")
+
+
+@app.post("/admin/documents/{doc_id}/domaine")
+async def admin_document_domaine(
+    doc_id: str, request: Request, db: Session = Depends(get_db),
+    domaine: str = Form(""), retour: str = Form("/admin/documents"),
+):
+    """Domaine choisi à la main pour un document ; vide = automatique."""
+    utilisateur = utilisateur_courant(request, db)
+    if not retour.startswith("/admin/documents") or retour.startswith("//"):
+        retour = "/admin/documents"
+    doc = filtrer_documents(db.query(Document), utilisateur).filter(Document.id == doc_id).first()
+    if not doc:
+        return redirect_flash(retour, "Document introuvable.", "danger")
+    doc.domaine_manuel = domaine if domaine in domaines_reesao.DOMAINES else None
+    domaines_reesao.recalculer(db, db.query(Document).filter(Document.id == doc.id))
+    db.commit()
+    etat = domaines_reesao.libelle(doc.domaine_reesao) if doc.domaine_reesao else "non classé"
+    return redirect_flash(retour, f"Domaine du document : {etat}.")
+
 
 @app.post("/admin/documents/{doc_id}/toggle-acces")
 async def admin_document_toggle_acces(

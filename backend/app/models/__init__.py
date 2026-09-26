@@ -93,6 +93,11 @@ class Document(Base):
     jury               = Column(JSON)
     resume             = Column(Text)
     mots_cles          = Column(ARRAY(Text))
+    # Domaine REESAO retenu (code, services/domaines.py) et, s'il y a
+    # lieu, celui choisi à la main par l'établissement — ce dernier n'est
+    # jamais écrasé par une synchronisation.
+    domaine_reesao     = Column(String(10), index=True)
+    domaine_manuel     = Column(String(10))
     url_document       = Column(Text)
     zotero_source_id   = Column(Integer, ForeignKey("zotero_sources.id"))
     zotero_item_key    = Column(String(20))
@@ -173,3 +178,28 @@ class Utilisateur(Base):
     created_at         = Column(DateTime(timezone=True), server_default=func.now())
 
     etablissement = relationship("Etablissement", back_populates="utilisateurs")
+
+
+class RattachementDomaine(Base):
+    """Faculté ou école doctorale d'un établissement → domaine REESAO.
+
+    `domaine` vaut un code REESAO, ou « MULTI » quand l'entité couvre
+    plusieurs domaines (ses documents sont alors classés un à un).
+    """
+    __tablename__ = "rattachements_domaines"
+    etablissement_code = Column(String(10), primary_key=True)
+    sous_entite_nom    = Column(Text, primary_key=True)
+    domaine            = Column(String(10), nullable=False)
+    modifie_le         = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CorrespondanceDomaine(Base):
+    """Valeur libre de métadonnée (« Hydrologie ») → domaine REESAO.
+
+    Tenue par le super administrateur, valable pour tout le catalogue.
+    `valeur` est normalisée (minuscules, sans accents).
+    """
+    __tablename__ = "correspondances_domaines"
+    valeur  = Column(Text, primary_key=True)
+    domaine = Column(String(10), nullable=False)
+

@@ -3050,12 +3050,12 @@ td.col-numero {
    Le badge « Public / Restreint » était lui-même le bouton : rien ne
    signalait qu'on pouvait cliquer dessus. L'état et l'action sont
    désormais séparés, et l'origine de la règle est dite. */
-.table--documents .col-titre   { width: 19%; }
+.table--documents .col-titre   { width: 21%; }
 .table--documents .col-auteur  { width: 10%; }
 .table--documents .col-etab    { width: 11%; }
 .table--documents .col-etroite { width: 7.5%; }
-.table--documents .col-numero  { width: 17%; }
-.table--documents .col-acces   { width: 20.5%; }
+.table--documents .col-numero  { width: 16%; }
+.table--documents .col-acces   { width: 19.5%; }
 .table--documents td.col-acces { overflow: visible; white-space: normal; }
 .acces-doc { display: grid; gap: .375rem; justify-items: start; }
 .acces-doc .status { display: inline-flex; align-items: center; gap: .3rem; }
@@ -3274,3 +3274,34 @@ td.col-numero {
   .ra-champ { grid-column: 1 / -1; }
   .ra-actions .btn { flex: 1 1 auto; justify-content: center; }
 }
+
+/* ── ADMIN : domaines REESAO ── */
+.domaines-choix { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
+.domaines-choix .form-label { margin: 0; }
+.domaines-repartition { display: flex; flex-wrap: wrap; gap: .5rem; }
+.domaines-pastille {
+  display: inline-flex; align-items: center; gap: .6rem;
+  padding: .45rem .75rem; border-radius: 999px;
+  background: var(--primary-light); color: var(--primary);
+  font-size: var(--fs-sm); text-decoration: none;
+}
+.domaines-pastille:hover { text-decoration: underline; }
+.domaines-pastille strong { font-variant-numeric: tabular-nums; }
+.domaines-pastille--vide { background: var(--warning-bg); color: var(--warning); }
+.table-domaines select.form-control { min-width: 260px; }
+.domaines-etat {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: .5rem;
+  font-size: var(--fs-2xs); font-weight: 600; padding: 1px 8px; border-radius: 999px;
+}
+.domaines-etat--propose { background: var(--primary-light); color: var(--primary); }
+.domaines-etat--manque { background: var(--warning-bg); color: var(--warning); }
+.domaines-ligne-form { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+.doc-domaine { margin-top: .35rem; }
+.doc-domaine__choix { width: 100%; }
+.doc-domaine__choix {
+  max-width: 100%; font-family: var(--font-sans); font-size: var(--fs-2xs);
+  padding: 2px 4px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text-2);
+}
+.doc-domaine__choix--vide { border-color: var(--warning); color: var(--warning); }
+.doc-domaine__choix--manuel { border-color: var(--primary); color: var(--primary); font-weight: 600; }

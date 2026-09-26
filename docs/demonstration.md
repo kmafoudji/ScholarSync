@@ -20,7 +20,11 @@ Pour chaque université de la démonstration :
    intégral si elle existe.
 4. Ajouter des **marqueurs** (tags) :
    - `statut: soutenu` ou `statut: en_preparation` (sans marqueur : soutenu) ;
-   - `domaine: Économie`, `domaine: Droit`… (facette « Domaine ») ;
+   - `domaine: Économie`, `domaine: Droit`… (facette « Discipline ») ; la
+     plateforme en déduit le domaine REESAO. On peut aussi écrire le code
+     REESAO directement : `domaine: SEG`, `domaine: SS`… Pour les notices
+     sans domaine, rattacher chaque faculté à son domaine dans
+     l'administration (« Domaines REESAO ») ;
    - les autres marqueurs deviennent des mots-clés.
 5. Créer une **clé API** en lecture seule sur le groupe (zotero.org →
    Paramètres → Sécurité → Clés).

@@ -57,6 +57,7 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
     "Titre": ("Title", "Título"),
     "Auteur": ("Author", "Autor"),
     "Discipline": ("Discipline", "Disciplina"),
+    "Domaine REESAO": ("REESAO field", "Domínio REESAO"),
 
     # Page Aide (le contenu lui-même est dans templates/public/aide/<langue>.html)
     "Conseils de recherche": ("Search tips", "Dicas de pesquisa"),

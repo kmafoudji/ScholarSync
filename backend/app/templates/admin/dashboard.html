@@ -16,6 +16,16 @@
 {% endblock %}
 
 {% block content %}
+{% if entites_a_rattacher %}
+<div class="alert alert--warning" style="margin-bottom:1rem;">
+  <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+  <div>
+    {{ entites_a_rattacher }} faculté(s) ou école(s) doctorale(s) sans domaine REESAO : leurs documents
+    ne sont classés que si la notice indique un domaine.
+    <a href="/admin/domaines"><strong>Rattacher maintenant</strong></a>
+  </div>
+</div>
+{% endif %}
 {% if mon_etablissement %}
 {# Un compte d'établissement voit son périmètre, et doit le savoir :
    sans ce bandeau, des chiffres plus petits que prévu passeraient pour
@@ -89,7 +99,7 @@
   <!-- Répartition par domaine -->
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
-      <h2>Répartition par domaine</h2>
+      <h2>Répartition par domaine REESAO</h2>
       <button data-export-chart="chartDomaine" class="btn btn--ghost btn--sm">
         <i class="ti ti-camera"></i> PNG
       </button>

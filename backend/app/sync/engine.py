@@ -309,6 +309,11 @@ def sync_source(db: Session, source: ZoteroSource, declenchement: str = "auto") 
         acces_docs.recalculer(
             db, db.query(Document).filter(Document.zotero_source_id == source.id)
         )
+        # Domaines REESAO : métadonnée, faculté, choix manuel
+        from app.services import domaines as domaines_reesao
+        domaines_reesao.recalculer(
+            db, db.query(Document).filter(Document.zotero_source_id == source.id)
+        )
         db.commit()
 
         # Moteur de recherche : notices traitées ajoutées ou mises à jour,

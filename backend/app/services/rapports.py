@@ -99,10 +99,11 @@ def rapport_activite(env, db: Session, params: dict, stats: dict, code: str | No
         a["theses" if type_doc == "these" else "memoires"] += n
     lignes_annees = sorted(annees.values(), key=lambda a: a["annee"] or 0, reverse=True)[:15]
 
+    from app.services import domaines as domaines_reesao
     lignes_domaines = [
-        {"domaine": d or "Non défini", "count": n}
-        for d, n in docs().with_entities(Document.domaine, func.count())
-        .group_by(Document.domaine).order_by(func.count().desc()).limit(10).all()
+        {"domaine": domaines_reesao.libelle(d) if d else "Non classé", "count": n}
+        for d, n in docs().with_entities(Document.domaine_reesao, func.count())
+        .group_by(Document.domaine_reesao).order_by(func.count().desc()).all()
     ]
 
     logs_q = db.query(SyncLog)

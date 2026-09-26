@@ -1,0 +1,182 @@
+{% extends "admin/base.html" %}
+{% block title %}Domaines REESAO{% endblock %}
+{% block page_title %}Domaines REESAO{% endblock %}
+
+{% macro options_domaine(choisi, avec_multi=true) %}
+  <option value="" {{ 'selected' if not choisi }}>— Non rattachée —</option>
+  {% for c, lib in domaines.items() %}
+  <option value="{{ c }}" {{ 'selected' if choisi == c }}>{{ lib[0] }}</option>
+  {% endfor %}
+  {% if avec_multi %}
+  <option value="{{ MULTI }}" {{ 'selected' if choisi == MULTI }}>Plusieurs domaines (au cas par cas)</option>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+<div class="alert alert--warning" style="margin-bottom:1.25rem;">
+  <i class="ti ti-info-circle" aria-hidden="true"></i>
+  <div>
+    Chaque document reçoit un domaine REESAO, dans cet ordre : le choix fait à la main dans
+    <a href="/admin/documents">{{ 'Documents' if current_user.role == 'super_admin' else 'Mes documents' }}</a>,
+    puis la métadonnée de la notice (marqueur Zotero <code>domaine: …</code>, colonne d'import),
+    puis la faculté ou l'école doctorale rattachée ci-dessous. Sans aucun des trois : « Non classé ».
+  </div>
+</div>
+
+{% if etablissements %}
+<form method="get" action="/admin/domaines" class="card domaines-choix" style="margin-bottom:1rem;">
+  <label class="form-label" for="choixEtab">Établissement</label>
+  <select id="choixEtab" name="etab" class="form-control" style="width:auto;" onchange="this.form.submit()">
+    {% for e in etablissements %}
+    <option value="{{ e.code }}" {{ 'selected' if e.code == code }}>{{ e.code }} — {{ e.nom }}</option>
+    {% endfor %}
+  </select>
+  <noscript><button type="submit" class="btn btn--outline btn--sm">Afficher</button></noscript>
+</form>
+{% endif %}
+
+{% if not code %}
+<div class="card"><p>Aucun établissement à afficher.</p></div>
+{% else %}
+
+{# Répartition actuelle #}
+<div class="card" style="margin-bottom:1rem;">
+  <h2 style="margin-bottom:.75rem;">Répartition des documents de {{ code }}</h2>
+  <div class="domaines-repartition">
+    {% for c, lib in domaines.items() %}
+    <a href="/admin/documents?domaine={{ c }}{{ '&etablissement=' ~ code if etablissements }}" class="domaines-pastille">
+      <span>{{ lib[0] }}</span><strong>{{ repartition.get(c, 0) }}</strong>
+    </a>
+    {% endfor %}
+    <a href="/admin/documents?domaine=aucun{{ '&etablissement=' ~ code if etablissements }}"
+       class="domaines-pastille domaines-pastille--vide">
+      <span>Non classé</span><strong>{{ repartition.get(None, 0) }}</strong>
+    </a>
+  </div>
+</div>
+
+{# Facultés et écoles doctorales #}
+<form method="post" action="/admin/domaines/rattacher" class="card" style="padding:0;margin-bottom:1rem;">
+  <input type="hidden" name="etab" value="{{ code }}">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h2>Facultés et écoles doctorales</h2>
+    <p class="text-2" style="margin-top:.35rem;font-size:var(--fs-sm);">
+      Rattachez chaque entité à son domaine : tous ses documents, passés et futurs, sont classés
+      automatiquement. Une proposition est pré-remplie d'après le nom — vérifiez-la, puis enregistrez.
+    </p>
+  </div>
+  {% if entites %}
+  <div class="table-wrap">
+    <table class="table-domaines">
+      <thead>
+        <tr><th>Faculté / École doctorale</th><th style="text-align:right;">Documents</th><th>Domaine REESAO</th></tr>
+      </thead>
+      <tbody>
+        {% for e in entites %}
+        {% set choisi = e.domaine or e.proposition %}
+        <tr>
+          <td>
+            <strong>{{ e.nom }}</strong>
+            {% if not e.domaine and e.proposition %}<span class="domaines-etat domaines-etat--propose">Proposé</span>
+            {% elif not e.domaine %}<span class="domaines-etat domaines-etat--manque"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Non rattachée</span>{% endif %}
+          </td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;">{{ e.documents }}</td>
+          <td>
+            <input type="hidden" name="nom" value="{{ e.nom }}">
+            <label class="sr-only" for="dom-{{ loop.index }}">Domaine de {{ e.nom }}</label>
+            <select id="dom-{{ loop.index }}" name="domaine" class="form-control"
+                    {{ 'disabled' if not peut_modifier }}>{{ options_domaine(choisi) }}</select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if peut_modifier %}
+  <div style="padding:1rem 1.25rem;display:flex;justify-content:flex-end;">
+    <button type="submit" class="btn btn--primary">
+      <i class="ti ti-check" aria-hidden="true"></i> Enregistrer les rattachements
+    </button>
+  </div>
+  {% endif %}
+  {% else %}
+  <p style="padding:1.25rem;" class="text-2">
+    Aucune faculté ni école doctorale détectée pour l'instant. Elles apparaissent à la synchronisation :
+    sous-collections Zotero, colonne « Faculté » d'un import.
+  </p>
+  {% endif %}
+</form>
+
+{# Valeurs de métadonnées non reconnues #}
+<div class="card" style="padding:0;margin-bottom:1rem;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h2>À classer</h2>
+    <p class="text-2" style="margin-top:.35rem;font-size:var(--fs-sm);">
+      Valeurs de « domaine » lues dans les notices, non reconnues, portées par des documents restés
+      non classés{{ '' if current_user.role == 'super_admin' else ' dans votre établissement' }}.
+      {% if current_user.role == 'super_admin' %}Rattachez une valeur une fois : la règle vaut pour tout le catalogue.
+      {% else %}Le CNDST (super administrateur) les rattache pour tout le catalogue ; vous pouvez aussi
+      rattacher la faculté ci-dessus ou choisir le domaine d'un document dans Mes documents.{% endif %}
+    </p>
+  </div>
+  {% if a_classer %}
+  <div class="table-wrap">
+    <table class="table-domaines">
+      <thead><tr><th>Valeur</th><th style="text-align:right;">Documents</th><th>Domaine REESAO</th></tr></thead>
+      <tbody>
+        {% for v in a_classer %}
+        <tr>
+          <td>{{ v.valeur }}</td>
+          <td style="text-align:right;font-variant-numeric:tabular-nums;">{{ v.documents }}</td>
+          <td>
+            {% if current_user.role == 'super_admin' %}
+            <form method="post" action="/admin/domaines/correspondance" class="domaines-ligne-form">
+              <input type="hidden" name="valeur" value="{{ v.valeur }}">
+              <input type="hidden" name="etab" value="{{ code }}">
+              <label class="sr-only" for="corr-{{ loop.index }}">Domaine pour {{ v.valeur }}</label>
+              <select id="corr-{{ loop.index }}" name="domaine" class="form-control">{{ options_domaine('', false) }}</select>
+              <button type="submit" class="btn btn--outline btn--sm">Rattacher</button>
+            </form>
+            {% else %}<span class="text-2">—</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p style="padding:1.25rem;" class="text-2"><i class="ti ti-circle-check" aria-hidden="true"></i> Rien à classer.</p>
+  {% endif %}
+</div>
+
+{% if correspondances %}
+<div class="card" style="padding:0;">
+  <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);">
+    <h2>Correspondances enregistrées</h2>
+  </div>
+  <div class="table-wrap">
+    <table class="table-domaines">
+      <thead><tr><th>Valeur (normalisée)</th><th>Domaine REESAO</th><th></th></tr></thead>
+      <tbody>
+        {% for c in correspondances %}
+        <tr>
+          <td>{{ c.valeur }}</td>
+          <td>{{ domaines[c.domaine][0] if c.domaine in domaines else c.domaine }}</td>
+          <td style="text-align:right;">
+            <form method="post" action="/admin/domaines/correspondance">
+              <input type="hidden" name="valeur" value="{{ c.valeur }}">
+              <input type="hidden" name="etab" value="{{ code }}">
+              <button type="submit" class="btn btn--ghost btn--sm" style="color:var(--danger);">
+                <i class="ti ti-trash" aria-hidden="true"></i> Supprimer
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

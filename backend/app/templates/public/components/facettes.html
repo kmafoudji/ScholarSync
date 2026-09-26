@@ -29,7 +29,8 @@
     </h3>
 
     <div class="facette-corps" id="grp-{{ cle }}">
-      {% if options|length > SEUIL_RECHERCHE %}
+      {# Liste fixe et courte des domaines REESAO : pas de champ de recherche #}
+      {% if options|length > SEUIL_RECHERCHE and cle != 'reesao' %}
       <div class="facette-chercher">
         <i class="ti ti-search" aria-hidden="true"></i>
         <label class="sr-only" for="rech-{{ cle }}">{{ _("Rechercher dans {quoi}", quoi=titre|lower) }}</label>
@@ -96,6 +97,12 @@
 
 {{ groupe(_('Établissement'), 'etablissement', facettes.etablissements, 'building-bank') }}
 
+{# Domaines de formation REESAO (services/domaines.py) : liste fixe,
+   intitulés dans la langue de la page #}
+{% set libelles_reesao = {} %}
+{% for code in DOMAINES_REESAO %}{% set _ = libelles_reesao.update({code: libelle_domaine(code)}) %}{% endfor %}
+{{ groupe(_('Domaine REESAO'), 'reesao', facettes.reesao, 'books', libelles_reesao) }}
+
 {% if facettes.sous_entites %}
   {{ groupe(_('École doctorale / Faculté'), 'sous_entite', facettes.sous_entites, 'school') }}
 {% endif %}
@@ -106,7 +113,7 @@
 {{ groupe(_('Statut'), 'statut', facettes.statuts, 'circle-check',
           {'soutenu': _('Soutenu'), 'en_preparation': _('En préparation')}) }}
 
-{{ groupe(_('Domaine'), 'domaine', facettes.domaines, 'tag') }}
+{{ groupe(_('Discipline'), 'domaine', facettes.domaines, 'tag') }}
 {{ groupe(_('Année'), 'annee', facettes.annees, 'calendar') }}
 {{ groupe(_('Langue'), 'langue', facettes.langues, 'language') }}
 

@@ -33,6 +33,8 @@ COLONNES = [
     ("etablissements", "code_numero", "VARCHAR(2)"),
     ("sync_logs", "source_oai_id", "INTEGER"),
     ("sync_logs", "etablissement_code", "VARCHAR(10)"),
+    ("documents", "domaine_reesao", "VARCHAR(10)"),
+    ("documents", "domaine_manuel", "VARCHAR(10)"),
 ]
 
 # Corrections de données et de contraintes, idempotentes.
@@ -44,6 +46,7 @@ COLONNES = [
 # impossible »). On retire l'ancienne contrainte et on renomme l'ancien
 # rôle ; la liste des rôles valides est contrôlée par l'application.
 RATTRAPAGES = [
+    "CREATE INDEX IF NOT EXISTS ix_documents_domaine_reesao ON documents (domaine_reesao)",
     "ALTER TABLE utilisateurs DROP CONSTRAINT IF EXISTS utilisateurs_role_check",
     "UPDATE utilisateurs SET role = 'admin_etablissement' WHERE role = 'gestionnaire_bu'",
     # Numéro national : attribué à la soutenance seulement. Les travaux en

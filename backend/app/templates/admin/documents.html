@@ -48,6 +48,15 @@
         <option value="restreint" {{ 'selected' if filtre_acces == 'restreint' }}>Restreints</option>
       </select>
 
+      <label class="sr-only" for="filtreDomaine">Domaine REESAO</label>
+      <select name="domaine" id="filtreDomaine" class="form-control" style="width:auto;">
+        <option value="">Tous domaines</option>
+        {% for c, lib in DOMAINES_REESAO.items() %}
+        <option value="{{ c }}" {{ 'selected' if filtre_domaine == c }}>{{ lib[0] }}</option>
+        {% endfor %}
+        <option value="aucun" {{ 'selected' if filtre_domaine == 'aucun' }}>Non classés</option>
+      </select>
+
       {% if current_user.role == 'super_admin' and etablissements|length > 1 %}
       <label class="sr-only" for="filtreEtab">Établissement</label>
       <select name="etablissement" id="filtreEtab" class="form-control" style="width:auto;">
@@ -61,7 +70,7 @@
       <button type="submit" class="btn btn--outline btn--sm">
         <i class="ti ti-filter" aria-hidden="true"></i> Filtrer
       </button>
-      {% if q or filtre_type or filtre_statut or filtre_etablissement or filtre_acces %}
+      {% if q or filtre_type or filtre_statut or filtre_etablissement or filtre_acces or filtre_domaine %}
       <a href="/admin/documents" class="btn btn--ghost btn--sm">Réinitialiser</a>
       {% endif %}
     </form>
@@ -96,6 +105,24 @@
                class="cellule-titre" title="{{ doc.titre }}">{{ doc.titre }}</a>
             {% if doc.domaine %}
             <span class="cellule-sous">{{ doc.domaine }}</span>
+            {% endif %}
+            {# Domaine REESAO : choisi à la main, sinon calculé (métadonnée, faculté) #}
+            {% if current_user.role != 'lecteur' %}
+            <form method="post" action="/admin/documents/{{ doc.id }}/domaine" class="doc-domaine">
+              <input type="hidden" name="retour" value="{{ retour }}">
+              <label class="sr-only" for="dom-{{ doc.id }}">Domaine REESAO</label>
+              <select id="dom-{{ doc.id }}" name="domaine" class="doc-domaine__choix{{ ' doc-domaine__choix--vide' if not doc.domaine_reesao }}{{ ' doc-domaine__choix--manuel' if doc.domaine_manuel }}"
+                      onchange="this.form.submit()"
+                      title="{{ 'Domaine choisi à la main' if doc.domaine_manuel else 'Domaine automatique (métadonnée ou faculté) — choisir pour l’imposer' }}">
+                <option value="">{{ DOMAINES_COURTS[doc.domaine_reesao] if doc.domaine_reesao and not doc.domaine_manuel else ('↺ Revenir à l’automatique' if doc.domaine_manuel else 'Non classé') }}</option>
+                {% for c, lib in DOMAINES_REESAO.items() %}
+                <option value="{{ c }}" {{ 'selected' if doc.domaine_manuel == c }}>{{ DOMAINES_COURTS[c] }}</option>
+                {% endfor %}
+              </select>
+              <noscript><button type="submit" class="btn btn--ghost btn--sm">OK</button></noscript>
+            </form>
+            {% elif doc.domaine_reesao %}
+            <span class="cellule-sous">{{ DOMAINES_COURTS[doc.domaine_reesao] }}</span>
             {% endif %}
           </td>
           <td class="col-auteur">{{ doc.auteur }}</td>

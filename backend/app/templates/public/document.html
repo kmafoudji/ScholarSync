@@ -222,7 +222,8 @@
         {{ champ('school',
                  _('École doctorale') if doc.sous_entite_type == 'ecole_doctorale' else _('Faculté'),
                  doc.sous_entite_nom) }}
-        {{ champ('tag', _('Domaine'), doc.domaine) }}
+        {{ champ('books', _('Domaine REESAO'), libelle_domaine(doc.domaine_reesao) if doc.domaine_reesao else None) }}
+        {{ champ('tag', _('Discipline'), doc.domaine) }}
         {{ champ('language', _('Langue'), doc.langue) }}
       </dl>
     </div>

@@ -59,6 +59,12 @@ ROUTES_ETABLISSEMENT = [
     ({"POST"}, r"/admin/mon-etablissement/oai/tester"),
     ({"POST"}, r"/admin/sync/oai/\d+"),
     ({"POST"}, rf"/admin/documents/{_UUID}/retirer"),
+    # Domaines REESAO : rattachements de ses facultés, domaine d'un de ses
+    # documents. Les correspondances de valeurs libres, valables pour tout
+    # le catalogue, restent au super administrateur.
+    ({"GET"}, r"/admin/domaines"),
+    ({"POST"}, r"/admin/domaines/rattacher"),
+    ({"POST"}, rf"/admin/documents/{_UUID}/domaine"),
     # Contrôle d'accès : limité à son établissement dans les routes
     # (acces_docs.dans_perimetre, reference_pour_etablissement)
     ({"GET"}, r"/admin/acces"),

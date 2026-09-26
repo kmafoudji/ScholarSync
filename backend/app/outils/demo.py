@@ -134,6 +134,8 @@ def installer():
             db.flush()
             crees += 1
         acces_docs.recalculer(db)
+        from app.services import domaines as domaines_reesao
+        domaines_reesao.recalculer(db)
         db.commit()
         recherche.indexer(db, db.query(Document).filter(Document.zotero_item_key.like(PREFIXE + "%")))
         print(f"{crees} notice(s) de démonstration ajoutée(s).")
