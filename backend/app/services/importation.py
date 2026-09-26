@@ -27,8 +27,8 @@ TAILLE_MAX_MO = 5
 LIGNES_MAX = 5000
 
 COLONNES_CSV = [
-    "titre", "auteur", "type", "statut", "annee", "directeur", "domaine",
-    "faculte", "langue", "resume", "mots_cles", "url",
+    "titre", "auteur", "type", "statut", "annee", "directeur", "domaine_reesao",
+    "discipline", "faculte", "langue", "resume", "mots_cles", "url",
 ]
 
 # En-têtes acceptés (normalisés sans accents ni casse) → champ
@@ -41,6 +41,8 @@ ALIAS = {
     "directeur": "directeur", "direction": "directeur", "supervisor": "directeur",
     "directeur de these": "directeur", "encadrant": "directeur",
     "domaine": "domaine", "discipline": "domaine", "specialite": "domaine",
+    "domaine reesao": "domaine_reesao", "reesao": "domaine_reesao",
+    "code reesao": "domaine_reesao",
     "faculte": "faculte", "ecole doctorale": "faculte", "ufr": "faculte",
     "departement": "faculte", "sous entite": "faculte",
     "langue": "langue", "language": "langue",
@@ -64,6 +66,7 @@ class Notice:
     annee: int | None = None
     directeur: str | None = None
     domaine: str | None = None
+    domaine_reesao: str | None = None   # code REESAO (SS, ST, SEG…)
     faculte: str | None = None
     langue: str | None = None
     resume: str | None = None
@@ -132,6 +135,15 @@ def _valider(n: Notice, type_defaut: str = "") -> Notice:
     for champ in ("directeur", "domaine", "faculte", "langue", "resume"):
         v = getattr(n, champ)
         setattr(n, champ, " ".join(v.split()) if isinstance(v, str) and v.strip() else None)
+    if n.domaine_reesao and str(n.domaine_reesao).strip():
+        from app.services import domaines
+        code = domaines.depuis_metadonnee(str(n.domaine_reesao), {})
+        if code:
+            n.domaine_reesao = code
+        else:
+            n.erreurs.append("domaine REESAO inconnu (codes : " + ", ".join(domaines.DOMAINES) + ")")
+    else:
+        n.domaine_reesao = None
     n.mots_cles = [m for m in (" ".join(x.split()) for x in n.mots_cles) if m][:30]
     return n
 
@@ -212,7 +224,7 @@ def lire_csv(texte: str) -> list[Notice]:
             type=_type(d.get("type", "")), statut=_statut(d.get("statut", "")),
             annee=_annee(d.get("annee")), directeur=d.get("directeur"),
             domaine=d.get("domaine"), faculte=d.get("faculte"), langue=d.get("langue"),
-            resume=d.get("resume"),
+            resume=d.get("resume"), domaine_reesao=d.get("domaine_reesao"),
             mots_cles=re.split(r"\s*[;|]\s*", d["mots_cles"]) if d.get("mots_cles") else [],
             url=d.get("url"),
         ))
@@ -334,11 +346,11 @@ def modele_csv() -> str:
     ecrivain.writerow(COLONNES_CSV)
     ecrivain.writerow([
         "La gouvernance locale au Sénégal", "NDIAYE Aminata", "thèse", "soutenu", "2021",
-        "FALL Moussa", "Sciences politiques", "École doctorale ETHOS", "français",
+        "FALL Moussa", "SJPA", "Sciences politiques", "École doctorale ETHOS", "français",
         "Résumé du travail…", "décentralisation; collectivités", "https://depot.exemple.sn/123",
     ])
     ecrivain.writerow([
         "Étude des sols de la vallée", "SOW Awa", "mémoire", "en préparation", "2025",
-        "", "Agronomie", "UFR S2ATA", "français", "", "sols; irrigation", "",
+        "", "SA", "Agronomie", "UFR S2ATA", "français", "", "sols; irrigation", "",
     ])
     return "﻿" + tampon.getvalue()

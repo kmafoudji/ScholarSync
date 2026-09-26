@@ -1730,11 +1730,18 @@ def _code_import(utilisateur, db: Session, etablissement: str = ""):
     """Établissement visé par l'import : le sien, ou celui choisi par le
     super administrateur. None si aucun."""
     code = permissions.perimetre(utilisateur)
-    if code is None:
-        code = (etablissement or "").strip().upper()
-    if not code or code == permissions.AUCUN:
+    if code is not None:
+        # Son propre établissement, même pas encore activé (préparation
+        # du catalogue avant l'ouverture)
+        if code == permissions.AUCUN:
+            return None
+        return code if db.query(Etablissement).filter(Etablissement.code == code).first() else None
+    # Super administrateur : seulement un établissement actif
+    code = (etablissement or "").strip().upper()
+    if not code:
         return None
-    return code if db.query(Etablissement).filter(Etablissement.code == code).first() else None
+    return code if db.query(Etablissement).filter(
+        Etablissement.code == code, Etablissement.actif == True).first() else None  # noqa: E712
 
 
 def _page_import(request, db, utilisateur, **extra):
@@ -1742,7 +1749,9 @@ def _page_import(request, db, utilisateur, **extra):
     return templates.TemplateResponse("admin/import.html", {
         "request": request, "params": get_params_with_defaults(db),
         "super_admin": super_admin,
-        "etablissements": db.query(Etablissement).order_by(Etablissement.code).all() if super_admin else [],
+        # Seuls les établissements actifs reçoivent des notices
+        "etablissements": (db.query(Etablissement).filter(Etablissement.actif == True)  # noqa: E712
+                           .order_by(Etablissement.code).all() if super_admin else []),
         "code_etab": permissions.perimetre(utilisateur),
         "current_user": utilisateur, "active_nav": "import", **extra,
     })
@@ -1792,8 +1801,8 @@ async def admin_import_analyser(
             "utilisateur": str(utilisateur.id), "code": code, "cree": datetime.now().timestamp(),
             "fichier": fichier.filename, "notices": [
                 {k: getattr(n, k) for k in ("titre", "auteur", "type", "statut", "annee",
-                                            "directeur", "domaine", "faculte", "langue",
-                                            "resume", "mots_cles", "url")} | {"cle": n.cle}
+                                            "directeur", "domaine", "domaine_reesao", "faculte",
+                                            "langue", "resume", "mots_cles", "url")} | {"cle": n.cle}
                 for n in valides],
         }, f, ensure_ascii=False)
 
@@ -1839,6 +1848,8 @@ async def admin_import_confirmer(
             "annee": n["annee"], "directeur": n["directeur"], "domaine": n["domaine"],
             "sous_entite_nom": n["faculte"], "langue": n["langue"], "resume": n["resume"],
             "mots_cles": n["mots_cles"], "url_document": n["url"],
+            # Domaine REESAO donné par le fichier : imposé au document
+            "domaine_manuel": n.get("domaine_reesao"),
         })
         if resultat == "ajout":
             ajoutes += 1
@@ -2874,11 +2885,16 @@ def _code_domaines(utilisateur, db: Session, etab: str = ""):
     code = permissions.perimetre(utilisateur)
     if code is not None:
         return None if code == permissions.AUCUN else code
-    if etab and db.query(Etablissement.id).filter(Etablissement.code == etab).first():
+    actifs = db.query(Etablissement.code).filter(Etablissement.actif == True)  # noqa: E712
+    if etab and actifs.filter(Etablissement.code == etab).first():
         return etab
     premier = (db.query(Document.etablissement_code, func.count())
+               .filter(Document.etablissement_code.in_(actifs))
                .group_by(Document.etablissement_code).order_by(func.count().desc()).first())
-    return premier[0] if premier else None
+    if premier:
+        return premier[0]
+    un_actif = actifs.order_by(Etablissement.code).first()
+    return un_actif[0] if un_actif else None
 
 
 @app.get("/admin/domaines", response_class=HTMLResponse)
@@ -2898,8 +2914,8 @@ async def admin_domaines(request: Request, db: Session = Depends(get_db), etab: 
         "a_classer": domaines_reesao.valeurs_a_classer(db, None if super_admin else code),
         "correspondances": (db.query(CorrespondanceDomaine).order_by(CorrespondanceDomaine.valeur).all()
                             if super_admin else []),
-        "etablissements": (db.query(Etablissement).order_by(Etablissement.code).all()
-                           if super_admin else []),
+        "etablissements": (db.query(Etablissement).filter(Etablissement.actif == True)  # noqa: E712
+                           .order_by(Etablissement.code).all() if super_admin else []),
         "peut_modifier": permissions.peut_modifier(utilisateur),
         "current_user": utilisateur, "active_nav": "domaines",
     })

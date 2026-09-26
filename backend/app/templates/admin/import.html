@@ -57,15 +57,26 @@
   <h2 class="mon-etab__titre"><i class="ti ti-list-details" aria-hidden="true"></i> Formats acceptés</h2>
   <ul class="logo-televersement__regles" style="margin-top:0;">
     <li><strong>CSV</strong> (séparateur « ; » ou « , ») : colonnes titre, auteur, type (thèse / mémoire),
-      statut (soutenu / en préparation), année, directeur, domaine, faculté, langue, résumé,
-      mots-clés (séparés par « ; » entre guillemets, ou « | »), url. Seuls titre, auteur, type
-      et année sont obligatoires.</li>
+      statut (soutenu / en préparation), année, directeur, <strong>domaine_reesao</strong>,
+      discipline, faculté, langue, résumé, mots-clés (séparés par « ; » entre guillemets, ou « | »),
+      url. Seuls titre, auteur, type et année sont obligatoires.</li>
+    <li><strong>domaine_reesao</strong> : le code du domaine REESAO (voir ci-dessous) ou son intitulé.
+      Renseigné, il est imposé au document ; laissé vide, le domaine est déduit de la discipline ou
+      de la faculté (page « Domaines REESAO »).</li>
     <li><strong>RIS</strong> : TY THES ; TI titre, AU auteur, PY année, M3 « Thèse de doctorat » ou
       « Mémoire de master », A2 direction, KW mots-clés, AB résumé, UR lien, N1 « en préparation ».</li>
     <li><strong>BibTeX</strong> : @phdthesis (thèse) et @mastersthesis (mémoire) ; title, author, year,
       supervisor, keywords, abstract, url, institution (faculté).</li>
     <li>Koha / PMB : exportez le panier ou la sélection au format RIS, ou en CSV avec les colonnes ci-dessus.</li>
   </ul>
+  <h3 style="font-size:var(--fs-base);margin:1rem 0 .5rem;">Codes des domaines REESAO</h3>
+  <table class="table-domaines" style="width:auto;">
+    <tbody>
+      {% for c, lib in DOMAINES_REESAO.items() %}
+      <tr><td><code>{{ c }}</code></td><td>{{ lib[0] }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
 
 {% else %}
@@ -119,7 +130,7 @@
   </div>
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Titre</th><th>Auteur</th><th>Type</th><th>Statut</th><th>Année</th><th>Faculté</th><th>Action</th></tr></thead>
+      <thead><tr><th>Titre</th><th>Auteur</th><th>Type</th><th>Statut</th><th>Année</th><th>Faculté</th><th>Domaine REESAO</th><th>Action</th></tr></thead>
       <tbody>
         {% for n in apercu.exemples %}
         <tr>
@@ -129,6 +140,7 @@
           <td><span class="badge badge--{{ n.statut }}">{{ 'Soutenu' if n.statut == 'soutenu' else 'En prép.' }}</span></td>
           <td>{{ n.annee }}</td>
           <td style="font-size:var(--fs-sm);">{{ n.faculte or '—' }}</td>
+          <td style="font-size:var(--fs-sm);">{{ DOMAINES_COURTS[n.domaine_reesao] if n.domaine_reesao else '—' }}</td>
           <td style="font-size:var(--fs-sm);">{{ 'Mise à jour' if n.cle in apercu.existantes else 'Ajout' }}</td>
         </tr>
         {% endfor %}

@@ -106,3 +106,24 @@ def test_refus():
 def test_modele_relu():
     _, n = imp.lire("modele.csv", imp.modele_csv().encode("utf-8"))
     assert all(x.valide for x in n) and len(n) == 2
+
+
+def test_domaine_reesao_dans_le_csv():
+    texte = ("titre;auteur;type;annee;domaine_reesao;discipline\n"
+             "A;X;thèse;2020;SEG;Économie\n"
+             "B;Y;thèse;2020;Sciences de la santé;\n"
+             "C;Z;thèse;2020;Astrologie;\n"
+             "D;W;thèse;2020;;Droit\n").encode()
+    _, notices = imp.lire("f.csv", texte)
+    a, b, c, d = notices
+    assert a.domaine_reesao == "SEG" and a.domaine == "Économie" and a.valide
+    assert b.domaine_reesao == "SS"
+    assert not c.valide and "domaine REESAO inconnu" in c.erreurs[0]
+    assert d.domaine_reesao is None and d.domaine == "Droit"
+
+
+def test_modele_contient_le_domaine_reesao():
+    entete = imp.modele_csv().lstrip("﻿").splitlines()[0].split(";")
+    assert "domaine_reesao" in entete and "discipline" in entete
+    _, notices = imp.lire("modele.csv", imp.modele_csv().encode("utf-8"))
+    assert [n.domaine_reesao for n in notices] == ["SJPA", "SA"]

@@ -32,6 +32,11 @@ def enregistrer(db: Session, code: str, cle: str, type_doc: str, champs: dict) -
     valeurs["mots_cles"] = valeurs.get("mots_cles") or None
     valeurs["synced_at"] = datetime.now()
 
+    # Domaine REESAO fourni par la source (colonne d'import) : il est
+    # imposé ; absent, on ne touche pas au choix fait dans l'administration.
+    if champs.get("domaine_manuel"):
+        valeurs["domaine_manuel"] = champs["domaine_manuel"]
+
     doc = db.query(Document).filter(Document.etablissement_code == code,
                                     Document.zotero_item_key == cle).first()
     if doc is not None:

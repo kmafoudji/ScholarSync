@@ -116,6 +116,9 @@ def depuis_metadonnee(valeur: str, correspondances: dict):
     t = normaliser(brut)
     if t in correspondances:
         return correspondances[t]
+    courts = {normaliser(v): k for k, v in COURTS.items()}
+    if t in courts:
+        return courts[t]
     codes = domaines_evoques(brut)
     return next(iter(codes)) if len(codes) == 1 else None
 
