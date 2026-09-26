@@ -11,17 +11,87 @@
   <h1>{{ params.nom_outil }}</h1>
   <p>{{ _(params.slogan) if params.slogan else _('Accédez à la production scientifique académique') }}</p>
 
-  <form class="search-box" action="/recherche" method="get" role="search">
-    <i class="ti ti-search" style="font-size:18px;color:#aaa;" aria-hidden="true"></i>
-    <input type="text" name="q" placeholder="{{ _('Titre, auteur, mots-clés, numéro national…') }}"
-           aria-label="{{ _('Rechercher') }}" autocomplete="off">
-    <button type="submit" class="search-btn">
-      <i class="ti ti-search" style="font-size:var(--fs-xs);"></i> {{ _("Rechercher") }}
-    </button>
-  </form>
-  <a href="/aide#rechercher" class="hero__aide">
-    <i class="ti ti-help-circle" aria-hidden="true"></i> {{ _("Conseils de recherche") }}
-  </a>
+  {# Recherche simple et recherche avancée : deux formulaires ordinaires
+     (GET /recherche), sans script nécessaire. Le script ne fait que
+     basculer de l'un à l'autre, ajouter et retirer des lignes. #}
+  <div class="recherche" id="recherche" data-mode="{{ 'avancee' if avancee_ouverte else 'simple' }}">
+    <div class="recherche__simple">
+      <form class="search-box" action="/recherche" method="get" role="search">
+        <i class="ti ti-search" style="font-size:18px;color:#aaa;" aria-hidden="true"></i>
+        <input type="text" name="q" value="{{ current_filters.q or '' }}"
+               placeholder="{{ _('Titre, auteur, mots-clés, numéro national…') }}"
+               aria-label="{{ _('Rechercher') }}" autocomplete="off">
+        <button type="submit" class="search-btn">
+          <i class="ti ti-search" style="font-size:var(--fs-xs);"></i> {{ _("Rechercher") }}
+        </button>
+      </form>
+      <div class="hero__liens">
+        <a href="/recherche?avancee=1#recherche" class="hero__aide" data-bascule-recherche="avancee">
+          <i class="ti ti-adjustments-horizontal" aria-hidden="true"></i> {{ _("Recherche avancée") }}
+        </a>
+        <a href="/aide#rechercher" class="hero__aide">
+          <i class="ti ti-help-circle" aria-hidden="true"></i> {{ _("Conseils de recherche") }}
+        </a>
+      </div>
+    </div>
+
+    <form class="recherche-avancee" action="/recherche" method="get" role="search"
+          aria-labelledby="ra-titre" id="rechercheAvancee">
+      <div class="recherche-avancee__tete">
+        <h2 id="ra-titre">{{ _("Recherche avancée") }}</h2>
+        <fieldset class="ra-operateur">
+          <legend>{{ _("Opérateur entre les champs") }}</legend>
+          <label><input type="radio" name="op" value="et" {{ 'checked' if op_avance != 'ou' }}><span>{{ _("ET") }}</span></label>
+          <label><input type="radio" name="op" value="ou" {{ 'checked' if op_avance == 'ou' }}><span>{{ _("OU") }}</span></label>
+        </fieldset>
+      </div>
+      <p class="ra-explication" id="ra-explication">
+        {{ _("ET : chaque critère doit être rempli. OU : un seul suffit.") }}
+      </p>
+
+      {% macro ligne(n, champ_choisi, terme='') %}
+      <div class="ra-ligne">
+        <label class="sr-only" for="ra-champ-{{ n }}">{{ _("Champ") }}</label>
+        <select name="champ" id="ra-champ-{{ n }}" class="ra-champ">
+          {% for cle, lib in champs_avances %}
+          <option value="{{ cle }}" {{ 'selected' if cle == champ_choisi }}>{{ _(lib) }}</option>
+          {% endfor %}
+        </select>
+        <label class="sr-only" for="ra-terme-{{ n }}">{{ _("Texte à rechercher") }}</label>
+        <input type="text" name="terme" id="ra-terme-{{ n }}" class="ra-terme" value="{{ terme }}"
+               placeholder="{{ _('Texte à rechercher') }}" autocomplete="off" maxlength="200">
+        <button type="button" class="ra-retirer" data-ra-retirer aria-label="{{ _('Retirer ce critère') }}">
+          <i class="ti ti-x" aria-hidden="true"></i>
+        </button>
+      </div>
+      {% endmacro %}
+
+      <div class="ra-lignes" id="raLignes">
+        {% if criteres %}
+          {% for champ, terme in criteres %}{{ ligne(loop.index, champ, terme) }}{% endfor %}
+        {% else %}
+          {% for champ in champs_par_defaut %}{{ ligne(loop.index, champ) }}{% endfor %}
+        {% endif %}
+      </div>
+      <template id="raModele">{{ ligne('N', 'tout') }}</template>
+
+      <div class="ra-outils">
+        <button type="button" class="ra-lien" data-ra-vider>
+          <i class="ti ti-refresh" aria-hidden="true"></i> {{ _("Réinitialiser les champs") }}
+        </button>
+        <button type="button" class="ra-lien" data-ra-ajouter>
+          <i class="ti ti-plus" aria-hidden="true"></i> {{ _("Ajouter un critère") }}
+        </button>
+      </div>
+
+      <div class="ra-actions">
+        <a href="/recherche" class="btn btn--outline" data-bascule-recherche="simple">{{ _("Recherche simple") }}</a>
+        <button type="submit" class="btn btn--primary">
+          <i class="ti ti-search" aria-hidden="true"></i> {{ _("Rechercher") }}
+        </button>
+      </div>
+    </form>
+  </div>
 
 </section>
 
@@ -46,4 +116,6 @@
 </div>
 {% endblock %}
 
-
+{% block extra_js %}
+<script src="{{ static_url('js/recherche-avancee.js') }}" defer></script>
+{% endblock %}

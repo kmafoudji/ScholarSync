@@ -189,9 +189,14 @@ _cache: dict = {}
 _CACHE_S = 30
 
 
-def chercher(texte: str):
+def chercher(texte: str, attributs=None, tous_les_mots: bool = False):
     """Identifiants des documents correspondant à `texte`, du plus au moins
     pertinent ; None si le moteur est indisponible (repli SQL).
+
+    `attributs` limite la recherche à certains champs (recherche
+    avancée : « Titre », « Auteur »…) ; `tous_les_mots` exige chaque mot
+    tapé, au lieu de laisser le moteur écarter les derniers quand rien ne
+    correspond à tous.
 
     Une page de catalogue interroge le texte une fois par facette : le
     résultat est gardé quelques secondes pour ne pas multiplier les appels.
@@ -199,23 +204,28 @@ def chercher(texte: str):
     texte = (texte or "").strip()
     if not texte:
         return None
+    cle = (texte, tuple(attributs or ()), tous_les_mots)
     maintenant = time.time()
-    enregistre = _cache.get(texte)
+    enregistre = _cache.get(cle)
     if enregistre and maintenant - enregistre[0] < _CACHE_S:
         return enregistre[1]
     client = _client()
     if client is None:
         return None
+    options = {"limit": MAX_RESULTATS, "attributesToRetrieve": ["id"]}
+    if attributs:
+        options["attributesToSearchOn"] = list(attributs)
+    if tous_les_mots:
+        options["matchingStrategy"] = "all"
     try:
-        reponse = client.index(INDEX).search(
-            texte, {"limit": MAX_RESULTATS, "attributesToRetrieve": ["id"]})
+        reponse = client.index(INDEX).search(texte, options)
         ids = [h["id"] for h in reponse.get("hits", [])]
     except Exception as e:
         _perdre_client(e)
         return None
     if len(_cache) > 500:
         _cache.clear()
-    _cache[texte] = (maintenant, ids)
+    _cache[cle] = (maintenant, ids)
     return ids
 
 

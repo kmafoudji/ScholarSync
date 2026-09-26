@@ -26,6 +26,7 @@ from app.core import permissions
 from app.core import i18n
 from app.services import acces as acces_docs
 from app.services import recherche as moteur_recherche
+from app.services import recherche_avancee as rech_avancee
 from app.models import (
     Base, Parametre, Etablissement, ZoteroSource,
     Document, SyncLog, Utilisateur, NumerotationCompteur, AccesException,
@@ -482,21 +483,57 @@ def appliquer_filtres(query, filtres: dict, sauf: str = None):
         query = query.filter(colonne.in_(valeurs))
 
     texte = filtres.get("q")
-    if texte:
-        ids = moteur_recherche.chercher(texte)
+    criteres, op = rech_avancee.depuis_filtres(filtres)
+    if texte or criteres:
+        ids = ids_textuels(filtres)
         if ids is not None:
             # Meilisearch : tolérance aux fautes, pertinence, mots-clés,
             # direction, faculté. Le SQL ne fait plus que filtrer.
             query = query.filter(Document.id.in_(ids or [uuid.UUID(int=0)]))
         else:
-            motif = f"%{texte}%"
-            query = query.filter(
-                Document.titre.ilike(motif)
-                | Document.auteur.ilike(motif)
-                | Document.numero_national.ilike(motif)
-                | Document.resume.ilike(motif)
-            )
+            if texte:
+                motif = f"%{texte}%"
+                query = query.filter(
+                    Document.titre.ilike(motif)
+                    | Document.auteur.ilike(motif)
+                    | Document.numero_national.ilike(motif)
+                    | Document.resume.ilike(motif)
+                )
+            if criteres:
+                query = query.filter(rech_avancee.condition_sql(criteres, op))
     return query
+
+
+def ids_textuels(filtres: dict):
+    """Identifiants trouvés par le moteur pour la recherche simple (q) et
+    les critères avancés, du plus au moins pertinent. None s'il n'y a pas
+    de texte cherché, ou si le moteur est indisponible (repli SQL)."""
+    texte = filtres.get("q")
+    criteres, op = rech_avancee.depuis_filtres(filtres)
+    listes = []
+    if texte:
+        ids = moteur_recherche.chercher(texte)
+        if ids is None:
+            return None
+        listes.append(ids)
+    if criteres:
+        ids = rech_avancee.ids_moteur(criteres, op, moteur_recherche.chercher)
+        if ids is None:
+            return None
+        listes.append(ids)
+    return rech_avancee.combiner(listes, "et") if listes else None
+
+
+def url_sans_critere(filtres: dict, rang: int, sort: str = "") -> str:
+    """Adresse de la page sans le critère avancé n° `rang`."""
+    criteres, op = rech_avancee.depuis_filtres(filtres)
+    copie = {k: v for k, v in filtres.items() if k not in ("champ", "terme", "op")}
+    copie.update(rech_avancee.vers_filtres([c for i, c in enumerate(criteres) if i != rang], op))
+    qs = construire_query_string(copie, sort)
+    return f"/recherche?{qs}" if qs else "/recherche"
+
+
+templates.env.globals["url_sans_critere"] = url_sans_critere
 
 
 def _compter(db: Session, colonne, filtres: dict, cle: str, trier_par_compte=True):
@@ -704,7 +741,8 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
     évolution devait être reportée deux fois, et l'accueil affichait déjà
     un tri différent de celui annoncé par son propre sélecteur.
     """
-    ids_pertinence = moteur_recherche.chercher(filtres["q"]) if filtres.get("q") else None
+    ids_pertinence = ids_textuels(filtres)
+    criteres, op_avance = rech_avancee.depuis_filtres(filtres)
     if not sort:
         sort = "pertinence" if ids_pertinence else TRI_DEFAUT
     if sort == "pertinence" and not ids_pertinence:
@@ -736,8 +774,14 @@ def contexte_catalogue(request: Request, db: Session, filtres: dict,
         "tri_pertinence_possible": bool(ids_pertinence),
         "query_string": construire_query_string(filtres, sort, par_page),
         "nb_filtres_actifs": sum(
-            len(v) for k, v in filtres.items() if k != "q"
-        ) + (1 if filtres.get("q") else 0),
+            len(v) for k, v in filtres.items() if k not in ("q", "champ", "terme", "op")
+        ) + (1 if filtres.get("q") else 0) + len(criteres),
+        # Recherche avancée : critères en cours, champs proposés
+        "criteres": criteres,
+        "op_avance": op_avance,
+        "champs_avances": [(cle, lib) for cle, (lib, _) in rech_avancee.CHAMPS.items()],
+        "champs_par_defaut": rech_avancee.CHAMPS_PAR_DEFAUT,
+        "avancee_ouverte": bool(criteres),
         "annees_recentes": [],
         "active_nav": "accueil",
         "lang": i18n.langue_de(request, params),
@@ -774,6 +818,13 @@ async def recherche(
     annee: List[str] = Query(default=[]),
     langue: List[str] = Query(default=[]),
     sous_entite: List[str] = Query(default=[]),
+    # Recherche avancée : critères « champ + terme », reliés par op
+    champ: List[str] = Query(default=[]),
+    terme: List[str] = Query(default=[]),
+    op: str = "",
+    # avancee=1 : ouvre le formulaire avancé (lien « Recherche avancée »
+    # quand le script n'est pas disponible)
+    avancee: str = "",
     # L'année est le repère de lecture de la liste : la trier par date
     # d'ajout afficherait une colonne d'années dans le désordre.
     sort: str = "", page: int = 1,
@@ -784,8 +835,11 @@ async def recherche(
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
+    filtres.update(rech_avancee.vers_filtres(*rech_avancee.lire(champ, terme, op)))
 
     contexte = contexte_catalogue(request, db, filtres, sort, page, par_page)
+    if avancee == "1":
+        contexte["avancee_ouverte"] = True
 
     # Requête émise par le script de facettes : on ne renvoie que les
     # fragments qui changent, pas la page entière.
@@ -822,6 +876,9 @@ async def export_public(
     annee: List[str] = Query(default=[]),
     langue: List[str] = Query(default=[]),
     sous_entite: List[str] = Query(default=[]),
+    champ: List[str] = Query(default=[]),
+    terme: List[str] = Query(default=[]),
+    op: str = "",
     sort: str = "annee",
 ):
     """Exporte les résultats filtrés du catalogue public.
@@ -840,6 +897,7 @@ async def export_public(
         "etablissement": etablissement, "domaine": domaine,
         "annee": annee, "langue": langue, "sous_entite": sous_entite,
     }.items() if v}
+    filtres.update(rech_avancee.vers_filtres(*rech_avancee.lire(champ, terme, op)))
 
     if sort not in TRIS:
         sort = TRI_DEFAUT

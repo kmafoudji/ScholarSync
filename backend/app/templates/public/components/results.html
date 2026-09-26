@@ -107,6 +107,17 @@
 
 {% if nb_filtres_actifs %}
 <div class="filtres-actifs">
+  {# Critères de la recherche avancée #}
+  {% set libelles_champs = dict(champs_avances or []) %}
+  {% for champ, terme in (criteres or []) %}
+    {% if not loop.first %}<span class="filtre-actif__op">{{ _("ET") if op_avance != 'ou' else _("OU") }}</span>{% endif %}
+    <a href="{{ url_sans_critere(current_filters, loop.index0, sort) }}" class="filtre-actif"
+       aria-label="{{ _('Retirer le filtre') }} {{ _(libelles_champs.get(champ, champ)) }} : {{ terme }}">
+      <span class="filtre-actif__cle">{{ _(libelles_champs.get(champ, champ)) }}</span>
+      {{ terme }}
+      <i class="ti ti-x" aria-hidden="true"></i>
+    </a>
+  {% endfor %}
   {% for cle, libelle in [('etablissement',_('Établissement')), ('sous_entite',_('Entité')),
                           ('type',_('Type')), ('statut',_('Statut')),
                           ('domaine',_('Domaine')), ('annee',_('Année')), ('langue',_('Langue'))] %}

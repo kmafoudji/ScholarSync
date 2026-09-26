@@ -39,6 +39,25 @@ TRADUCTIONS: dict[str, tuple[str, str]] = {
     "À propos": ("About", "Sobre"),
     "Aide": ("Help", "Ajuda"),
 
+    # Recherche avancée
+    "Recherche avancée": ("Advanced search", "Pesquisa avançada"),
+    "Recherche simple": ("Simple search", "Pesquisa simples"),
+    "Opérateur entre les champs": ("Operator between fields", "Operador entre os campos"),
+    "ET": ("AND", "E"),
+    "OU": ("OR", "OU"),
+    "ET : chaque critère doit être rempli. OU : un seul suffit.": (
+        "AND: every criterion must match. OR: one is enough.",
+        "E: todos os critérios devem ser cumpridos. OU: basta um."),
+    "Champ": ("Field", "Campo"),
+    "Texte à rechercher": ("Text to search for", "Texto a pesquisar"),
+    "Retirer ce critère": ("Remove this criterion", "Retirar este critério"),
+    "Réinitialiser les champs": ("Reset fields", "Repor os campos"),
+    "Ajouter un critère": ("Add a criterion", "Adicionar um critério"),
+    "Tous les champs": ("All fields", "Todos os campos"),
+    "Titre": ("Title", "Título"),
+    "Auteur": ("Author", "Autor"),
+    "Discipline": ("Discipline", "Disciplina"),
+
     # Page Aide (le contenu lui-même est dans templates/public/aide/<langue>.html)
     "Conseils de recherche": ("Search tips", "Dicas de pesquisa"),
     "Comment rechercher, consulter, citer et exporter les thèses et mémoires du catalogue.": (
