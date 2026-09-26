@@ -10,11 +10,43 @@
 {% endblock %}
 
 {% block content %}
+{# Règle des codes de numérotation (services/referentiel.py) #}
+<details class="card codification" style="margin-bottom:1.25rem;">
+  <summary>
+    <i class="ti ti-number" aria-hidden="true"></i>
+    <span>Codification des établissements dans le numéro national</span>
+  </summary>
+  <div class="codification__corps">
+    <p>
+      Le code de 2 caractères (SN<strong>UC</strong>T2016000192) suit une règle :
+      le 1<sup>er</sup> caractère donne la famille, le 2<sup>e</sup> l'établissement.
+    </p>
+    <table class="codification__table">
+      <thead><tr><th scope="col">1<sup>er</sup> caractère</th><th scope="col">Famille</th><th scope="col">2<sup>e</sup> caractère</th></tr></thead>
+      <tbody>
+        {% for lettre, famille, detail in familles_codes %}
+        <tr><td><strong>{{ lettre }}</strong></td><td>{{ famille }}</td><td>{{ detail }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p>
+      Une école interne à une université (l'ESP à l'UCAD) n'a pas de code à elle : ses
+      travaux portent celui de l'université. Un code attribué n'est jamais réutilisé.
+      {% if prochain_code_prive %}Prochain code libre pour un établissement privé :
+      <strong>{{ prochain_code_prive }}</strong>.{% endif %}
+    </p>
+    <p class="text-2">
+      Les établissements de référence sont inscrits <strong>inactifs</strong> : ils
+      n'apparaissent sur le portail qu'une fois activés, à leur adhésion.
+    </p>
+  </div>
+</details>
+
 <div class="card" style="padding:0;">
   {{ t.barre(pagination, 'établissements') }}
   {{ t.pagination(pagination, 'haut') }}
   <div class="table-wrap">
-    <table>
+    <table class="table-etabs">
       <thead>
         <tr>
           {{ t.th('Code', 'code', tri) }}
@@ -181,7 +213,9 @@
                style="text-transform:uppercase;width:6rem;">
         <div class="form-hint">
           Deux caractères qui représentent l'établissement dans le numéro national
-          (UC dans SN<strong>UC</strong>T2016000192). Laissé vide : les deux premières
+          (UC dans SN<strong>UC</strong>T2016000192), selon la règle de codification
+          ci-dessus{% if prochain_code_prive %} — pour un établissement privé :
+          <strong>{{ prochain_code_prive }}</strong>{% endif %}. Laissé vide : les deux premières
           lettres du code. Il ne pourra plus changer une fois des numéros attribués.
         </div>
       </div>

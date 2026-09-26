@@ -3157,3 +3157,36 @@ td.col-numero {
   .aide-bandeau h1 { font-size: var(--fs-xl); }
   .aide-numero code { font-size: var(--fs-base); letter-spacing: 0; padding: .35em .5em; }
 }
+
+/* ── ADMIN : règle de codification des établissements ── */
+.codification { padding: 0; }
+.codification summary {
+  display: flex; align-items: center; gap: 10px;
+  padding: 1rem 1.25rem;
+  font-weight: 600; font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.codification summary i { color: var(--primary); font-size: 1.2rem; }
+.codification__corps { padding: 0 1.25rem 1.25rem; font-size: var(--fs-sm); line-height: 1.6; }
+.codification__corps p { margin: 0 0 .75rem; }
+.codification__table { width: 100%; border-collapse: collapse; margin: 0 0 1rem; }
+.codification__table th, .codification__table td {
+  text-align: left; padding: .5rem .75rem; border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.codification__table th { font-size: var(--fs-2xs); color: var(--text-2); font-weight: 600; }
+.codification__table td:first-child { width: 7rem; }
+/* Sur téléphone : une famille par bloc, plutôt que trois colonnes
+   tronquées. Le tableau des établissements défile latéralement, mais
+   sans écraser le sigle lettre par lettre. */
+.table-etabs { min-width: 900px !important; }
+.table-etabs .etab-identite__code { white-space: nowrap; }
+@media (max-width: 640px) {
+  .codification__table, .codification__table tbody { display: block; width: 100%; min-width: 0 !important; }
+  .codification__table td { white-space: normal; }
+  .codification__table thead { display: none; }
+  .codification__table tr { display: block; padding: .6rem 0; border-bottom: 1px solid var(--border); }
+  .codification__table td { display: inline; padding: 0; border: none; }
+  .codification__table td:first-child { width: auto; margin-right: .4rem; }
+  .codification__table td:last-child { display: block; color: var(--text-2); margin-top: .15rem; }
+}

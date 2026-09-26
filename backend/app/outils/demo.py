@@ -35,7 +35,7 @@ MENTION = "Notice de démonstration — ScholarSync."
 ETABLISSEMENTS = [
     ("UCAD", "Université Cheikh Anta Diop de Dakar", "UCAD", "Dakar", "UC"),
     ("UGB", "Université Gaston Berger de Saint-Louis", "UGB", "Saint-Louis", "UG"),
-    ("UADB", "Université Alioune Diop de Bambey", "UADB", "Bambey", "UA"),
+    ("UADB", "Université Alioune Diop de Bambey", "UADB", "Bambey", "UB"),
 ]
 
 FACULTES = {
@@ -95,9 +95,14 @@ def installer():
     r = random.Random(2026)  # mêmes notices à chaque installation
     try:
         for code, nom, court, ville, code_numero in ETABLISSEMENTS:
-            if not db.query(Etablissement).filter(Etablissement.code == code).first():
+            etab = db.query(Etablissement).filter(Etablissement.code == code).first()
+            if not etab:
                 db.add(Etablissement(code=code, nom=nom, nom_court=court, ville=ville,
                                      pays="Sénégal", code_numero=code_numero))
+            elif not etab.actif:
+                # Inscrit par le référentiel mais pas encore activé : la
+                # démonstration a besoin de le montrer sur le portail.
+                etab.actif = True
         db.commit()
 
         crees = 0

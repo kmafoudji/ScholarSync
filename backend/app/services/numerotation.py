@@ -39,13 +39,21 @@ from app.models import Document, DocumentRetire, Etablissement, NumerotationComp
 
 
 # Valeurs initiales, reprises en base au démarrage (core/schema.py)
+# (voir services/referentiel.py pour la règle et la liste complète)
 CODES_ETABLISSEMENTS = {
-    "UCAD":  "UC",
-    "UGB":   "UG",
-    "UADB":  "UA",
-    "UASZ":  "US",
-    "UIDT":  "UI",
-    "UNCHK": "UN",
+    "UCAD":   "UC",
+    "UGB":    "UG",
+    "UADB":   "UB",
+    "UIDT":   "UT",
+    "UASZ":   "UZ",
+    "UNCHK":  "UN",
+    "USSEIN": "US",
+    "UAM":    "UD",
+    "USO":    "UO",
+    "USN":    "UM",
+    "EPT":    "EP",
+    "EISMV":  "RV",
+    "CESAG":  "RG",
 }
 
 CODES_TYPES = {

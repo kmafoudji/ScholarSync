@@ -59,7 +59,23 @@ def _appliquer_regles_acces_au_demarrage():
         db.close()
 
 
+def _installer_referentiel_au_demarrage():
+    """Établissements de référence et leur code de numérotation
+    (services/referentiel.py), inscrits une seule fois."""
+    db = SessionLocal()
+    try:
+        from app.services import referentiel
+        referentiel.installer(db)
+    except Exception:
+        db.rollback()
+        logging.getLogger("scholarsync").warning(
+            "Référentiel des établissements non installé", exc_info=True)
+    finally:
+        db.close()
+
+
 if schema_bd.etat.get("pret"):
+    _installer_referentiel_au_demarrage()
     _appliquer_regles_acces_au_demarrage()
     # Index de recherche reconstruit en tâche de fond s'il ne correspond
     # pas à la base (premier démarrage de Meilisearch, index vidé).
@@ -1762,6 +1778,7 @@ async def admin_etablissements(
     request: Request, db: Session = Depends(get_db),
     page: int = 1, par_page: int = PAR_PAGE_DEFAUT, tri: str = "", sens: str = "",
 ):
+    from app.services import referentiel
     params = get_params_with_defaults(db)
     requete, etat_tri = appliquer_tri(db.query(Etablissement), tri, sens, {
         "code": Etablissement.code,
@@ -1778,6 +1795,8 @@ async def admin_etablissements(
         # Établissements dont le code de numérotation est figé
         "etabs_numerotes": {c for (c,) in db.query(Document.etablissement_code)
                             .filter(Document.numero_national.isnot(None)).distinct()},
+        "familles_codes": referentiel.FAMILLES,
+        "prochain_code_prive": referentiel.prochain_code_prive(db),
         "current_user": require_auth(request, db), "active_nav": "etablissements",
     })
 
